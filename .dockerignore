@@ -1,0 +1,9 @@
+node_modules
+.git
+.svelte-kit
+build
+dist
+coverage
+.env
+.env.local
+*.tsbuildinfo

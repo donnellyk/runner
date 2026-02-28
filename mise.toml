@@ -1,0 +1,58 @@
+[tools]
+node = "23.5.0"
+pnpm = "10"
+
+[env]
+_.file = ".env"
+
+[tasks.dev]
+description = "Start infra and all apps"
+run = """
+docker compose up postgres redis -d
+until docker compose exec postgres pg_isready -U postgres > /dev/null 2>&1; do sleep 1; done
+pnpm -r --parallel dev
+"""
+
+[tasks.up]
+description = "Full docker compose up (all services)"
+run = "docker compose up --build"
+
+[tasks.down]
+description = "Stop all docker compose services"
+run = "docker compose down"
+
+[tasks.test]
+description = "Run tests"
+run = "pnpm run test"
+
+[tasks.lint]
+description = "Run linter"
+run = "pnpm run lint"
+
+[tasks.typecheck]
+description = "Run type checking"
+run = "pnpm run typecheck"
+
+[tasks.check]
+description = "Run typecheck + lint + test"
+run = "pnpm run check"
+
+[tasks.build]
+description = "Build all packages"
+run = "pnpm run build"
+
+[tasks.deploy]
+description = "Deploy to droplet"
+run = """
+echo "Deploying to droplet..."
+ssh droplet 'cd /opt/web-runner && docker compose pull && docker compose up -d'
+"""
+
+[tasks.backup]
+description = "Backup database"
+run = "./scripts/backup.sh"
+
+[tasks.restore]
+description = "Restore database from backup"
+usage = "restore <file>"
+run = "./scripts/restore.sh {{arg(name=\"file\")}}"
