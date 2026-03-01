@@ -8,3 +8,16 @@ export function createDb(connectionString: string) {
 }
 
 export type Database = ReturnType<typeof createDb>;
+
+let _db: Database | null = null;
+
+export function getDb(): Database {
+  if (!_db) {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error('DATABASE_URL is required');
+    }
+    _db = createDb(connectionString);
+  }
+  return _db;
+}

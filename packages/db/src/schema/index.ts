@@ -1,2 +1,3 @@
-// Schema tables will be added in Phase 2+
-export {};
+export { users } from './users';
+export { sessions } from './sessions';
+export { oauthAccounts } from './oauth-accounts';

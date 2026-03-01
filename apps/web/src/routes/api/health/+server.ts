@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createDb } from '@web-runner/db';
+import { getDb } from '@web-runner/db';
 import { redis } from '$lib/server/redis';
 import { logger } from '$lib/server/logger';
 
@@ -10,7 +10,7 @@ export const GET: RequestHandler = async () => {
 
 	// Check database
 	try {
-		const db = createDb(process.env.DATABASE_URL!);
+		const db = getDb();
 		await db.execute('SELECT 1' as never);
 		checks.database = 'ok';
 	} catch (err) {
