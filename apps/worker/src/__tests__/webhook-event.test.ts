@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleWebhookEvent } from '../jobs/webhook-event.js';
+import { JobPriority } from '@web-runner/shared';
 
 function createMockDeps() {
   const db = {
@@ -46,7 +47,7 @@ describe('handleWebhookEvent', () => {
     expect(deps.queue.add).toHaveBeenCalledWith(
       'activity-import',
       expect.objectContaining({ type: 'activity-import', activityId: 12345 }),
-      expect.objectContaining({ priority: 5 }),
+      expect.objectContaining({ priority: JobPriority.activityImport }),
     );
   });
 

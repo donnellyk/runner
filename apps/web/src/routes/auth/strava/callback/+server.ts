@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { getDb } from '@web-runner/db/client';
 import { users, oauthAccounts } from '@web-runner/db/schema';
 import { strava } from '$lib/server/oauth';
@@ -61,16 +61,22 @@ export const GET: RequestHandler = async (event) => {
 	if (!user) {
 		const timezone = parseStravaTimezone(athlete.timezone);
 
-		[user] = await db.insert(users).values({
-			stravaAthleteId,
-			firstName: athlete.firstname,
-			lastName: athlete.lastname,
-			profilePicUrl: athlete.profile,
-			city: athlete.city,
-			state: athlete.state,
-			country: athlete.country,
-			timezone,
-		}).returning();
+		[user] = await db.transaction(async (tx) => {
+			const [{ count }] = await tx.select({ count: sql<number>`count(*)` }).from(users);
+			const isFirstUser = Number(count) === 0;
+
+			return tx.insert(users).values({
+				stravaAthleteId,
+				firstName: athlete.firstname,
+				lastName: athlete.lastname,
+				profilePicUrl: athlete.profile,
+				city: athlete.city,
+				state: athlete.state,
+				country: athlete.country,
+				timezone,
+				isAdmin: isFirstUser,
+			}).returning();
+		});
 	} else {
 		[user] = await db.update(users)
 			.set({

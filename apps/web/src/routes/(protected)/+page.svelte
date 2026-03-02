@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	let { data } = $props();
 </script>
 
@@ -16,7 +17,12 @@
 		<p>No Strava account linked</p>
 	{/if}
 
-	<form method="POST" action="/auth/logout" class="mt-6">
-		<button type="submit" class="underline">Logout</button>
-	</form>
+	<div class="mt-6 flex gap-4 items-center">
+		{#if data.user.isAdmin}
+			<a href={resolve('/admin')} class="underline">Admin</a>
+		{/if}
+		<form method="POST" action="/auth/logout">
+			<button type="submit" class="underline">Logout</button>
+		</form>
+	</div>
 </div>

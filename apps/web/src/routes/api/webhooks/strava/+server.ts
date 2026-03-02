@@ -2,6 +2,8 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getQueue } from '$lib/server/queue';
 import { logger } from '$lib/server/logger';
+import { JobPriority } from '@web-runner/shared';
+import type { WebhookEventJobData } from '@web-runner/shared';
 import { STRAVA_WEBHOOK_VERIFY_TOKEN } from '$env/static/private';
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -35,11 +37,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		'Webhook event received',
 	);
 
+	const jobData: WebhookEventJobData = { type: 'webhook-event', event };
 	const queue = getQueue();
-	await queue.add('webhook-event', {
-		type: 'webhook-event',
-		event,
-	}, { priority: 1 });
+	await queue.add('webhook-event', jobData, { priority: JobPriority.webhook });
 
 	return json({ ok: true });
 };

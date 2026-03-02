@@ -2,6 +2,7 @@ import { Worker, Queue } from 'bullmq';
 import Redis from 'ioredis';
 import pino from 'pino';
 import { getDb } from '@web-runner/db/client';
+import { QUEUE_NAME } from '@web-runner/shared';
 import { processJob } from './processor.js';
 import { StravaRateLimiter } from './rate-limiter.js';
 
@@ -28,7 +29,7 @@ await redis.connect();
 const db = getDb();
 const rateLimiter = new StravaRateLimiter(redis);
 
-const queue = new Queue('strava', {
+const queue = new Queue(QUEUE_NAME, {
 	connection,
 	defaultJobOptions: {
 		attempts: 3,
@@ -37,7 +38,7 @@ const queue = new Queue('strava', {
 });
 
 const worker = new Worker(
-	'strava',
+	QUEUE_NAME,
 	async (job, token) => {
 		logger.info({ jobId: job.id, type: job.data?.type }, 'Processing job');
 		await processJob(job, { db, queue, rateLimiter, logger, token });

@@ -2,17 +2,11 @@ import type { Job, Queue } from 'bullmq';
 import type { Logger } from 'pino';
 import { eq, and } from 'drizzle-orm';
 import type { Database } from '@web-runner/db/client';
-import { activities, oauthAccounts } from '@web-runner/db/schema';
-import { users } from '@web-runner/db/schema';
-import type { WebhookEvent } from '@web-runner/strava';
-
-interface WebhookEventData {
-  type: 'webhook-event';
-  event: WebhookEvent;
-}
+import { activities, oauthAccounts, users } from '@web-runner/db/schema';
+import { JobPriority, type WebhookEventJobData } from '@web-runner/shared';
 
 export async function handleWebhookEvent(
-  job: Job<WebhookEventData>,
+  job: Job<WebhookEventJobData>,
   deps: { db: Database; queue: Queue; logger: Logger },
 ) {
   const { db, queue, logger } = deps;
@@ -30,7 +24,7 @@ export async function handleWebhookEvent(
         type: 'activity-import',
         userId,
         activityId: event.object_id,
-      }, { priority: 5 });
+      }, { priority: JobPriority.activityImport });
 
       logger.info({ event: event.aspect_type, activityId: event.object_id }, 'Enqueued activity import');
     } else if (event.aspect_type === 'delete') {

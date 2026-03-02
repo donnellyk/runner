@@ -4,15 +4,11 @@ import type { Logger } from 'pino';
 import type { Database } from '@web-runner/db/client';
 import { activities } from '@web-runner/db/schema';
 import { StravaClient, getValidToken, mapStravaSportType, mapStravaWorkoutType } from '@web-runner/strava';
+import { JobPriority, type FullHistoryImportJobData } from '@web-runner/shared';
 import type { StravaRateLimiter } from '../rate-limiter.js';
 
-interface FullHistoryImportData {
-  type: 'full-history-import';
-  userId: number;
-}
-
 export async function handleFullHistoryImport(
-  job: Job<FullHistoryImportData>,
+  job: Job<FullHistoryImportJobData>,
   deps: { db: Database; queue: Queue; rateLimiter: StravaRateLimiter; logger: Logger; token?: string },
 ) {
   const { db, queue, rateLimiter, logger } = deps;
@@ -98,7 +94,7 @@ export async function handleFullHistoryImport(
         type: 'activity-import',
         userId,
         activityId: act.id,
-      }, { priority: 5 });
+      }, { priority: JobPriority.activityImport });
     }
 
     totalImported += page.length;

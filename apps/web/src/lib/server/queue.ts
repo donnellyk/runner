@@ -1,4 +1,5 @@
 import { Queue } from 'bullmq';
+import { QUEUE_NAME } from '@web-runner/shared';
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 const parsedUrl = new URL(redisUrl);
@@ -15,7 +16,7 @@ let _queue: Queue | null = null;
 
 export function getQueue(): Queue {
 	if (!_queue) {
-		_queue = new Queue('strava', { connection });
+		_queue = new Queue(QUEUE_NAME, { connection });
 	}
 	return _queue;
 }
