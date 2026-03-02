@@ -6,6 +6,10 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: webrunner
+    command: >
+      postgres
+        -c shared_preload_libraries=pg_stat_statements
+        -c pg_stat_statements.track=all
     ports:
       - "5432:5432"
     volumes:
@@ -59,6 +63,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  bull-board:
+    build:
+      context: .
+      dockerfile: Dockerfile.bull-board
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      REDIS_URL: redis://redis:6379
+      BULL_BOARD_PORT: 3001
+    depends_on:
       redis:
         condition: service_healthy
 

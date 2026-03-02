@@ -1,0 +1,6 @@
+FROM node:23-alpine
+WORKDIR /app
+RUN npm install @bull-board/api @bull-board/express bullmq express
+COPY scripts/bull-board.ts .
+RUN npx tsc bull-board.ts --esModuleInterop --module nodenext --moduleResolution nodenext
+CMD ["node", "bull-board.js"]

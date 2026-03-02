@@ -88,3 +88,37 @@ run = """
 gunzip -c scripts/seed.sql.gz | docker compose exec -T postgres psql -U postgres -d webrunner
 echo "Seed data restored"
 """
+
+[tasks.migrate]
+description = "Run database migrations"
+run = "pnpm --filter @web-runner/db migrate:run"
+
+[tasks."bull-board"]
+description = "Run Bull Board queue dashboard"
+run = "pnpm tsx scripts/bull-board.ts"
+
+[tasks.console]
+description = "Node REPL with DB, Redis, Strava, and queue pre-loaded"
+run = "pnpm tsx scripts/console.ts"
+
+[tasks."wipe:activities"]
+description = "Delete all activities for a user (cascades to laps, streams, segments)"
+run = "pnpm tsx scripts/wipe-activities.ts {{arg(name='user', default='first')}}"
+
+[tasks."admin:promote"]
+description = "Promote a user to admin"
+run = "pnpm tsx scripts/admin-promote.ts {{arg(name='user', default='first')}}"
+
+[tasks.studio]
+description = "Run Drizzle Kit Studio (local DB)"
+run = "pnpm --filter @web-runner/db drizzle-kit studio"
+
+[tasks."studio:prod"]
+description = "Run Drizzle Kit Studio against prod via SSH tunnel"
+run = """
+HOST="${PROD_HOST:-droplet}"
+echo "Opening SSH tunnel to $HOST Postgres..."
+ssh -f -N -L 15432:localhost:5432 "$HOST"
+trap 'pkill -f "ssh -f -N -L 15432:localhost:5432 $HOST"' EXIT
+DATABASE_URL=postgresql://postgres:postgres@localhost:15432/webrunner pnpm --filter @web-runner/db drizzle-kit studio
+"""
