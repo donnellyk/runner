@@ -9,7 +9,10 @@
   "dependencies": {
     "@web-runner/db": "workspace:*",
     "@web-runner/shared": "workspace:*",
+    "@web-runner/strava": "workspace:*",
     "bullmq": "^5.34.0",
+    "drizzle-orm": "^0.39.0",
+    "ioredis": "^5.4.0",
     "pino": "^9.6.0",
     "pino-pretty": "^13.0.0"
   },

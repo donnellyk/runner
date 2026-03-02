@@ -8,6 +8,13 @@
       "when": 1772407001796,
       "tag": "0000_wild_jasper_sitwell",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772471630212,
+      "tag": "0001_broad_silvermane",
+      "breakpoints": true
     }
   ]
 }

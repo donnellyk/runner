@@ -5,6 +5,11 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "dependencies": {
+    "@web-runner/db": "workspace:*",
+    "@web-runner/shared": "workspace:*",
+    "drizzle-orm": "^0.39.0"
+  },
   "devDependencies": {
     "typescript": "^5.7.0"
   }

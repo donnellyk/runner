@@ -56,3 +56,35 @@ run = "./scripts/backup.sh"
 description = "Restore database from backup"
 usage = "restore <file>"
 run = "./scripts/restore.sh {{arg(name=\"file\")}}"
+
+[tasks."webhook:subscribe"]
+description = "Create Strava webhook subscription"
+run = "pnpm tsx scripts/webhook-manage.ts subscribe"
+
+[tasks."webhook:list"]
+description = "List Strava webhook subscriptions"
+run = "pnpm tsx scripts/webhook-manage.ts list"
+
+[tasks."webhook:delete"]
+description = "Delete Strava webhook subscription"
+run = "pnpm tsx scripts/webhook-manage.ts delete"
+
+[tasks."webhook:simulate"]
+description = "Simulate a Strava webhook event"
+run = "pnpm tsx scripts/simulate-webhook.ts"
+
+[tasks."seed:dump"]
+description = "Dump activity data for dev seeding"
+run = """
+docker compose exec postgres pg_dump -U postgres -d webrunner \
+  --data-only -t users -t oauth_accounts -t activities -t activity_laps -t activity_streams -t activity_segments \
+  | gzip > scripts/seed.sql.gz
+echo "Seed dump saved to scripts/seed.sql.gz"
+"""
+
+[tasks."seed:restore"]
+description = "Restore seed data to database"
+run = """
+gunzip -c scripts/seed.sql.gz | docker compose exec -T postgres psql -U postgres -d webrunner
+echo "Seed data restored"
+"""

@@ -15,6 +15,7 @@
     "@web-runner/shared": "workspace:*",
     "@web-runner/strava": "workspace:*",
     "arctic": "^3.7.0",
+    "bullmq": "^5.34.0",
     "drizzle-orm": "^0.39.0",
     "ioredis": "^5.4.0",
     "pino": "^9.6.0",

@@ -1,5 +1,19 @@
 # Implementation Plan
 
+## Progress
+
+- [x] Phase 1: Scaffolding
+- [x] Phase 2: Auth + Strava OAuth
+- [ ] Phase 3: Strava Data Pipeline
+- [ ] Phase 3b: Admin Tooling
+- [ ] Phase 4a: Activity Views & Charts
+- [ ] Phase 4b: Activity Overlay & Comparison
+- [ ] Phase 5: Training Plans
+- [ ] Phase 6: Workout Scoring
+- [ ] Phase 7: Observability Stack
+
+---
+
 ## Phase 1: Scaffolding
 **Scope: Medium**
 
@@ -53,9 +67,28 @@ Import and store activity data from Strava. The data foundation everything else 
 - Job priority: webhooks > background import
 - Webhook simulation CLI command
 - After first successful import: `pg_dump` as the dev seed dataset (committed or stored in a known location)
-- Bull Board mounted in the app for queue visibility
 
 **Exit criteria:** Full historical import completes successfully, new activities sync via webhook, local dev works fully offline with seed data dump.
+
+---
+
+## Phase 3b: Admin Tooling
+**Scope: Small-Medium**
+
+Internal tooling for inspecting data, managing queues, and debugging issues without direct DB or Redis access. Built right after the data pipeline when there's real data flowing and real things to break.
+
+- `is_admin` boolean column on users table; first registered user is automatically admin
+- Admin layout shell under `/admin` with sidebar navigation
+- **Users** (`/admin/users`): user list with Strava connection status, token expiry, last sync timestamp, account creation date. Toggle admin for other users.
+- **Activities** (`/admin/activities`): browse all activities across users, filter by sync status, inspect raw data, re-queue failed imports
+- **Queues** (`/admin/queues`): Bull Board integration (moved from Phase 3), manual job creation (trigger full sync, single activity re-import), rate limit quota consumption
+- **Strava** (`/admin/strava`): rate limit window usage, daily quota, webhook subscription status and verification
+- **System** (`/admin/system`): DB table sizes and row counts, Redis memory and key counts, connection pool stats, last backup timestamp, slow queries via `pg_stat_statements`
+- `pg_stat_statements` extension enabled in Postgres config
+- `make console`: Node REPL with DB client, Redis client, and Strava API client pre-loaded
+- `make studio`: runs `drizzle-kit studio` for schema-aware data browsing during development
+
+**Exit criteria:** An admin can browse users, inspect activity sync state, manage queue jobs, view rate limit status, and drop into a console.
 
 ---
 
