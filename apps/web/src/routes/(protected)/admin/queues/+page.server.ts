@@ -1,6 +1,9 @@
 import { fail } from '@sveltejs/kit';
 import { getQueue } from '$lib/server/queue';
 import { getUserOptions } from '$lib/server/admin-queries';
+import { getDb } from '@web-runner/db/client';
+import { activities } from '@web-runner/db/schema';
+import { eq, desc } from 'drizzle-orm';
 import { JobPriority } from '@web-runner/shared';
 import type { ActivityImportJobData, FullHistoryImportJobData } from '@web-runner/shared';
 import type { Job } from 'bullmq';
@@ -50,6 +53,33 @@ export const actions: Actions = {
 		if ('error' in parsed) return fail(400, { error: parsed.error });
 
 		const jobData: FullHistoryImportJobData = { type: 'full-history-import', userId: parsed.value };
+		const queue = getQueue();
+		await queue.add('full-history-import', jobData, { priority: JobPriority.fullHistoryImport });
+	},
+
+	refreshSync: async ({ request, locals }) => {
+		if (!locals.user?.isAdmin) return fail(403);
+
+		const data = await request.formData();
+		const parsed = parseIntParam(data.get('userId'), 'userId');
+		if ('error' in parsed) return fail(400, { error: parsed.error });
+
+		const db = getDb();
+		const [latest] = await db
+			.select({ startDate: activities.startDate })
+			.from(activities)
+			.where(eq(activities.userId, parsed.value))
+			.orderBy(desc(activities.startDate))
+			.limit(1);
+
+		if (!latest) return fail(400, { error: 'No activities found for user' });
+
+		const after = Math.floor(latest.startDate.getTime() / 1000);
+		const jobData: FullHistoryImportJobData = {
+			type: 'full-history-import',
+			userId: parsed.value,
+			after,
+		};
 		const queue = getQueue();
 		await queue.add('full-history-import', jobData, { priority: JobPriority.fullHistoryImport });
 	},

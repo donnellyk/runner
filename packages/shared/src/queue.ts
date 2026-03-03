@@ -15,6 +15,8 @@ export interface ActivityImportJobData {
 export interface FullHistoryImportJobData {
 	type: 'full-history-import';
 	userId: number;
+	/** Unix epoch (seconds). When set, only sync activities after this timestamp. */
+	after?: number;
 }
 
 export interface WebhookEventJobData {

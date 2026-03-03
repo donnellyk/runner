@@ -21,7 +21,7 @@ export async function handleFullHistoryImport(
   let before: number | undefined;
   let totalImported = 0;
 
-  const syncAfter = getSyncAfterEpoch();
+  const syncAfter = job.data.after ?? getSyncAfterEpoch();
 
   while (true) {
     const state = await rateLimiter.check();

@@ -18,47 +18,61 @@
 	{/each}
 </div>
 
-<div class="flex gap-4 mb-8">
-	<form method="POST" action="?/triggerSync" class="flex gap-2 items-end">
-		<label class="text-sm">
-			<span class="block text-zinc-500 mb-1">User</span>
-			<select name="userId" class="border border-zinc-300 rounded px-2 py-1 text-sm">
-				{#each data.users as u (u.id)}
-					<option value={u.id}>{u.firstName} {u.lastName}</option>
-				{/each}
-			</select>
-		</label>
-		<button type="submit" class="px-3 py-1 bg-zinc-800 text-white rounded text-sm">
-			Full Sync
-		</button>
-	</form>
+<div class="space-y-6 mb-8">
+	<div>
+		<h2 class="text-sm font-medium text-zinc-500 mb-2">Sync</h2>
+		<form method="POST" class="flex gap-2 items-end">
+			<label class="text-sm">
+				<span class="block text-zinc-500 mb-1">User</span>
+				<select name="userId" class="border border-zinc-300 rounded px-2 py-1 text-sm">
+					{#each data.users as u (u.id)}
+						<option value={u.id}>{u.firstName} {u.lastName}</option>
+					{/each}
+				</select>
+			</label>
+			<button formaction="?/triggerSync" type="submit" class="px-3 py-1 bg-zinc-800 text-white rounded text-sm">
+				Full Sync
+			</button>
+			<button formaction="?/refreshSync" type="submit" class="px-3 py-1 border border-zinc-300 rounded text-sm">
+				Refresh
+			</button>
+		</form>
+	</div>
 
-	<form method="POST" action="?/reimport" class="flex gap-2 items-end">
-		<label class="text-sm">
-			<span class="block text-zinc-500 mb-1">User ID</span>
-			<input type="number" name="userId" class="border border-zinc-300 rounded px-2 py-1 text-sm w-20" />
-		</label>
-		<label class="text-sm">
-			<span class="block text-zinc-500 mb-1">Strava Activity ID</span>
-			<input type="number" name="activityId" class="border border-zinc-300 rounded px-2 py-1 text-sm w-32" />
-		</label>
-		<button type="submit" class="px-3 py-1 bg-zinc-800 text-white rounded text-sm">
-			Re-import
-		</button>
-	</form>
+	<div>
+		<h2 class="text-sm font-medium text-zinc-500 mb-2">Re-import</h2>
+		<form method="POST" action="?/reimport" class="flex gap-2 items-end">
+			<label class="text-sm">
+				<span class="block text-zinc-500 mb-1">User ID</span>
+				<input type="number" name="userId" class="border border-zinc-300 rounded px-2 py-1 text-sm w-20" />
+			</label>
+			<label class="text-sm">
+				<span class="block text-zinc-500 mb-1">Strava Activity ID</span>
+				<input type="number" name="activityId" class="border border-zinc-300 rounded px-2 py-1 text-sm w-32" />
+			</label>
+			<button type="submit" class="px-3 py-1 bg-zinc-800 text-white rounded text-sm">
+				Re-import
+			</button>
+		</form>
+	</div>
 
-	<form method="POST" action="?/clean" class="flex gap-2 items-end">
-		<input type="hidden" name="status" value="completed" />
-		<button type="submit" class="px-3 py-1 border border-zinc-300 rounded text-sm">
-			Clean Completed
-		</button>
-	</form>
-	<form method="POST" action="?/clean" class="flex gap-2 items-end">
-		<input type="hidden" name="status" value="failed" />
-		<button type="submit" class="px-3 py-1 border border-zinc-300 rounded text-sm">
-			Clean Failed
-		</button>
-	</form>
+	<div>
+		<h2 class="text-sm font-medium text-zinc-500 mb-2">Maintenance</h2>
+		<div class="flex gap-2">
+			<form method="POST" action="?/clean">
+				<input type="hidden" name="status" value="completed" />
+				<button type="submit" class="px-3 py-1 border border-zinc-300 rounded text-sm">
+					Clean Completed
+				</button>
+			</form>
+			<form method="POST" action="?/clean">
+				<input type="hidden" name="status" value="failed" />
+				<button type="submit" class="px-3 py-1 border border-zinc-300 rounded text-sm">
+					Clean Failed
+				</button>
+			</form>
+		</div>
+	</div>
 </div>
 
 {#if data.activeJobs.length > 0}

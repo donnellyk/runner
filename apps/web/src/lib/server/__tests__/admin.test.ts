@@ -266,6 +266,93 @@ describe('queue actions', () => {
 		expect(mockClean).toHaveBeenCalledWith(0, 1000, 'completed');
 	});
 
+	it('refreshSync rejects non-admin', async () => {
+		const { actions } = await import(
+			'../../../routes/(protected)/admin/queues/+page.server.js'
+		);
+
+		const formData = new FormData();
+		formData.set('userId', '1');
+		const request = new Request('http://test', { method: 'POST', body: formData });
+		const locals = { user: { id: 1, isAdmin: false }, session: {} };
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const result = await actions.refreshSync({ request, locals } as any);
+		expect(result?.status).toBe(403);
+	});
+
+	it('refreshSync rejects invalid userId', async () => {
+		const { actions } = await import(
+			'../../../routes/(protected)/admin/queues/+page.server.js'
+		);
+
+		const formData = new FormData();
+		formData.set('userId', 'bad');
+		const request = new Request('http://test', { method: 'POST', body: formData });
+		const locals = { user: { id: 1, isAdmin: true }, session: {} };
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const result = await actions.refreshSync({ request, locals } as any);
+		expect(result?.status).toBe(400);
+		expect(mockAdd).not.toHaveBeenCalled();
+	});
+
+	it('refreshSync returns 400 when user has no activities', async () => {
+		const mockLimit = vi.fn().mockResolvedValue([]);
+		const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+		const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+		const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+		const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
+		const { getDb } = await import('@web-runner/db/client');
+		vi.mocked(getDb).mockReturnValue({ select: mockSelect } as never);
+
+		const { actions } = await import(
+			'../../../routes/(protected)/admin/queues/+page.server.js'
+		);
+
+		const formData = new FormData();
+		formData.set('userId', '1');
+		const request = new Request('http://test', { method: 'POST', body: formData });
+		const locals = { user: { id: 1, isAdmin: true }, session: {} };
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const result = await actions.refreshSync({ request, locals } as any);
+		expect(result?.status).toBe(400);
+		expect(mockAdd).not.toHaveBeenCalled();
+	});
+
+	it('refreshSync enqueues job with after timestamp', async () => {
+		const latestDate = new Date('2025-03-01T12:00:00Z');
+		const mockLimit = vi.fn().mockResolvedValue([{ startDate: latestDate }]);
+		const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+		const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+		const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+		const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
+		const { getDb } = await import('@web-runner/db/client');
+		vi.mocked(getDb).mockReturnValue({ select: mockSelect } as never);
+
+		const { actions } = await import(
+			'../../../routes/(protected)/admin/queues/+page.server.js'
+		);
+
+		const formData = new FormData();
+		formData.set('userId', '1');
+		const request = new Request('http://test', { method: 'POST', body: formData });
+		const locals = { user: { id: 1, isAdmin: true }, session: {} };
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		await actions.refreshSync({ request, locals } as any);
+		expect(mockAdd).toHaveBeenCalledWith(
+			'full-history-import',
+			{
+				type: 'full-history-import',
+				userId: 1,
+				after: Math.floor(latestDate.getTime() / 1000),
+			},
+			{ priority: JobPriority.fullHistoryImport },
+		);
+	});
+
 	it('rejects non-admin queue actions', async () => {
 		const { actions } = await import(
 			'../../../routes/(protected)/admin/queues/+page.server.js'
