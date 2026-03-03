@@ -1,0 +1,9 @@
+:80 {
+    @webhook path /api/webhooks/strava /api/webhooks/strava/*
+    handle @webhook {
+        reverse_proxy web:3000
+    }
+    handle {
+        respond 403
+    }
+}
