@@ -4,14 +4,14 @@ import { getQueue } from '$lib/server/queue';
 import { logger } from '$lib/server/logger';
 import { JobPriority } from '@web-runner/shared';
 import type { WebhookEventJobData } from '@web-runner/shared';
-import { STRAVA_WEBHOOK_VERIFY_TOKEN } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 export const GET: RequestHandler = async ({ url }) => {
 	const mode = url.searchParams.get('hub.mode');
 	const challenge = url.searchParams.get('hub.challenge');
 	const verifyToken = url.searchParams.get('hub.verify_token');
 
-	if (mode === 'subscribe' && verifyToken === STRAVA_WEBHOOK_VERIFY_TOKEN) {
+	if (mode === 'subscribe' && verifyToken === env.STRAVA_WEBHOOK_VERIFY_TOKEN) {
 		logger.info('Webhook subscription validated');
 		return json({ 'hub.challenge': challenge });
 	}

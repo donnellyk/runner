@@ -4,6 +4,17 @@
 
 	const totalPages = Math.ceil(data.total / data.pageSize);
 
+	const activitiesPath = resolve('/admin/activities');
+
+	function paginationQuery(page: number) {
+		return new URLSearchParams({
+			page: String(page),
+			status: data.filters.status || '',
+			sport: data.filters.sport || '',
+			user: data.filters.user || '',
+		}).toString();
+	}
+
 	function statusColor(status: string) {
 		switch (status) {
 			case 'complete':
@@ -121,7 +132,7 @@
 	<div class="flex gap-2 mt-4">
 		{#if data.page > 1}
 			<a
-				href={resolve(`/admin/activities?page=${data.page - 1}&status=${data.filters.status || ''}&sport=${data.filters.sport || ''}&user=${data.filters.user || ''}`)}
+				href="{activitiesPath}?{paginationQuery(data.page - 1)}"
 				class="px-3 py-1 border border-zinc-300 rounded text-sm"
 			>
 				Prev
@@ -129,7 +140,7 @@
 		{/if}
 		{#if data.page < totalPages}
 			<a
-				href={resolve(`/admin/activities?page=${data.page + 1}&status=${data.filters.status || ''}&sport=${data.filters.sport || ''}&user=${data.filters.user || ''}`)}
+				href="{activitiesPath}?{paginationQuery(data.page + 1)}"
 				class="px-3 py-1 border border-zinc-300 rounded text-sm"
 			>
 				Next

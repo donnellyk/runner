@@ -4,11 +4,11 @@
 	let { children } = $props();
 
 	const navItems = [
-		{ href: '/admin/users', label: 'Users' },
-		{ href: '/admin/activities', label: 'Activities' },
-		{ href: '/admin/queues', label: 'Queues' },
-		{ href: '/admin/strava', label: 'Strava' },
-		{ href: '/admin/system', label: 'System' },
+		{ href: '/admin/users' as const, label: 'Users' },
+		{ href: '/admin/activities' as const, label: 'Activities' },
+		{ href: '/admin/queues' as const, label: 'Queues' },
+		{ href: '/admin/strava' as const, label: 'Strava' },
+		{ href: '/admin/system' as const, label: 'System' },
 	];
 </script>
 
