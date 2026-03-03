@@ -71,20 +71,9 @@ cd /opt/web-runner
 docker compose up -d
 ```
 
-## 8. Run Migrations
+Migrations run automatically on web container startup.
 
-```bash
-docker compose exec web node -e "import('./build/db/migrate.js')"
-```
-
-Or from local machine:
-
-```bash
-mise run deploy
-# then SSH in and run migrations
-```
-
-## 9. Expose via Tailscale
+## 8. Expose via Tailscale
 
 ```bash
 tailscale serve --bg 3000
@@ -92,7 +81,7 @@ tailscale serve --bg 3000
 
 The app is now at `https://<tailscale-hostname>.ts.net`.
 
-## 10. DigitalOcean Firewall
+## 9. DigitalOcean Firewall
 
 Create a cloud firewall and attach it to the droplet:
 
@@ -104,7 +93,7 @@ Create a cloud firewall and attach it to the droplet:
 
 Do **not** open port 3000.
 
-## 11. Register Strava Webhook
+## 10. Register Strava Webhook
 
 From local machine:
 
@@ -114,7 +103,7 @@ mise run webhook:subscribe
 
 Callback URL: `http://<droplet-ip>/api/webhooks/strava`
 
-## 12. Verify
+## 11. Verify
 
 ```bash
 # Webhook endpoint (should 200)

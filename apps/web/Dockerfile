@@ -33,7 +33,9 @@ COPY --from=deps /app/packages/strava/node_modules ./packages/strava/node_module
 COPY packages ./packages
 COPY package.json pnpm-workspace.yaml ./
 
+COPY apps/web/entrypoint.sh /app/apps/web/entrypoint.sh
+
 WORKDIR /app/apps/web
 EXPOSE 3000
 ENV PORT=3000
-CMD ["node", "build"]
+CMD ["./entrypoint.sh"]
