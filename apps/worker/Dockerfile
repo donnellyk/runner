@@ -1,5 +1,5 @@
 FROM node:23.5.0-slim AS base
-RUN corepack enable && corepack prepare pnpm@10 --activate
+RUN npm install -g corepack && corepack enable && corepack prepare pnpm@10 --activate
 WORKDIR /app
 
 # --- deps ---
