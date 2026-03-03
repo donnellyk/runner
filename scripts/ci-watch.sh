@@ -2,70 +2,70 @@
 set -euo pipefail
 
 COMMIT=$(git rev-parse HEAD)
-SHORT=$(git rev-parse --short HEAD)
+POLL_INTERVAL=50  # in ticks (50 * 0.1s = 5s)
 SPINNER=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-RESET="\033[0m"
-GREEN="\033[32m"
-RED="\033[31m"
-DIM="\033[2m"
+RESET=$'\033[0m'
+GREEN=$'\033[32m'
+RED=$'\033[31m'
+DIM=$'\033[2m'
+UP1=$'\033[1A'
+UP2=$'\033[2A'
+CLR=$'\033[K'
 
-get_status() {
-  gh run list --commit "$COMMIT" --json workflowName,status,conclusion \
-    --jq ".[] | select(.workflowName == \"$1\") | .status + \"/\" + (.conclusion // \"\")"
+ci="" build="" frame=0
+
+poll() {
+  local raw
+  raw=$(gh run list --commit "$COMMIT" --json workflowName,status,conclusion 2>/dev/null || echo "[]")
+  ci=$(echo "$raw" | jq -r '.[] | select(.workflowName == "CI") | .status + "/" + (.conclusion // "")' 2>/dev/null || echo "")
+  build=$(echo "$raw" | jq -r '.[] | select(.workflowName == "Build & Push") | .status + "/" + (.conclusion // "")' 2>/dev/null || echo "")
 }
 
 render_line() {
-  local name=$1 raw=$2 frame=$3
+  local name=$1 raw=$2
   if [[ -z "$raw" ]]; then
     printf "  ${DIM}?${RESET} %s ${DIM}(not found)${RESET}" "$name"
   elif [[ "$raw" == completed/success ]]; then
     printf "  ${GREEN}✓${RESET} %s" "$name"
   elif [[ "$raw" == completed/* ]]; then
-    local conclusion=${raw#completed/}
-    printf "  ${RED}✗${RESET} %s ${RED}(%s)${RESET}" "$name" "$conclusion"
+    printf "  ${RED}✗${RESET} %s ${RED}(%s)${RESET}" "$name" "${raw#completed/}"
   else
     printf "  %s %s" "${SPINNER[$frame]}" "$name"
   fi
 }
 
-printf "\n"
-
-frame=0
-loading=true
-while $loading; do
-  printf "\033[1A\033[K"
-  printf "  %s Loading..." "${SPINNER[$frame]}"
+render() {
+  printf "${UP2}${CLR}"
+  render_line "CI" "$ci"
+  printf "\n${CLR}"
+  render_line "Build & Push" "$build"
   printf "\n"
+}
 
-  ci=$(get_status "CI")
-  build=$(get_status "Build & Push")
+tick() {
+  frame=$(( (frame + 1) % ${#SPINNER[@]} ))
+  sleep 0.1
+}
 
-  if [[ -n "$ci" || -n "$build" ]]; then
-    loading=false
-    printf "\033[1A\033[K\n"
-  else
-    frame=$(( (frame + 1) % ${#SPINNER[@]} ))
-    sleep 0.5
-  fi
-done
-
+# Loading phase
 printf "\n"
 while true; do
-  ci=$(get_status "CI")
-  build=$(get_status "Build & Push")
+  printf "${UP1}${CLR}  %s Loading...\n" "${SPINNER[$frame]}"
+  poll
+  [[ -n "$ci" || -n "$build" ]] && break
+  tick
+done
 
-  # Move up 2 lines, clear them
-  printf "\033[2A\033[K"
-  render_line "CI" "$ci" "$frame"
-  printf "\n\033[K"
-  render_line "Build & Push" "$build" "$frame"
-  printf "\n"
+# Status phase
+printf "${UP1}${CLR}\n\n"
+while true; do
+  render
 
-  # Exit if both are done
-  if [[ "${ci:-pending/}" == completed/* && "${build:-pending/}" == completed/* ]]; then
-    break
-  fi
+  [[ "${ci:-pending/}" == completed/* && "${build:-pending/}" == completed/* ]] && break
 
-  frame=$(( (frame + 1) % ${#SPINNER[@]} ))
-  sleep 0.5
+  for (( i=0; i<POLL_INTERVAL; i++ )); do
+    tick
+    render
+  done
+  poll
 done
