@@ -42,10 +42,10 @@ description = "Build all packages"
 run = "pnpm run build"
 
 [tasks.deploy]
-description = "Deploy to droplet"
+description = "Deploy to carthage"
 run = """
-echo "Deploying to droplet..."
-ssh droplet 'cd /opt/web-runner && docker compose pull && docker compose up -d'
+echo "Deploying to carthage..."
+ssh carthage 'cd /opt/web-runner && docker compose pull && docker compose up -d'
 """
 
 [tasks.backup]
@@ -116,7 +116,7 @@ run = "pnpm --filter @web-runner/db drizzle-kit studio"
 [tasks."studio:prod"]
 description = "Run Drizzle Kit Studio against prod via SSH tunnel"
 run = """
-HOST="${PROD_HOST:-droplet}"
+HOST="${PROD_HOST:-carthage}"
 echo "Opening SSH tunnel to $HOST Postgres..."
 ssh -f -N -L 15432:localhost:5432 "$HOST"
 trap 'pkill -f "ssh -f -N -L 15432:localhost:5432 $HOST"' EXIT

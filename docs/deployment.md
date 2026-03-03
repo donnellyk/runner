@@ -91,7 +91,7 @@ mise run deploy
 
 This runs:
 ```bash
-ssh droplet 'cd /opt/web-runner && docker compose pull && docker compose up -d'
+ssh carthage 'cd /opt/web-runner && docker compose pull && docker compose up -d'
 ```
 
 ## Verification
@@ -116,6 +116,6 @@ Open `https://carthage.panda-boa.ts.net` in a browser while connected to your ta
 Accessible at `http://localhost:3001` on the droplet (via SSH tunnel):
 
 ```bash
-ssh -L 3001:localhost:3001 droplet
+ssh -L 3001:localhost:3001 carthage
 # Then open http://localhost:3001 in your browser
 ```

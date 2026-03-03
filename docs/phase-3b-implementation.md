@@ -543,7 +543,7 @@ bull-board:
       condition: service_healthy
 ```
 
-Port is bound to `127.0.0.1` only — not exposed publicly. Access in prod via SSH tunnel (`ssh -L 3001:localhost:3001 droplet`) or behind a reverse proxy with auth.
+Port is bound to `127.0.0.1` only — not exposed publicly. Access in prod via SSH tunnel (`ssh -L 3001:localhost:3001 carthage`) or behind a reverse proxy with auth.
 
 **Dockerfile:**
 ```dockerfile
@@ -778,7 +778,7 @@ run = "pnpm --filter @web-runner/db drizzle-kit studio"
 [tasks."studio:prod"]
 description = "Run Drizzle Kit Studio against prod via SSH tunnel"
 run = """
-HOST="${PROD_HOST:-droplet}"
+HOST="${PROD_HOST:-carthage}"
 echo "Opening SSH tunnel to $HOST Postgres..."
 ssh -f -N -L 15432:localhost:5432 "$HOST"
 trap 'pkill -f "ssh -f -N -L 15432:localhost:5432 $HOST"' EXIT
@@ -788,7 +788,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:15432/webrunner pnpm --fil
 
 `studio:prod` opens an SSH tunnel on port 15432 (avoids conflicting with a local Postgres on 5432), runs Drizzle Studio pointed at the tunneled connection, and tears down the tunnel on exit. Credentials may differ in prod — if so, pass them via env or read from a secrets file. No tooling required on the server.
 
-`droplet` is an SSH config host alias (defined in `~/.ssh/config`), consistent with `mise run deploy`. Override with `PROD_HOST` env var if needed — the task should use `${PROD_HOST:-droplet}`.
+`carthage` is an SSH config host alias (defined in `~/.ssh/config`), consistent with `mise run deploy`. Override with `PROD_HOST` env var if needed — the task should use `${PROD_HOST:-carthage}`.
 
 ---
 
