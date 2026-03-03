@@ -43,9 +43,7 @@ services:
       - web
 
   web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
+    image: ghcr.io/donnellyk/runner/web:latest
     ports:
       - "127.0.0.1:3000:3000"
     environment:
@@ -63,9 +61,7 @@ services:
         condition: service_healthy
 
   worker:
-    build:
-      context: .
-      dockerfile: apps/worker/Dockerfile
+    image: ghcr.io/donnellyk/runner/worker:latest
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/webrunner
       REDIS_URL: redis://redis:6379

@@ -45,6 +45,13 @@ run = "pnpm run build"
 description = "Deploy to carthage"
 run = """
 echo "Deploying to carthage..."
+ssh carthage 'mkdir -p /opt/web-runner/scripts'
+rsync -av --relative \
+  docker-compose.yml \
+  Caddyfile \
+  Dockerfile.bull-board \
+  scripts/bull-board.ts \
+  carthage:/opt/web-runner/
 ssh carthage 'cd /opt/web-runner && docker compose pull && docker compose up -d'
 """
 

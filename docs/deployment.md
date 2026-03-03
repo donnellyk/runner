@@ -89,10 +89,7 @@ Note: Strava sends webhooks over HTTP as well as HTTPS, so a plain IP on port 80
 mise run deploy
 ```
 
-This runs:
-```bash
-ssh carthage 'cd /opt/web-runner && docker compose pull && docker compose up -d'
-```
+This rsyncs compose files, Caddyfile, and bull-board assets to the server, then pulls images from GHCR and restarts services. Web and worker use pre-built images from CI; bull-board builds on the server.
 
 ## Verification
 

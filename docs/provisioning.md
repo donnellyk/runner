@@ -40,15 +40,11 @@ systemctl enable tailscaled
 
 Authenticate via the link printed by `tailscale up`.
 
-## 5. Clone the Repo
+## 5. Create Project Directory
 
 ```bash
 mkdir -p /opt/web-runner
-cd /opt/web-runner
-git clone https://github.com/donnellyk/runner.git .
 ```
-
-Or if using GHCR images without building locally, you only need the compose file, Caddyfile, and `.env`.
 
 ## 6. Create `.env`
 
@@ -64,14 +60,15 @@ EOF
 
 Fill in the Strava credentials. The Tailscale hostname is shown by `tailscale status`.
 
-## 7. Start Services
+## 7. Deploy
+
+From your local machine:
 
 ```bash
-cd /opt/web-runner
-docker compose up -d
+mise run deploy
 ```
 
-Migrations run automatically on web container startup.
+This rsyncs config files to the server and starts all services. Migrations run automatically on web container startup.
 
 ## 8. Expose via Tailscale
 
