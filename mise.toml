@@ -48,6 +48,10 @@ echo "Deploying to carthage..."
 ssh carthage 'cd /opt/web-runner && docker compose pull && docker compose up -d'
 """
 
+[tasks.ci]
+description = "Watch CI & Build status for the latest commit"
+run = "./scripts/ci-watch.sh"
+
 [tasks.backup]
 description = "Backup database"
 run = "./scripts/backup.sh"
