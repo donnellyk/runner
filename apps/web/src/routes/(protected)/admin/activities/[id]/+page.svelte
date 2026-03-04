@@ -1,7 +1,43 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import RouteMap from '$lib/components/RouteMap.svelte';
+	import StreamChart from '$lib/components/StreamChart.svelte';
 	let { data } = $props();
 	const a = data.activity;
+
+	function getRouteCoordinates(): [number, number][] | null {
+		if (a.routeGeoJson) {
+			const geo = JSON.parse(a.routeGeoJson);
+			return geo.coordinates;
+		}
+		const latlngStream = data.chartStreams.find((s) => s.streamType === 'latlng');
+		if (latlngStream) {
+			const pts = latlngStream.data as [number, number][];
+			return pts.map(([lat, lng]) => [lng, lat]);
+		}
+		return null;
+	}
+
+	function getStreamData(type: string): number[] | null {
+		const stream = data.chartStreams.find((s) => s.streamType === type);
+		if (!stream) return null;
+		return stream.data as number[];
+	}
+
+	const routeCoords = getRouteCoordinates();
+
+	const streamConfigs = [
+		{ type: 'heartrate', label: 'Heart Rate', color: '#ef4444', unit: ' bpm' },
+		{ type: 'altitude', label: 'Altitude', color: '#22c55e', unit: ' m' },
+		{ type: 'velocity_smooth', label: 'Speed', color: '#3b82f6', unit: ' m/s' },
+		{ type: 'cadence', label: 'Cadence', color: '#a855f7', unit: ' rpm' },
+		{ type: 'watts', label: 'Power', color: '#f97316', unit: ' W' },
+		{ type: 'grade_smooth', label: 'Grade', color: '#64748b', unit: '%' },
+	];
+
+	const maxStreamLen = Math.max(...streamConfigs.map((c) => getStreamData(c.type)?.length ?? 0));
+	const maxWidth = typeof window !== 'undefined' ? window.innerWidth * 2 : 2000;
+	const chartWidth = Math.min(Math.max(maxStreamLen * 2, 300), maxWidth);
 </script>
 
 <div class="mb-4">
@@ -9,6 +45,12 @@
 </div>
 
 <h1 class="text-2xl font-bold mb-6">{a.name}</h1>
+
+{#if routeCoords}
+	<div class="mb-8 overflow-x-auto">
+		<RouteMap coordinates={routeCoords} />
+	</div>
+{/if}
 
 <div class="grid grid-cols-2 gap-x-8 gap-y-2 text-sm mb-8 max-w-2xl">
 	<div class="text-zinc-500">ID</div><div>{a.id}</div>
@@ -72,6 +114,18 @@
 	</div>
 {:else}
 	<p class="text-sm text-zinc-400 mb-8">No streams</p>
+{/if}
+
+{#if maxStreamLen > 0}
+	<h2 class="text-lg font-bold mb-3">Stream Charts</h2>
+	<div class="overflow-x-auto mb-8 bg-zinc-50 border border-zinc-200 rounded-lg p-4">
+		{#each streamConfigs as config (config.type)}
+			{@const streamData = getStreamData(config.type)}
+			{#if streamData}
+				<StreamChart data={streamData} label={config.label} color={config.color} unit={config.unit} svgWidth={chartWidth} />
+			{/if}
+		{/each}
+	</div>
 {/if}
 
 {#if a.sourceRaw}

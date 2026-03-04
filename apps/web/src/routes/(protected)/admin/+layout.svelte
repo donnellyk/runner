@@ -29,7 +29,7 @@
 			<a href={resolve('/')} class="text-sm text-zinc-500 hover:text-zinc-800">Back to app</a>
 		</div>
 	</nav>
-	<main class="flex-1 p-8">
+	<main class="flex-1 p-8 min-w-0">
 		{@render children()}
 	</main>
 </div>

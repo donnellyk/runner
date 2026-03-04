@@ -72,7 +72,6 @@ export class StravaClient {
   ): Promise<{ data: StreamSet; rateLimit: RateLimitInfo }> {
     return this.request<StreamSet>(token, `/activities/${id}/streams`, {
       keys: keys.join(','),
-      key_by_type: 'true',
     });
   }
 

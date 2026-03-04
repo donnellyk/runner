@@ -90,7 +90,7 @@ describe('StravaClient', () => {
 
       const url = new URL(fetchSpy.mock.calls[0][0]);
       expect(url.searchParams.get('keys')).toBe('heartrate,time');
-      expect(url.searchParams.get('key_by_type')).toBe('true');
+      expect(url.searchParams.has('key_by_type')).toBe(false);
     });
   });
 

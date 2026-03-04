@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and, inArray, getTableColumns } from 'drizzle-orm';
 import { getDb } from '@web-runner/db/client';
 import { activities, activityLaps, activityStreams, activitySegments } from '@web-runner/db/schema';
 import type { PageServerLoad } from './$types';
@@ -8,7 +8,13 @@ export const load: PageServerLoad = async ({ params }) => {
 	const db = getDb();
 	const activityId = Number(params.id);
 
-	const [activity] = await db.select().from(activities).where(eq(activities.id, activityId));
+	const [activity] = await db
+		.select({
+			...getTableColumns(activities),
+			routeGeoJson: sql<string | null>`ST_AsGeoJSON(${activities.route})`,
+		})
+		.from(activities)
+		.where(eq(activities.id, activityId));
 	if (!activity) {
 		error(404, 'Activity not found');
 	}
@@ -27,6 +33,23 @@ export const load: PageServerLoad = async ({ params }) => {
 		.from(activityStreams)
 		.where(eq(activityStreams.activityId, activityId));
 
+	const chartStreamTypes = [
+		'heartrate', 'altitude', 'cadence', 'watts',
+		'velocity_smooth', 'grade_smooth', 'latlng',
+	];
+	const chartStreams = await db
+		.select({
+			streamType: activityStreams.streamType,
+			data: activityStreams.data,
+		})
+		.from(activityStreams)
+		.where(
+			and(
+				eq(activityStreams.activityId, activityId),
+				inArray(activityStreams.streamType, chartStreamTypes),
+			),
+		);
+
 	const [{ count: segmentCount }] = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(activitySegments)
@@ -36,6 +59,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		activity,
 		laps,
 		streams,
+		chartStreams,
 		segmentCount: Number(segmentCount),
 	};
 };
