@@ -14,7 +14,7 @@
 		</tr>
 	</thead>
 	<tbody>
-		{#each data.tableStats as table (table.table_name)}
+		{#each data.tableStats as table, i (i)}
 			<tr class="border-b border-zinc-100">
 				<td class="py-1 pr-4 font-mono text-xs">{table.table_name}</td>
 				<td class="py-1 pr-4">{table.row_count}</td>
@@ -42,7 +42,7 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each data.slowQueries as q (q.query)}
+			{#each data.slowQueries as q, i (i)}
 				<tr class="border-b border-zinc-100">
 					<td class="py-1 pr-4 text-xs font-mono max-w-md truncate">{q.query}</td>
 					<td class="py-1 pr-4">{q.calls}</td>
