@@ -50,16 +50,17 @@ export const load: PageServerLoad = async ({ params }) => {
 			),
 		);
 
-	const [{ count: segmentCount }] = await db
-		.select({ count: sql<number>`count(*)` })
+	const segments = await db
+		.select()
 		.from(activitySegments)
-		.where(eq(activitySegments.activityId, activityId));
+		.where(eq(activitySegments.activityId, activityId))
+		.orderBy(activitySegments.segmentIndex);
 
 	return {
 		activity,
 		laps,
 		streams,
 		chartStreams,
-		segmentCount: Number(segmentCount),
+		segments,
 	};
 };

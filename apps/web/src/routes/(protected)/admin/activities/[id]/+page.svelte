@@ -38,6 +38,18 @@
 	const maxStreamLen = Math.max(...streamConfigs.map((c) => getStreamData(c.type)?.length ?? 0));
 	const maxWidth = typeof window !== 'undefined' ? window.innerWidth * 2 : 2000;
 	const chartWidth = Math.min(Math.max(maxStreamLen * 2, 300), maxWidth);
+
+	function fmtPace(v: number | null): string {
+		if (v == null) return '-';
+		const mins = Math.floor(v / 60);
+		const secs = Math.round(v % 60);
+		return `${mins}:${String(secs).padStart(2, '0')}`;
+	}
+
+	function fmtNum(v: number | null, decimals = 1): string {
+		if (v == null) return '-';
+		return v.toFixed(decimals);
+	}
 </script>
 
 <div class="mb-4">
@@ -71,7 +83,7 @@
 	<div class="text-zinc-500">Device</div><div>{a.deviceName ?? '-'}</div>
 	<div class="text-zinc-500">Gear ID</div><div>{a.gearId ?? '-'}</div>
 	<div class="text-zinc-500">Has GPS</div><div>{a.route ? 'Yes' : 'No'}</div>
-	<div class="text-zinc-500">Segments</div><div>{data.segmentCount}</div>
+	<div class="text-zinc-500">Segments</div><div>{data.segments.length}</div>
 </div>
 
 <h2 class="text-lg font-bold mb-3">Laps ({data.laps.length})</h2>
@@ -126,6 +138,64 @@
 			{/if}
 		{/each}
 	</div>
+{/if}
+
+<h2 class="text-lg font-bold mb-3">Segments ({data.segments.length})</h2>
+{#if data.segments.length > 0}
+	<div class="overflow-x-auto mb-8 bg-zinc-50 border border-zinc-200 rounded-lg p-4">
+		<table class="text-sm whitespace-nowrap">
+			<thead>
+				<tr class="border-b border-zinc-200 text-left text-zinc-500">
+					<th class="py-1 pr-4">#</th>
+					<th class="py-1 pr-4">Start (m)</th>
+					<th class="py-1 pr-4">End (m)</th>
+					<th class="py-1 pr-4">Duration</th>
+					<th class="py-1 pr-4">Avg Pace</th>
+					<th class="py-1 pr-4">Min Pace</th>
+					<th class="py-1 pr-4">Max Pace</th>
+					<th class="py-1 pr-4">Avg HR</th>
+					<th class="py-1 pr-4">Min HR</th>
+					<th class="py-1 pr-4">Max HR</th>
+					<th class="py-1 pr-4">Avg Cadence</th>
+					<th class="py-1 pr-4">Min Cadence</th>
+					<th class="py-1 pr-4">Max Cadence</th>
+					<th class="py-1 pr-4">Avg Power</th>
+					<th class="py-1 pr-4">Min Power</th>
+					<th class="py-1 pr-4">Max Power</th>
+					<th class="py-1 pr-4">Elev Gain</th>
+					<th class="py-1 pr-4">Elev Loss</th>
+					<th class="py-1 pr-4">Has Route</th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each data.segments as seg (seg.id)}
+					<tr class="border-b border-zinc-100">
+						<td class="py-1 pr-4">{seg.segmentIndex + 1}</td>
+						<td class="py-1 pr-4">{fmtNum(seg.distanceStart, 0)}</td>
+						<td class="py-1 pr-4">{fmtNum(seg.distanceEnd, 0)}</td>
+						<td class="py-1 pr-4">{seg.duration != null ? `${seg.duration}s` : '-'}</td>
+						<td class="py-1 pr-4">{fmtPace(seg.avgPace)}</td>
+						<td class="py-1 pr-4">{fmtPace(seg.minPace)}</td>
+						<td class="py-1 pr-4">{fmtPace(seg.maxPace)}</td>
+						<td class="py-1 pr-4">{fmtNum(seg.avgHeartrate)}</td>
+						<td class="py-1 pr-4">{fmtNum(seg.minHeartrate)}</td>
+						<td class="py-1 pr-4">{fmtNum(seg.maxHeartrate)}</td>
+						<td class="py-1 pr-4">{fmtNum(seg.avgCadence)}</td>
+						<td class="py-1 pr-4">{fmtNum(seg.minCadence)}</td>
+						<td class="py-1 pr-4">{fmtNum(seg.maxCadence)}</td>
+						<td class="py-1 pr-4">{fmtNum(seg.avgPower)}</td>
+						<td class="py-1 pr-4">{fmtNum(seg.minPower)}</td>
+						<td class="py-1 pr-4">{fmtNum(seg.maxPower)}</td>
+						<td class="py-1 pr-4">{fmtNum(seg.elevationGain)}</td>
+						<td class="py-1 pr-4">{fmtNum(seg.elevationLoss)}</td>
+						<td class="py-1 pr-4">{seg.route ? 'Yes' : 'No'}</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
+{:else}
+	<p class="text-sm text-zinc-400 mb-8">No segments</p>
 {/if}
 
 {#if a.sourceRaw}
