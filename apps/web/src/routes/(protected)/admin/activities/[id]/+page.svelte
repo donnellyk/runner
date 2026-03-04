@@ -2,8 +2,11 @@
 	import { resolve } from '$app/paths';
 	import RouteMap from '$lib/components/RouteMap.svelte';
 	import StreamChart from '$lib/components/StreamChart.svelte';
+	import { formatDistancePrecise, formatElevation, formatPace, formatPaceValue, formatSegmentDistance, segmentDistanceLabel } from '$lib/format';
+	import type { Units } from '$lib/format';
 	let { data } = $props();
 	const a = data.activity;
+	const units: Units = data.user.distanceUnit as Units;
 
 	function getRouteCoordinates(): [number, number][] | null {
 		if (a.routeGeoJson) {
@@ -39,13 +42,6 @@
 	const maxWidth = typeof window !== 'undefined' ? window.innerWidth * 2 : 2000;
 	const chartWidth = Math.min(Math.max(maxStreamLen * 2, 300), maxWidth);
 
-	function fmtPace(v: number | null): string {
-		if (v == null) return '-';
-		const mins = Math.floor(v / 60);
-		const secs = Math.round(v % 60);
-		return `${mins}:${String(secs).padStart(2, '0')}`;
-	}
-
 	function fmtNum(v: number | null, decimals = 1): string {
 		if (v == null) return '-';
 		return v.toFixed(decimals);
@@ -72,10 +68,10 @@
 	<div class="text-zinc-500">Workout Type</div><div>{a.workoutType ?? '-'}</div>
 	<div class="text-zinc-500">Sync Status</div><div>{a.syncStatus}</div>
 	<div class="text-zinc-500">Start Date</div><div>{new Date(a.startDate).toLocaleString()}</div>
-	<div class="text-zinc-500">Distance</div><div>{a.distance ? (a.distance / 1000).toFixed(2) + ' km' : '-'}</div>
+	<div class="text-zinc-500">Distance</div><div>{formatDistancePrecise(a.distance, units)}</div>
 	<div class="text-zinc-500">Moving Time</div><div>{a.movingTime ? Math.floor(a.movingTime / 60) + 'm' : '-'}</div>
 	<div class="text-zinc-500">Elapsed Time</div><div>{a.elapsedTime ? Math.floor(a.elapsedTime / 60) + 'm' : '-'}</div>
-	<div class="text-zinc-500">Elevation Gain</div><div>{a.totalElevationGain ? a.totalElevationGain.toFixed(0) + 'm' : '-'}</div>
+	<div class="text-zinc-500">Elevation Gain</div><div>{formatElevation(a.totalElevationGain, units)}</div>
 	<div class="text-zinc-500">Avg HR</div><div>{a.averageHeartrate ?? '-'}</div>
 	<div class="text-zinc-500">Max HR</div><div>{a.maxHeartrate ?? '-'}</div>
 	<div class="text-zinc-500">Avg Cadence</div><div>{a.averageCadence ?? '-'}</div>
@@ -102,10 +98,10 @@
 			{#each data.laps as lap (lap.id)}
 				<tr class="border-b border-zinc-100">
 					<td class="py-1 pr-3">{lap.lapIndex + 1}</td>
-					<td class="py-1 pr-3">{lap.distance ? (lap.distance / 1000).toFixed(2) + ' km' : '-'}</td>
+					<td class="py-1 pr-3">{formatDistancePrecise(lap.distance, units)}</td>
 					<td class="py-1 pr-3">{lap.movingTime ? Math.floor(lap.movingTime / 60) + 'm' : '-'}</td>
 					<td class="py-1 pr-3">{lap.averageHeartrate ?? '-'}</td>
-					<td class="py-1 pr-3">{lap.averageSpeed ? (1000 / lap.averageSpeed / 60).toFixed(2) + ' min/km' : '-'}</td>
+					<td class="py-1 pr-3">{formatPace(lap.averageSpeed, units)}</td>
 				</tr>
 			{/each}
 		</tbody>
@@ -147,8 +143,8 @@
 			<thead>
 				<tr class="border-b border-zinc-200 text-left text-zinc-500">
 					<th class="py-1 pr-4">#</th>
-					<th class="py-1 pr-4">Start (m)</th>
-					<th class="py-1 pr-4">End (m)</th>
+					<th class="py-1 pr-4">Start ({segmentDistanceLabel(units)})</th>
+					<th class="py-1 pr-4">End ({segmentDistanceLabel(units)})</th>
 					<th class="py-1 pr-4">Duration</th>
 					<th class="py-1 pr-4">Avg Pace</th>
 					<th class="py-1 pr-4">Min Pace</th>
@@ -171,12 +167,12 @@
 				{#each data.segments as seg (seg.id)}
 					<tr class="border-b border-zinc-100">
 						<td class="py-1 pr-4">{seg.segmentIndex + 1}</td>
-						<td class="py-1 pr-4">{fmtNum(seg.distanceStart, 0)}</td>
-						<td class="py-1 pr-4">{fmtNum(seg.distanceEnd, 0)}</td>
+						<td class="py-1 pr-4">{formatSegmentDistance(seg.distanceStart, units)}</td>
+						<td class="py-1 pr-4">{formatSegmentDistance(seg.distanceEnd, units)}</td>
 						<td class="py-1 pr-4">{seg.duration != null ? `${seg.duration}s` : '-'}</td>
-						<td class="py-1 pr-4">{fmtPace(seg.avgPace)}</td>
-						<td class="py-1 pr-4">{fmtPace(seg.minPace)}</td>
-						<td class="py-1 pr-4">{fmtPace(seg.maxPace)}</td>
+						<td class="py-1 pr-4">{formatPaceValue(seg.avgPace, units)}</td>
+						<td class="py-1 pr-4">{formatPaceValue(seg.minPace, units)}</td>
+						<td class="py-1 pr-4">{formatPaceValue(seg.maxPace, units)}</td>
 						<td class="py-1 pr-4">{fmtNum(seg.avgHeartrate)}</td>
 						<td class="py-1 pr-4">{fmtNum(seg.minHeartrate)}</td>
 						<td class="py-1 pr-4">{fmtNum(seg.maxHeartrate)}</td>
@@ -186,8 +182,8 @@
 						<td class="py-1 pr-4">{fmtNum(seg.avgPower)}</td>
 						<td class="py-1 pr-4">{fmtNum(seg.minPower)}</td>
 						<td class="py-1 pr-4">{fmtNum(seg.maxPower)}</td>
-						<td class="py-1 pr-4">{fmtNum(seg.elevationGain)}</td>
-						<td class="py-1 pr-4">{fmtNum(seg.elevationLoss)}</td>
+						<td class="py-1 pr-4">{formatElevation(seg.elevationGain, units)}</td>
+						<td class="py-1 pr-4">{formatElevation(seg.elevationLoss, units)}</td>
 						<td class="py-1 pr-4">{seg.route ? 'Yes' : 'No'}</td>
 					</tr>
 				{/each}

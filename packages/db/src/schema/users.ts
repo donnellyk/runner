@@ -10,6 +10,7 @@ export const users = pgTable('users', {
   state: text('state'),
   country: text('country'),
   timezone: text('timezone').notNull().default('UTC'),
+  distanceUnit: text('distance_unit').notNull().default('metric'),
   isAdmin: boolean('is_admin').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

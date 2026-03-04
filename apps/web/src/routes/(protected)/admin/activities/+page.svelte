@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { formatDistance } from '$lib/format';
 	let { data } = $props();
+	const units = data.user.distanceUnit as 'metric' | 'imperial';
 
 	const totalPages = Math.ceil(data.total / data.pageSize);
 
@@ -28,11 +30,6 @@
 			default:
 				return 'bg-zinc-100 text-zinc-600';
 		}
-	}
-
-	function formatDistance(meters: number | null) {
-		if (!meters) return '-';
-		return (meters / 1000).toFixed(1) + ' km';
 	}
 
 	function formatTime(seconds: number | null) {
@@ -107,7 +104,7 @@
 						{activity.syncStatus}
 					</span>
 				</td>
-				<td class="py-2 pr-4">{formatDistance(activity.distance)}</td>
+				<td class="py-2 pr-4">{formatDistance(activity.distance, units)}</td>
 				<td class="py-2 pr-4">{formatTime(activity.movingTime)}</td>
 				<td class="py-2 pr-4">{activity.userName}</td>
 				<td class="py-2 pr-4 text-xs">

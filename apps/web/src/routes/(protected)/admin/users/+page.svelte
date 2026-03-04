@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	let { data } = $props();
 
 	function tokenStatus(expiresAt: string | Date | null) {
@@ -27,7 +28,9 @@
 		{#each data.users as user (user.id)}
 			{@const status = tokenStatus(user.tokenExpiresAt)}
 			<tr class="border-b border-zinc-100">
-				<td class="py-2 pr-4">{user.firstName} {user.lastName}</td>
+				<td class="py-2 pr-4">
+					<a href={resolve(`/admin/users/${user.id}`)} class="hover:underline">{user.firstName} {user.lastName}</a>
+				</td>
 				<td class="py-2 pr-4 font-mono text-xs">{user.stravaAthleteId}</td>
 				<td class="py-2 pr-4">
 					<form method="POST" action="?/toggleAdmin" class="inline">

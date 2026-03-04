@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "distance_unit" text DEFAULT 'metric' NOT NULL;
