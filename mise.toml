@@ -68,7 +68,7 @@ run = "./scripts/restore.sh {{arg(name=\"file\")}}"
 
 [tasks."webhook:subscribe"]
 description = "Create Strava webhook subscription"
-run = "pnpm tsx scripts/webhook-manage.ts subscribe"
+run = "pnpm tsx scripts/webhook-manage.ts subscribe {{arg(name='url')}}"
 
 [tasks."webhook:list"]
 description = "List Strava webhook subscriptions"
@@ -109,6 +109,18 @@ run = "pnpm tsx scripts/bull-board.ts"
 [tasks.console]
 description = "Node REPL with DB, Redis, Strava, and queue pre-loaded"
 run = "pnpm tsx scripts/console.ts"
+
+[tasks."console:prod"]
+description = "Node REPL against production (via SSH)"
+run = """
+HOST="${PROD_HOST:-carthage}"
+echo "Opening SSH tunnels to $HOST..."
+ssh -f -N -L 15432:localhost:5432 -L 16379:localhost:6379 "$HOST"
+trap 'pkill -f "ssh -f -N -L 15432:localhost:5432 -L 16379:localhost:6379 $HOST"' EXIT
+DATABASE_URL=postgresql://postgres:postgres@localhost:15432/webrunner \
+REDIS_URL=redis://localhost:16379 \
+pnpm tsx scripts/console.ts
+"""
 
 [tasks."wipe:activities"]
 description = "Delete all activities for a user (cascades to laps, streams, segments)"

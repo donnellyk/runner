@@ -8,10 +8,10 @@ if (!clientId || !clientSecret) {
 }
 
 async function subscribe() {
-  const callbackUrl = process.env.URL;
+  const callbackUrl = process.argv[3];
   const verifyToken = process.env.STRAVA_WEBHOOK_VERIFY_TOKEN;
   if (!callbackUrl) {
-    console.error('URL env var required (e.g. URL=https://app.example.com/api/webhooks/strava)');
+    console.error('Usage: webhook-manage.ts subscribe <callback_url>');
     process.exit(1);
   }
   if (!verifyToken) {
