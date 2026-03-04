@@ -41,3 +41,12 @@ jobs:
           tags: |
             ${{ env.IMAGE_PREFIX }}/worker:latest
             ${{ env.IMAGE_PREFIX }}/worker:${{ github.sha }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.bull-board
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/bull-board:latest
+            ${{ env.IMAGE_PREFIX }}/bull-board:${{ github.sha }}

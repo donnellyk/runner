@@ -73,9 +73,7 @@ services:
         condition: service_healthy
 
   bull-board:
-    build:
-      context: .
-      dockerfile: Dockerfile.bull-board
+    image: ghcr.io/donnellyk/runner/bull-board:latest
     ports:
       - "127.0.0.1:3001:3001"
     environment:
