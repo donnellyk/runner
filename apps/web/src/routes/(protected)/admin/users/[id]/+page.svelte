@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	let { data } = $props();
-	const user = data.profile;
+	let user = $derived(data.profile);
 
 	function tokenStatus(expiresAt: string | Date | null) {
 		if (!expiresAt) return { label: 'Missing', color: 'text-zinc-400' };
@@ -10,7 +12,7 @@
 		return { label: 'Valid', color: 'text-green-600' };
 	}
 
-	const status = tokenStatus(user.tokenExpiresAt);
+	let status = $derived(tokenStatus(user.tokenExpiresAt));
 
 	function handleUnitChange(event: Event) {
 		const target = event.currentTarget as HTMLInputElement;
@@ -44,7 +46,12 @@
 
 <h2 class="text-lg font-bold mb-3">Distance Units</h2>
 
-<form method="POST" action="?/updateUnits">
+<form method="POST" action="?/updateUnits" use:enhance={() => {
+	return async ({ update }) => {
+		await update();
+		await invalidateAll();
+	};
+}}>
 	<fieldset class="flex gap-4">
 		<label class="flex items-center gap-2 text-sm">
 			<input type="radio" name="distanceUnit" value="metric" checked={user.distanceUnit === 'metric'} onchange={handleUnitChange} />
