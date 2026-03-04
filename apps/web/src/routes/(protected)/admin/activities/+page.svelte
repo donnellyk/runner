@@ -1,8 +1,14 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { formatDistance } from '$lib/format';
 	let { data } = $props();
 	const units = data.user.distanceUnit as 'metric' | 'imperial';
+
+	function rowClick(event: MouseEvent, id: number) {
+		if ((event.target as HTMLElement).closest('button, a, form')) return;
+		goto(resolve(`/admin/activities/${id}`));
+	}
 
 	const totalPages = Math.ceil(data.total / data.pageSize);
 
@@ -94,10 +100,8 @@
 	</thead>
 	<tbody>
 		{#each data.activities as activity (activity.id)}
-			<tr class="border-b border-zinc-100">
-				<td class="py-2 pr-4">
-					<a href={resolve(`/admin/activities/${activity.id}`)} class="hover:underline">{activity.name}</a>
-				</td>
+			<tr class="border-b border-zinc-100 cursor-pointer hover:bg-zinc-50" onclick={(e) => rowClick(e, activity.id)}>
+				<td class="py-2 pr-4">{activity.name}</td>
 				<td class="py-2 pr-4">{activity.sportType}</td>
 				<td class="py-2 pr-4">
 					<span class="px-2 py-0.5 rounded text-xs {statusColor(activity.syncStatus)}">

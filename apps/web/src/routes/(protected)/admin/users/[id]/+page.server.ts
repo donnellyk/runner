@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { eq, sql, and } from 'drizzle-orm';
+import { eq, sql, and, desc } from 'drizzle-orm';
 import { getDb } from '@web-runner/db/client';
 import { users, oauthAccounts, activities } from '@web-runner/db/schema';
 import type { PageServerLoad, Actions } from './$types';
@@ -37,12 +37,27 @@ export const load: PageServerLoad = async ({ params }) => {
 		.from(activities)
 		.where(eq(activities.userId, userId));
 
+	const activityList = await db
+		.select({
+			id: activities.id,
+			name: activities.name,
+			sportType: activities.sportType,
+			syncStatus: activities.syncStatus,
+			startDate: activities.startDate,
+			distance: activities.distance,
+			movingTime: activities.movingTime,
+		})
+		.from(activities)
+		.where(eq(activities.userId, userId))
+		.orderBy(desc(activities.startDate));
+
 	return {
 		profile: {
 			...user,
 			activityCount: stats ? Number(stats.count) : 0,
 			lastSync: stats?.lastSync ?? null,
 		},
+		activities: activityList,
 	};
 };
 
