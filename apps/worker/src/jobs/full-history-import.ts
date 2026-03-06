@@ -42,6 +42,14 @@ export async function handleFullHistoryImport(
     if (page.length === 0) break;
 
     for (const act of page) {
+      const { workoutTypeFilter } = job.data;
+      const shouldImport = !workoutTypeFilter || workoutTypeFilter.includes(act.workout_type ?? 0);
+
+      // Only upsert stub rows for activities we're actually going to import.
+      // Skipping filtered-out activities avoids orphaned 'pending' rows that
+      // never get an activity-import job queued.
+      if (!shouldImport) continue;
+
       await db.insert(activities).values({
         externalId: String(act.id),
         source: 'strava',
@@ -90,14 +98,11 @@ export async function handleFullHistoryImport(
         },
       });
 
-      const { workoutTypeFilter } = job.data;
-      if (!workoutTypeFilter || workoutTypeFilter.includes(act.workout_type ?? 0)) {
-        await queue.add('activity-import', {
-          type: 'activity-import',
-          userId,
-          activityId: act.id,
-        }, { priority: JobPriority.activityImport });
-      }
+      await queue.add('activity-import', {
+        type: 'activity-import',
+        userId,
+        activityId: act.id,
+      }, { priority: JobPriority.activityImport });
     }
 
     totalImported += page.length;
