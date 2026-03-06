@@ -1,5 +1,24 @@
 <script lang="ts">
-	let { data } = $props();
+	import { enhance } from '$app/forms';
+
+	let { data, form } = $props();
+
+	let loading = $state(false);
+
+	function withLoading() {
+		loading = true;
+		return async ({ update }: { update: () => Promise<void> }) => {
+			await update();
+			loading = false;
+		};
+	}
+
+	const actionLabel: Record<string, string> = {
+		listActivities: 'List Activities (30 recent)',
+		listRaces: 'List Races (workout_type=1)',
+		refresh: 'Refresh (since last DB activity)',
+		getActivity: 'Get Activity',
+	};
 
 	function pct(usage: number, limit: number) {
 		return Math.min(100, Math.round((usage / limit) * 100));
@@ -82,3 +101,83 @@
 	Manage webhooks via CLI: <code>mise run webhook:subscribe</code>,
 	<code>mise run webhook:list</code>, <code>mise run webhook:delete</code>
 </div>
+
+<h2 class="text-lg font-bold mt-10 mb-4">API Explorer</h2>
+
+<form method="POST" use:enhance={withLoading} class="mb-6 space-y-4">
+	<div class="flex gap-4 items-end flex-wrap">
+		<label class="text-sm">
+			<span class="block text-zinc-500 mb-1">User</span>
+			<select name="userId" class="border border-zinc-300 rounded px-2 py-1 text-sm">
+				{#each data.users as u (u.id)}
+					<option value={u.id}>{u.firstName} {u.lastName}</option>
+				{/each}
+			</select>
+		</label>
+		<button
+			formaction="?/listActivities"
+			type="submit"
+			disabled={loading}
+			class="px-3 py-1 bg-zinc-800 text-white rounded text-sm disabled:opacity-50"
+		>
+			Full Sync
+		</button>
+		<button
+			formaction="?/listRaces"
+			type="submit"
+			disabled={loading}
+			class="px-3 py-1 bg-zinc-800 text-white rounded text-sm disabled:opacity-50"
+		>
+			Race Sync
+		</button>
+		<button
+			formaction="?/refresh"
+			type="submit"
+			disabled={loading}
+			class="px-3 py-1 border border-zinc-300 rounded text-sm disabled:opacity-50"
+		>
+			Refresh
+		</button>
+	</div>
+
+	<div class="flex gap-4 items-end">
+		<label class="text-sm">
+			<span class="block text-zinc-500 mb-1">Strava Activity ID</span>
+			<input
+				type="number"
+				name="activityId"
+				placeholder="e.g. 1234567890"
+				class="border border-zinc-300 rounded px-2 py-1 text-sm w-40 font-mono"
+			/>
+		</label>
+		<button
+			formaction="?/getActivity"
+			type="submit"
+			disabled={loading}
+			class="px-3 py-1 border border-zinc-300 rounded text-sm disabled:opacity-50"
+		>
+			Get Activity
+		</button>
+	</div>
+</form>
+
+{#if loading}
+	<div class="text-sm text-zinc-500 mb-4">Fetching from Strava…</div>
+{/if}
+
+{#if form && 'error' in form}
+	<div class="text-sm text-red-600 mb-4">{form.error}</div>
+{/if}
+
+{#if form && 'rateLimit' in form}
+	<div class="flex items-center gap-6 text-xs text-zinc-500 mb-3">
+		<span class="font-medium text-zinc-700">{actionLabel[form.action]}</span>
+		<span>
+			{form.items.length} result{form.items.length === 1 ? '' : 's'}{#if 'scanned' in form}&nbsp;(scanned {form.scanned}){/if}{#if 'after' in form}&nbsp;· after {new Date(form.after * 1000).toLocaleString()}{/if}
+		</span>
+		<span class="ml-auto">
+			Rate limit: {form.rateLimit.usage.shortTerm}/{form.rateLimit.limits.shortTerm} (15m) &middot; {form.rateLimit.usage.daily}/{form.rateLimit.limits.daily} (daily)
+		</span>
+	</div>
+	<pre class="bg-zinc-950 text-zinc-100 text-xs p-4 rounded overflow-auto max-h-[70vh] font-mono leading-relaxed">{JSON.stringify(form.items, null, 2)}</pre>
+{/if}

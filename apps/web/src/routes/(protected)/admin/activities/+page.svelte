@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
+	import { enhance } from '$app/forms';
 	import { formatDistance } from '$lib/format';
 	let { data } = $props();
 	const units = data.user.distanceUnit as 'metric' | 'imperial';
@@ -46,7 +47,22 @@
 	}
 </script>
 
-<h1 class="text-2xl font-bold mb-6">Activities</h1>
+<div class="flex items-start justify-between mb-6">
+	<h1 class="text-2xl font-bold">Activities</h1>
+	<form method="POST" action="?/importRaces" use:enhance class="flex items-center gap-2">
+		<select name="userId" class="border border-zinc-300 rounded px-2 py-1 text-sm">
+			{#each data.users as u (u.id)}
+				<option value={u.id}>{u.firstName} {u.lastName}</option>
+			{/each}
+		</select>
+		<button
+			type="submit"
+			class="px-3 py-1 bg-zinc-800 text-white rounded text-sm hover:bg-zinc-600"
+		>
+			Import races
+		</button>
+	</form>
+</div>
 
 <form method="GET" class="flex gap-3 mb-6 items-end">
 	<label class="text-sm">

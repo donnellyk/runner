@@ -70,3 +70,42 @@ export function formatSegmentDistance(meters: number | null, units: Units): stri
 export function segmentDistanceLabel(units: Units): string {
 	return units === 'imperial' ? 'ft' : 'm';
 }
+
+/** Format seconds (moving time) as "1h 12m" or "38m" */
+export function formatDuration(seconds: number | null): string {
+	if (!seconds) return '-';
+	const h = Math.floor(seconds / 3600);
+	const m = Math.floor((seconds % 3600) / 60);
+	const s = seconds % 60;
+	if (h > 0) return `${h}h ${m}m`;
+	if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
+	return `${s}s`;
+}
+
+/** Format seconds as "H:MM:SS" or "M:SS" */
+export function formatDurationClock(seconds: number | null): string {
+	if (!seconds) return '-';
+	const h = Math.floor(seconds / 3600);
+	const m = Math.floor((seconds % 3600) / 60);
+	const s = seconds % 60;
+	const mm = String(m).padStart(2, '0');
+	const ss = String(s).padStart(2, '0');
+	return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
+}
+
+/** Parse a "M:SS" pace input string into sec/km. Returns null on invalid input. */
+export function parsePaceInput(input: string): number | null {
+	const match = input.match(/^(\d+):(\d{2})$/);
+	if (!match) return null;
+	const secs = parseInt(match[2]);
+	if (secs >= 60) return null;
+	return parseInt(match[1]) * 60 + secs;
+}
+
+/** Format sec/km as "M:SS" string for pace input fields */
+export function formatPaceForInput(secPerKm: number | null): string {
+	if (secPerKm == null) return '';
+	const m = Math.floor(secPerKm / 60);
+	const s = Math.round(secPerKm % 60);
+	return `${m}:${String(s).padStart(2, '0')}`;
+}

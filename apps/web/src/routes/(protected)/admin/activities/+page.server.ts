@@ -115,4 +115,21 @@ export const actions: Actions = {
 		const queue = getQueue();
 		await queue.add('full-history-import', jobData, { priority: JobPriority.fullHistoryImport });
 	},
+
+	importRaces: async ({ request, locals }) => {
+		if (!locals.user?.isAdmin) return fail(403);
+
+		const data = await request.formData();
+		const userId = Number(data.get('userId'));
+		if (!Number.isFinite(userId) || userId <= 0) return fail(400, { error: 'Invalid userId' });
+
+		// Strava workout_type=1 is Race for runs
+		const jobData: FullHistoryImportJobData = {
+			type: 'full-history-import',
+			userId,
+			workoutTypeFilter: [1],
+		};
+		const queue = getQueue();
+		await queue.add('full-history-import', jobData, { priority: JobPriority.fullHistoryImport });
+	},
 };

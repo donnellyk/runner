@@ -33,6 +33,9 @@
 			<button formaction="?/triggerSync" type="submit" class="px-3 py-1 bg-zinc-800 text-white rounded text-sm">
 				Full Sync
 			</button>
+			<button formaction="?/importRaces" type="submit" class="px-3 py-1 bg-zinc-800 text-white rounded text-sm">
+				Import Races
+			</button>
 			<button formaction="?/refreshSync" type="submit" class="px-3 py-1 border border-zinc-300 rounded text-sm">
 				Refresh
 			</button>

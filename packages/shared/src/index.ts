@@ -1,4 +1,16 @@
 export { APP_NAME, DEFAULT_TIMEZONE } from './constants.js';
+export {
+	type ZoneType,
+	type ZoneDefinition,
+	DEFAULT_ZONES,
+	RACE_DISTANCES,
+	ZONE_CALC_PRIORITY,
+	raceDistanceBounds,
+	estimateThresholdPace,
+	zonesFromThresholdPace,
+	zonesFromLTHR,
+	estimateLTHR,
+} from './zones.js';
 export { SportType, WorkoutType } from './activity-types.js';
 export {
 	QUEUE_NAME,

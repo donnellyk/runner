@@ -17,6 +17,8 @@ export interface FullHistoryImportJobData {
 	userId: number;
 	/** Unix epoch (seconds). When set, only sync activities after this timestamp. */
 	after?: number;
+	/** When set, only queue activity-import for activities with these Strava workout_type values. */
+	workoutTypeFilter?: number[];
 }
 
 export interface WebhookEventJobData {

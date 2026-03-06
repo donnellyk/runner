@@ -57,6 +57,22 @@ export const actions: Actions = {
 		await queue.add('full-history-import', jobData, { priority: JobPriority.fullHistoryImport });
 	},
 
+	importRaces: async ({ request, locals }) => {
+		if (!locals.user?.isAdmin) return fail(403);
+
+		const data = await request.formData();
+		const parsed = parseIntParam(data.get('userId'), 'userId');
+		if ('error' in parsed) return fail(400, { error: parsed.error });
+
+		const jobData: FullHistoryImportJobData = {
+			type: 'full-history-import',
+			userId: parsed.value,
+			workoutTypeFilter: [1],
+		};
+		const queue = getQueue();
+		await queue.add('full-history-import', jobData, { priority: JobPriority.fullHistoryImport });
+	},
+
 	refreshSync: async ({ request, locals }) => {
 		if (!locals.user?.isAdmin) return fail(403);
 

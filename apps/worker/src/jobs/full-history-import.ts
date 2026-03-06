@@ -90,11 +90,14 @@ export async function handleFullHistoryImport(
         },
       });
 
-      await queue.add('activity-import', {
-        type: 'activity-import',
-        userId,
-        activityId: act.id,
-      }, { priority: JobPriority.activityImport });
+      const { workoutTypeFilter } = job.data;
+      if (!workoutTypeFilter || workoutTypeFilter.includes(act.workout_type ?? 0)) {
+        await queue.add('activity-import', {
+          type: 'activity-import',
+          userId,
+          activityId: act.id,
+        }, { priority: JobPriority.activityImport });
+      }
     }
 
     totalImported += page.length;

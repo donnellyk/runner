@@ -123,3 +123,73 @@ describe('segmentDistanceLabel', () => {
 		expect(segmentDistanceLabel('imperial')).toBe('ft');
 	});
 });
+
+import {
+	formatDuration,
+	formatDurationClock,
+	parsePaceInput,
+	formatPaceForInput,
+} from './format';
+
+describe('formatDuration', () => {
+	test('returns dash for null', () => {
+		expect(formatDuration(null)).toBe('-');
+		expect(formatDuration(0)).toBe('-');
+	});
+
+	test('formats hours and minutes', () => {
+		expect(formatDuration(3672)).toBe('1h 1m');
+		expect(formatDuration(4800)).toBe('1h 20m');
+	});
+
+	test('formats minutes and seconds', () => {
+		expect(formatDuration(2305)).toBe('38m 25s');
+	});
+
+	test('formats seconds only', () => {
+		expect(formatDuration(45)).toBe('45s');
+	});
+});
+
+describe('formatDurationClock', () => {
+	test('returns dash for null', () => {
+		expect(formatDurationClock(null)).toBe('-');
+	});
+
+	test('formats with hours', () => {
+		expect(formatDurationClock(3672)).toBe('1:01:12');
+	});
+
+	test('formats without hours', () => {
+		expect(formatDurationClock(330)).toBe('5:30');
+	});
+
+	test('pads minutes and seconds', () => {
+		expect(formatDurationClock(65)).toBe('1:05');
+	});
+});
+
+describe('parsePaceInput', () => {
+	test('parses valid M:SS input', () => {
+		expect(parsePaceInput('5:30')).toBe(330);
+		expect(parsePaceInput('8:05')).toBe(485);
+	});
+
+	test('returns null for invalid input', () => {
+		expect(parsePaceInput('')).toBeNull();
+		expect(parsePaceInput('5:60')).toBeNull();
+		expect(parsePaceInput('abc')).toBeNull();
+		expect(parsePaceInput('5:3')).toBeNull();
+	});
+});
+
+describe('formatPaceForInput', () => {
+	test('returns empty string for null', () => {
+		expect(formatPaceForInput(null)).toBe('');
+	});
+
+	test('formats sec/km to M:SS', () => {
+		expect(formatPaceForInput(330)).toBe('5:30');
+		expect(formatPaceForInput(485)).toBe('8:05');
+	});
+});
