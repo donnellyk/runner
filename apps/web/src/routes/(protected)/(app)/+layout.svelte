@@ -36,7 +36,7 @@
 						Admin
 					</a>
 				{/if}
-				<form method="POST" action="/auth/logout" use:enhance class="ml-2">
+				<form method="POST" action="/auth/logout" use:enhance class="ml-2 flex items-center">
 					<button class="text-xs text-zinc-400 hover:text-zinc-600">Logout</button>
 				</form>
 			</nav>

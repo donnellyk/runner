@@ -5,6 +5,7 @@
     import LapsChart from "$lib/components/LapsChart.svelte";
     import StatCard from "$lib/components/StatCard.svelte";
     import { sportColor, workoutBadge } from "$lib/activity-colors";
+    import { bucketAvgIndices } from "$lib/sampling";
     import {
         formatDistance,
         formatPace,
@@ -22,6 +23,9 @@
 
     let crosshairIndex = $state<number | null>(null);
     let xAxis = $state<"distance" | "time">("distance");
+    const SMOOTHING_WINDOW = 2;
+    const PAUSE_THRESHOLD = 1.0; // m/s
+    const SAMPLE_POINTS = 500;
 
     const KM_TO_MI_PACE = 1.60934;
     const M_TO_FT = 3.28084;
@@ -30,8 +34,6 @@
         const s = streamMap[type];
         return Array.isArray(s) && s.length > 0 ? s : null;
     }
-
-    const PAUSE_VELOCITY_MS = 0.3; // m/s — below this is considered paused/stationary
 
     const velocityStream = $derived(getStream("velocity_smooth"));
 
@@ -44,7 +46,9 @@
     });
 
     const pausedMask = $derived(
-        velocityStream ? velocityStream.map((ms) => ms < PAUSE_VELOCITY_MS) : null,
+        velocityStream
+            ? velocityStream.map((ms) => ms < PAUSE_THRESHOLD)
+            : null,
     );
 
     const paceZonesDisplay = $derived(
@@ -66,16 +70,13 @@
     const distStream = $derived(getStream("distance"));
     const timeStream = $derived(getStream("time"));
 
-    // Downsample all streams at shared indices so crosshair sync stays consistent
-    const MAX_CHART_POINTS = 500;
-
+    // Downsample all streams at shared indices so crosshair sync stays consistent.
+    // Uses bucket averaging: divides into samplePoints buckets and picks the point
+    // closest to each bucket's mean, diluting spikes without a separate smoothing pass.
     const chartIndices = $derived.by(() => {
-        const len = distStream?.length ?? paceStream?.length ?? 0;
-        if (len <= MAX_CHART_POINTS) return null;
-        const stride = len / MAX_CHART_POINTS;
-        return Array.from({ length: MAX_CHART_POINTS }, (_, i) =>
-            Math.round(i * stride),
-        );
+        const len = velocityStream?.length ?? distStream?.length ?? 0;
+        if (len <= SAMPLE_POINTS) return null;
+        return bucketAvgIndices(velocityStream ?? Array.from({ length: len }, () => 0), SAMPLE_POINTS);
     });
 
     function sample<T>(stream: T[] | null): T[] | null {
@@ -119,7 +120,9 @@
     );
     const markerCoord = $derived.by((): [number, number] | null => {
         if (crosshairIndex == null || !latlngStream) return null;
-        const origIdx = chartIndices ? chartIndices[crosshairIndex] : crosshairIndex;
+        const origIdx = chartIndices
+            ? chartIndices[crosshairIndex]
+            : crosshairIndex;
         const pt = latlngStream[origIdx];
         if (!pt) return null;
         return [pt[1], pt[0]]; // latlng stream is [lat, lng]; RouteMap wants [lng, lat]
@@ -155,6 +158,34 @@
         const unit = units === "imperial" ? "/mi" : "/km";
         return `${mins}:${String(secs).padStart(2, "0")} ${unit}`;
     }
+
+    function exportPaceJson() {
+        const payload = {
+            activityId: a.id,
+            exportedAt: new Date().toISOString(),
+            settings: { smoothingWindow: SMOOTHING_WINDOW, pauseThreshold: PAUSE_THRESHOLD, samplePoints: SAMPLE_POINTS, units },
+            chartData: {
+                pace: chartPace,
+                distance: chartDist,
+                time: chartTime,
+                pausedMask: chartPausedMask,
+            },
+            rawStreams: {
+                velocity_smooth: velocityStream,
+                distance: distStream,
+                time: timeStream,
+            },
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], {
+            type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `activity-${a.id}-pace.json`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+    }
 </script>
 
 <div class="mb-6 flex items-center justify-between">
@@ -162,13 +193,13 @@
         href={resolve("/activities")}
         class="text-sm text-zinc-400 hover:text-zinc-700">&larr; Activities</a
     >
-    {#if a.source === 'strava'}
+    {#if a.source === "strava"}
         <a
             href="https://www.strava.com/activities/{a.externalId}"
             target="_blank"
             rel="noopener noreferrer"
-            class="text-sm text-zinc-400 hover:text-zinc-700"
-        >Strava &nearr;</a>
+            class="text-sm text-zinc-400 hover:text-zinc-700">Strava &nearr;</a
+        >
     {/if}
 </div>
 
@@ -253,23 +284,34 @@
             >
                 Charts
             </h2>
-            <div class="flex gap-1">
-                <button
-                    onclick={() => (xAxis = "distance")}
-                    class="px-2.5 py-1 text-xs rounded {xAxis === 'distance'
-                        ? 'bg-zinc-900 text-white'
-                        : 'text-zinc-500 hover:bg-zinc-100'}"
-                >
-                    Distance
-                </button>
-                <button
-                    onclick={() => (xAxis = "time")}
-                    class="px-2.5 py-1 text-xs rounded {xAxis === 'time'
-                        ? 'bg-zinc-900 text-white'
-                        : 'text-zinc-500 hover:bg-zinc-100'}"
-                >
-                    Time
-                </button>
+            <div class="flex items-center gap-3">
+                {#if chartPace && data.user.isAdmin}
+                    <button
+                        onclick={exportPaceJson}
+                        class="px-2 py-1 text-xs rounded text-zinc-400 hover:bg-zinc-100 font-mono"
+                        title="Download pace chart data as JSON"
+                        >JSON ↓</button
+                    >
+                    <div class="w-px h-3 bg-zinc-200"></div>
+                {/if}
+                <div class="flex gap-1">
+                    <button
+                        onclick={() => (xAxis = "distance")}
+                        class="px-2.5 py-1 text-xs rounded {xAxis === 'distance'
+                            ? 'bg-zinc-900 text-white'
+                            : 'text-zinc-500 hover:bg-zinc-100'}"
+                    >
+                        Distance
+                    </button>
+                    <button
+                        onclick={() => (xAxis = "time")}
+                        class="px-2.5 py-1 text-xs rounded {xAxis === 'time'
+                            ? 'bg-zinc-900 text-white'
+                            : 'text-zinc-500 hover:bg-zinc-100'}"
+                    >
+                        Time
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -285,6 +327,8 @@
                 unit=""
                 formatValue={formatPaceSec}
                 pausedMask={chartPausedMask ?? undefined}
+                showPauseGaps={true}
+                smoothingWindow={SMOOTHING_WINDOW}
                 invertY={true}
                 zones={paceZonesDisplay}
                 zoneMetric="pace"

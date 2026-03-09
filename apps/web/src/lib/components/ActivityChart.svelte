@@ -18,11 +18,15 @@
 		formatValue?: (v: number) => string;
 		/**
 		 * Per-point boolean mask (same length as data). true = paused/stationary.
-		 * When provided: enables gap rendering, restricts y-axis to running data only.
+		 * When provided: restricts y-axis to running data only, improves smoothing.
 		 */
 		pausedMask?: boolean[];
+		/** Whether to render pause gaps (dashed lines). Requires pausedMask. Default true. */
+		showPauseGaps?: boolean;
 		/** Invert the y-axis so higher data values map to the bottom (e.g. pace: faster = up) */
 		invertY?: boolean;
+		/** Moving-average window half-width (default 5). Set to 0 to disable smoothing. */
+		smoothingWindow?: number;
 	}
 
 	let {
@@ -40,7 +44,9 @@
 		oncrosshairmove,
 		formatValue,
 		pausedMask,
+		showPauseGaps = true,
 		invertY = false,
+		smoothingWindow = 5,
 	}: Props = $props();
 
 	function fmt(v: number): string {
@@ -64,7 +70,7 @@
 		return () => ro.disconnect();
 	});
 
-	const CHART_H = 160;
+	const CHART_H = 240;
 	let chartW = $derived(svgWidth - PAD_LEFT - PAD_RIGHT);
 	let chartH = $derived(CHART_H - PAD_TOP - PAD_BOTTOM);
 
@@ -91,7 +97,8 @@
 
 	// Moving average — skips paused points so they don't bleed into transitions
 	let smoothData = $derived.by(() => {
-		const w = 5;
+		if (smoothingWindow === 0) return trimData.slice();
+		const w = smoothingWindow;
 		const mask = trimPausedMask;
 		return trimData.map((_, i) => {
 			const lo = Math.max(0, i - w);
@@ -307,7 +314,7 @@
 			/>
 		{/each}
 
-		{#if pauseResult}
+		{#if showPauseGaps && pauseResult}
 			{#each pauseResult.segs as seg}
 				<polyline
 					points={smoothData.slice(seg.startIdx, seg.endIdx + 1).map((v, j) => `${toX(trimXData[seg.startIdx + j])},${toY(v)}`).join(' ')}
@@ -320,10 +327,16 @@
 				/>
 			{/each}
 			{#each pauseResult.gaps as gap}
-				<line x1={gap.x1} y1={PAD_TOP} x2={gap.x1} y2={PAD_TOP + chartH}
-					stroke="#d4d4d8" stroke-width="1.5" stroke-dasharray="3,3" />
-				<line x1={gap.x2} y1={PAD_TOP} x2={gap.x2} y2={PAD_TOP + chartH}
-					stroke="#d4d4d8" stroke-width="1.5" stroke-dasharray="3,3" />
+				{#if xAxis === 'time'}
+					<line x1={gap.x1} y1={PAD_TOP} x2={gap.x1} y2={PAD_TOP + chartH}
+						stroke="#d4d4d8" stroke-width="1.5" stroke-dasharray="3,3" />
+					<line x1={gap.x2} y1={PAD_TOP} x2={gap.x2} y2={PAD_TOP + chartH}
+						stroke="#d4d4d8" stroke-width="1.5" stroke-dasharray="3,3" />
+				{:else}
+					{@const mx = (gap.x1 + gap.x2) / 2}
+					<line x1={mx} y1={PAD_TOP} x2={mx} y2={PAD_TOP + chartH}
+						stroke="#d4d4d8" stroke-width="1.5" stroke-dasharray="3,3" />
+				{/if}
 			{/each}
 		{:else}
 			<polyline
@@ -407,5 +420,16 @@
 				{lbl.label}
 			</text>
 		{/each}
+
 	</svg>
+	{#if zones && zones.length > 0}
+		<div class="flex items-center justify-end gap-3 mt-1" style="padding-left: {PAD_LEFT}px;">
+			{#each zones as zone}
+				<div class="flex items-center gap-1">
+					<span class="inline-block w-1.5 h-1.5 rounded-full" style="background: {zone.color};"></span>
+					<span class="text-[9px] text-zinc-400" style="font-family: 'Geist Mono', monospace;">{zone.name}</span>
+				</div>
+			{/each}
+		</div>
+	{/if}
 </div>
