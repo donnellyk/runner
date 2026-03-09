@@ -7,6 +7,7 @@
 - [ ] Phase 3: Strava Data Pipeline
 - [ ] Phase 3b: Admin Tooling
 - [ ] Phase 4a: Activity Views & Charts
+- [ ] Phase 4a.1: Activity Notes
 - [ ] Phase 4b: Activity Overlay & Comparison
 - [ ] Phase 5: Training Plans
 - [ ] Phase 6: Workout Scoring
@@ -104,6 +105,24 @@ The first user-facing feature. Browse activities and visualize individual effort
 - API endpoints for all of the above
 
 **Exit criteria:** A user can browse their activities, view detailed charts for any activity, and define their effort zones.
+
+---
+
+## Phase 4a.1: Activity Notes
+**Scope: Small-Medium**
+
+Distance-anchored notes on activities. A note can reference a single point (e.g., "4 km: Took a gel") or a range (e.g., "1 km – 1.5 km: This hill felt harder than expected"). Notes appear as visual indicators on the route map and stream charts, with a toggle to show/hide.
+
+- `activity_notes` table: point or range notes anchored to distance (meters)
+- CRUD API endpoints for notes on an activity
+- Visual markers on RouteMap (CircleMarker for points, highlighted polyline segment for ranges)
+- Visual indicators on ActivityChart (vertical lines/shaded regions at note distances)
+- Notes list panel on the activity detail page with inline add/edit/delete
+- Toggle to show/hide note indicators on map and charts
+- Clicking a note scrolls/highlights the corresponding map and chart indicators
+- Tests for note CRUD, distance validation, and display logic
+
+**Exit criteria:** A user can create, edit, and delete distance-anchored notes on an activity. Notes appear as toggleable visual indicators on the map and all stream charts.
 
 ---
 
