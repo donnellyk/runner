@@ -18,16 +18,23 @@
 
 	const activeZones = $derived(zoneType === 'pace' ? paceZones : hrZones);
 
+	const KM_TO_MI = 1.60934;
+
+	// Zones are always stored as sec/km internally. Convert for display/input when imperial.
 	function getPaceInput(val: number | null): string {
-		return val == null ? '' : formatPaceForInput(val);
+		if (val == null) return '';
+		const display = units === 'imperial' ? val * KM_TO_MI : val;
+		return formatPaceForInput(display);
 	}
 
 	function setPaceMin(zone: ZoneDefinition, value: string) {
-		zone.paceMin = parsePaceInput(value);
+		const parsed = parsePaceInput(value);
+		zone.paceMin = parsed == null ? null : units === 'imperial' ? parsed / KM_TO_MI : parsed;
 	}
 
 	function setPaceMax(zone: ZoneDefinition, value: string) {
-		zone.paceMax = parsePaceInput(value);
+		const parsed = parsePaceInput(value);
+		zone.paceMax = parsed == null ? null : units === 'imperial' ? parsed / KM_TO_MI : parsed;
 	}
 
 	import { resolve } from '$app/paths';
@@ -132,8 +139,8 @@
 								<input
 									type="text"
 									placeholder="M:SS"
-									value={getPaceInput(zone.paceMax)}
-									oninput={(e) => { setPaceMax(zone, (e.target as HTMLInputElement).value); }}
+									value={getPaceInput(zone.paceMin)}
+									oninput={(e) => { setPaceMin(zone, (e.target as HTMLInputElement).value); }}
 									class="w-16 px-2 py-1 text-xs font-mono border border-zinc-200 rounded text-center"
 									style="font-variant-numeric: tabular-nums;"
 								/>

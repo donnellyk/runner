@@ -88,9 +88,9 @@
 			class="border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white text-zinc-700"
 		>
 			<option value="">Any type</option>
-			<option value="Race"     selected={data.filters.workout === 'Race'}>Race</option>
-			<option value="Workout"  selected={data.filters.workout === 'Workout'}>Workout</option>
-			<option value="Long Run" selected={data.filters.workout === 'Long Run'}>Long run</option>
+			<option value="race"     selected={data.filters.workout === 'race'}>Race</option>
+			<option value="workout"  selected={data.filters.workout === 'workout'}>Workout</option>
+			<option value="long_run" selected={data.filters.workout === 'long_run'}>Long run</option>
 		</select>
 	</form>
 </div>

@@ -103,6 +103,20 @@
 
     const routeCoords = $derived(getRouteCoords());
 
+    // Map marker: find the latlng at the crosshair's original stream index
+    const latlngStream = $derived(
+        Array.isArray(streamMap["latlng"]) && streamMap["latlng"].length > 0
+            ? (streamMap["latlng"] as unknown as [number, number][])
+            : null,
+    );
+    const markerCoord = $derived.by((): [number, number] | null => {
+        if (crosshairIndex == null || !latlngStream) return null;
+        const origIdx = chartIndices ? chartIndices[crosshairIndex] : crosshairIndex;
+        const pt = latlngStream[origIdx];
+        if (!pt) return null;
+        return [pt[1], pt[0]]; // latlng stream is [lat, lng]; RouteMap wants [lng, lat]
+    });
+
     const avgPace = $derived(
         a.averageSpeed ? formatPace(a.averageSpeed, units) : null,
     );
@@ -211,7 +225,7 @@
 
 {#if routeCoords}
     <div class="mb-8">
-        <RouteMap coordinates={routeCoords} />
+        <RouteMap coordinates={routeCoords} marker={markerCoord} />
     </div>
 {/if}
 
@@ -254,7 +268,8 @@
                 color="var(--color-stream-pace)"
                 unit=""
                 formatValue={formatPaceSec}
-                yMaxPercentile={0.97}
+                yMaxPercentile={0.9815}
+                yAvgCenter={true}
                 showPauseGaps={true}
                 zones={paceZonesDisplay}
                 zoneMetric="pace"

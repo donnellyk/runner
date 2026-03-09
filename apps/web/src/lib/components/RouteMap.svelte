@@ -4,16 +4,22 @@
 
 	interface Props {
 		coordinates: [number, number][];
+		/** [lng, lat] of the crosshair position, or null */
+		marker?: [number, number] | null;
 	}
 
-	let { coordinates }: Props = $props();
+	let { coordinates, marker = null }: Props = $props();
 	let mapEl: HTMLDivElement;
 
-	onMount(() => {
-		let map: L.Map | undefined;
+	// Non-reactive refs — Leaflet objects must not be wrapped in Svelte's proxy
+	let leafletRef: typeof L | null = null;
+	let mapRef: L.Map | null = null;
+	let markerCircle: L.CircleMarker | null = null;
+	let ready = $state(false);
 
+	onMount(() => {
 		import('leaflet').then((leaflet) => {
-			map = leaflet.map(mapEl, { zoomControl: false, attributionControl: false });
+			const map = leaflet.map(mapEl, { zoomControl: false, attributionControl: false });
 
 			leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 				maxZoom: 19,
@@ -22,9 +28,29 @@
 			const latLngs: L.LatLngTuple[] = coordinates.map(([lng, lat]) => [lat, lng]);
 			const polyline = leaflet.polyline(latLngs, { color: '#3b82f6', weight: 3 }).addTo(map);
 			map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
+
+			leafletRef = leaflet;
+			mapRef = map;
+			ready = true;
 		});
 
-		return () => map?.remove();
+		return () => mapRef?.remove();
+	});
+
+	$effect(() => {
+		if (!ready || !leafletRef || !mapRef) return;
+		markerCircle?.remove();
+		markerCircle = null;
+		if (marker) {
+			const [lng, lat] = marker;
+			markerCircle = leafletRef.circleMarker([lat, lng], {
+				radius: 5,
+				color: 'white',
+				fillColor: '#3b82f6',
+				fillOpacity: 1,
+				weight: 2,
+			}).addTo(mapRef);
+		}
 	});
 </script>
 

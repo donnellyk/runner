@@ -68,6 +68,7 @@ export const actions: Actions = {
 			type: 'full-history-import',
 			userId: parsed.value,
 			workoutTypeFilter: [1],
+			after: 0, // override dev SYNC_AFTER limit — races can be at any point in history
 		};
 		const queue = getQueue();
 		await queue.add('full-history-import', jobData, { priority: JobPriority.fullHistoryImport });

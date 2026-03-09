@@ -48,8 +48,9 @@
 	}
 </script>
 
-<div class="mb-4">
+<div class="mb-4 flex items-center justify-between">
 	<a href={resolve('/admin/activities')} class="text-sm text-zinc-500 hover:text-zinc-800">&larr; Back</a>
+	<a href={resolve(`/activities/${a.id}`)} class="text-sm text-zinc-500 hover:text-zinc-800">View on site &rarr;</a>
 </div>
 
 <h1 class="text-2xl font-bold mb-6">{a.name}</h1>

@@ -19,6 +19,8 @@
 		formatValue?: (v: number) => string;
 		/** Clamp yMax to this percentile (0–1) to suppress outlier spikes */
 		yMaxPercentile?: number;
+		/** Center yMin/yMax symmetrically around the average, ignoring zeros */
+		yAvgCenter?: boolean;
 		/** Detect pauses and render gaps with vertical bookend markers */
 		showPauseGaps?: boolean;
 	}
@@ -38,6 +40,7 @@
 		oncrosshairmove,
 		formatValue,
 		yMaxPercentile = 1,
+		yAvgCenter = false,
 		showPauseGaps = false,
 	}: Props = $props();
 
@@ -45,7 +48,6 @@
 		return formatValue ? formatValue(v) : `${v.toFixed(0)}${unit}`;
 	}
 
-	const CHART_H = 160;
 	const PAD_TOP = 8;
 	const PAD_BOTTOM = 20;
 	const PAD_LEFT = 54;
@@ -63,6 +65,7 @@
 		return () => ro.disconnect();
 	});
 
+	const CHART_H = 160;
 	let chartW = $derived(svgWidth - PAD_LEFT - PAD_RIGHT);
 	let chartH = $derived(CHART_H - PAD_TOP - PAD_BOTTOM);
 
@@ -80,13 +83,27 @@
 	let xMin = $derived(trimXData[0] ?? 0);
 	let xMax = $derived(trimXData[trimXData.length - 1] ?? 1);
 
-	let yMin = $derived(Math.min(...trimData));
-	let yMax = $derived.by(() => {
-		if (yMaxPercentile >= 1) return Math.max(...trimData);
-		const sorted = [...trimData].sort((a, b) => a - b);
-		const idx = Math.min(Math.floor(sorted.length * yMaxPercentile), sorted.length - 1);
-		return sorted[idx];
+	let yBounds = $derived.by(() => {
+		const sorted = [...trimData].filter((v) => v > 0).sort((a, b) => a - b);
+
+		if (!yAvgCenter || sorted.length === 0) {
+			const yMaxVal =
+				yMaxPercentile >= 1
+					? Math.max(...trimData)
+					: sorted[Math.min(Math.floor(sorted.length * yMaxPercentile), sorted.length - 1)] ?? 1;
+			return { yMin: Math.min(...trimData), yMax: yMaxVal };
+		}
+
+		// yMax: percentile of raw values (clips slow outliers / pauses)
+		const yMaxVal = sorted[Math.min(Math.floor(sorted.length * yMaxPercentile), sorted.length - 1)];
+		// avg: only from values within the cap so avg is always ≤ yMax
+		const capped = sorted.filter((v) => v <= yMaxVal);
+		const avg = capped.reduce((a, b) => a + b, 0) / capped.length;
+		// Mirror symmetrically: avg sits exactly at midline
+		return { yMin: Math.max(0, 2 * avg - yMaxVal), yMax: yMaxVal };
 	});
+	let yMin = $derived(yBounds.yMin);
+	let yMax = $derived(yBounds.yMax);
 	let yRange = $derived(yMax - yMin || 1);
 
 	function toX(xVal: number): number {
@@ -168,6 +185,22 @@
 			? toX(trimXData[crosshairIndex])
 			: null,
 	);
+
+	let crosshairY = $derived(
+		crosshairIndex != null && smoothData[crosshairIndex] != null
+			? toY(smoothData[crosshairIndex])
+			: null,
+	);
+
+	let crosshairXLabel = $derived.by(() => {
+		if (crosshairIndex == null || trimXData[crosshairIndex] == null) return null;
+		const v = trimXData[crosshairIndex];
+		return xAxis === 'distance'
+			? units === 'imperial'
+				? `${(v / 1609.34).toFixed(2)} mi`
+				: `${(v / 1000).toFixed(2)} km`
+			: `${Math.floor(v / 60)}:${String(v % 60).padStart(2, '0')}`;
+	});
 
 	let tooltipValue = $derived(crosshairIndex != null ? trimData[crosshairIndex] : null);
 	let tooltipPaused = $derived(
@@ -296,9 +329,9 @@
 			{/each}
 			{#each pauseResult.gaps as gap}
 				<line x1={gap.x1} y1={PAD_TOP} x2={gap.x1} y2={PAD_TOP + chartH}
-					stroke="#d4d4d8" stroke-width="1.5" />
+					stroke="#d4d4d8" stroke-width="1.5" stroke-dasharray="3,3" />
 				<line x1={gap.x2} y1={PAD_TOP} x2={gap.x2} y2={PAD_TOP + chartH}
-					stroke="#d4d4d8" stroke-width="1.5" />
+					stroke="#d4d4d8" stroke-width="1.5" stroke-dasharray="3,3" />
 			{/each}
 		{:else}
 			<polyline
@@ -312,7 +345,8 @@
 			/>
 		{/if}
 
-		{#if crosshairX != null}
+		{#if crosshairX != null && crosshairY != null}
+			<!-- Vertical line -->
 			<line
 				x1={crosshairX}
 				y1={PAD_TOP}
@@ -322,6 +356,51 @@
 				stroke-width="1"
 				stroke-dasharray="3,2"
 			/>
+			<!-- Horizontal line + Y label -->
+			{#if !tooltipPaused}
+				<line
+					x1={PAD_LEFT}
+					y1={crosshairY}
+					x2={PAD_LEFT + chartW}
+					y2={crosshairY}
+					stroke="#a1a1aa"
+					stroke-width="1"
+					stroke-dasharray="3,2"
+				/>
+				{#if tooltipValue != null}
+					{@const labelText = fmt(tooltipValue)}
+					{@const labelW = labelText.length * 5.5 + 8}
+					<foreignObject x={PAD_LEFT - labelW - 2} y={crosshairY - 7} width={labelW} height={13}>
+						<div style="width:100%;height:100%;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);background:rgba(255,255,255,0.5);border-radius:2px;"></div>
+					</foreignObject>
+					<text
+						x={PAD_LEFT - 6}
+						y={crosshairY + 3}
+						text-anchor="end"
+						fill="#3f3f46"
+						font-size="9"
+						font-weight="500"
+						font-family="'Geist Mono', monospace"
+					>{labelText}</text>
+				{/if}
+			{/if}
+			<!-- X label -->
+			{#if crosshairXLabel != null}
+				{@const lw = crosshairXLabel.length * 5.5 + 8}
+				{@const lx = Math.min(Math.max(crosshairX, PAD_LEFT + lw / 2), PAD_LEFT + chartW - lw / 2)}
+				<foreignObject x={lx - lw / 2} y={CHART_H - 16} width={lw} height={13}>
+					<div style="width:100%;height:100%;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);background:rgba(255,255,255,0.5);border-radius:2px;"></div>
+				</foreignObject>
+				<text
+					x={lx}
+					y={CHART_H - 6}
+					text-anchor="middle"
+					fill="#3f3f46"
+					font-size="9"
+					font-weight="500"
+					font-family="'Geist Mono', monospace"
+				>{crosshairXLabel}</text>
+			{/if}
 		{/if}
 
 		{#each xLabels as lbl, i}
