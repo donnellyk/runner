@@ -2,6 +2,7 @@ export type Units = 'metric' | 'imperial';
 
 const KM_TO_MI = 0.621371;
 const M_TO_FT = 3.28084;
+export const MI_TO_M = 1609.34;
 const KM_TO_MI_PACE = 1.60934; // multiply sec/km by this to get sec/mi
 
 export function formatDistance(meters: number | null, units: Units): string {
@@ -91,6 +92,10 @@ export function formatDurationClock(seconds: number | null): string {
 	const mm = String(m).padStart(2, '0');
 	const ss = String(s).padStart(2, '0');
 	return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
+}
+
+export function toMeters(displayValue: number, units: Units): number {
+	return units === 'imperial' ? displayValue * MI_TO_M : displayValue * 1000;
 }
 
 /** Parse a "M:SS" pace input string into sec/km. Returns null on invalid input. */

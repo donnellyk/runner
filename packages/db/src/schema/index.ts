@@ -6,3 +6,4 @@ export { activityLaps } from './activity-laps';
 export { activityStreams } from './activity-streams';
 export { activitySegments } from './activity-segments';
 export { userZones } from './user-zones';
+export { activityNotes } from './activity-notes';

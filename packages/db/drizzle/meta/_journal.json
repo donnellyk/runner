@@ -36,6 +36,13 @@
       "when": 1772760409995,
       "tag": "0004_wild_silvermane",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1773089285806,
+      "tag": "0005_vengeful_stepford_cuckoos",
+      "breakpoints": true
     }
   ]
 }

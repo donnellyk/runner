@@ -1,6 +1,6 @@
 import { eq, and, desc, gte, lte, between, sql, inArray, getTableColumns } from 'drizzle-orm';
 import { getDb } from '@web-runner/db/client';
-import { activities, activityLaps, activityStreams, activitySegments, userZones } from '@web-runner/db/schema';
+import { activities, activityLaps, activityStreams, activitySegments, userZones, activityNotes } from '@web-runner/db/schema';
 import { DEFAULT_ZONES, RACE_DISTANCES, raceDistanceBounds, type ZoneDefinition } from '@web-runner/shared';
 
 export const PAGE_SIZE = 30;
@@ -125,7 +125,7 @@ export async function getActivity(activityId: number, userId: number) {
 
 	const streamTypes = ['heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth', 'grade_smooth', 'latlng', 'distance', 'time'];
 
-	const [laps, streams, segments, paceZonesRow, hrZonesRow] = await Promise.all([
+	const [laps, streams, segments, paceZonesRow, hrZonesRow, notes] = await Promise.all([
 		db.select().from(activityLaps).where(eq(activityLaps.activityId, activityId)).orderBy(activityLaps.lapIndex),
 		db
 			.select({ streamType: activityStreams.streamType, data: activityStreams.data })
@@ -134,13 +134,14 @@ export async function getActivity(activityId: number, userId: number) {
 		db.select().from(activitySegments).where(eq(activitySegments.activityId, activityId)).orderBy(activitySegments.segmentIndex),
 		db.select().from(userZones).where(and(eq(userZones.userId, userId), eq(userZones.zoneType, 'pace'))).limit(1),
 		db.select().from(userZones).where(and(eq(userZones.userId, userId), eq(userZones.zoneType, 'heartrate'))).limit(1),
+		db.select().from(activityNotes).where(eq(activityNotes.activityId, activityId)).orderBy(activityNotes.distanceStart),
 	]);
 
 	const streamMap = Object.fromEntries(streams.map((s) => [s.streamType, s.data as number[]]));
 	const paceZones: ZoneDefinition[] = (paceZonesRow[0]?.zones as ZoneDefinition[]) ?? DEFAULT_ZONES;
 	const hrZones: ZoneDefinition[] = (hrZonesRow[0]?.zones as ZoneDefinition[]) ?? DEFAULT_ZONES;
 
-	return { activity, laps, segments, streamMap, paceZones, hrZones };
+	return { activity, laps, segments, streamMap, paceZones, hrZones, notes };
 }
 
 export async function getUserZones(userId: number) {

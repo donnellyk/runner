@@ -129,6 +129,7 @@ import {
 	formatDurationClock,
 	parsePaceInput,
 	formatPaceForInput,
+	toMeters,
 } from './format';
 
 describe('formatDuration', () => {
@@ -191,5 +192,27 @@ describe('formatPaceForInput', () => {
 	test('formats sec/km to M:SS', () => {
 		expect(formatPaceForInput(330)).toBe('5:30');
 		expect(formatPaceForInput(485)).toBe('8:05');
+	});
+});
+
+describe('toMeters', () => {
+	test('converts km to meters', () => {
+		expect(toMeters(5, 'metric')).toBe(5000);
+		expect(toMeters(1, 'metric')).toBe(1000);
+	});
+
+	test('converts miles to meters', () => {
+		expect(toMeters(1, 'imperial')).toBeCloseTo(1609.34, 1);
+		expect(toMeters(5, 'imperial')).toBeCloseTo(8046.7, 1);
+	});
+
+	test('handles zero', () => {
+		expect(toMeters(0, 'metric')).toBe(0);
+		expect(toMeters(0, 'imperial')).toBe(0);
+	});
+
+	test('handles fractional values', () => {
+		expect(toMeters(0.5, 'metric')).toBe(500);
+		expect(toMeters(0.5, 'imperial')).toBeCloseTo(804.67, 1);
 	});
 });

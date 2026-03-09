@@ -1,6 +1,14 @@
 <script lang="ts">
 	import type { ZoneDefinition } from '@web-runner/shared';
-	import type { Units } from '$lib/format';
+	import { type Units, MI_TO_M } from '$lib/format';
+	import { findIndexAtDistance } from '$lib/streams';
+
+	interface ActivityNoteRef {
+		id: number;
+		distanceStart: number;
+		distanceEnd: number | null;
+		content: string;
+	}
 
 	interface Props {
 		data: number[];
@@ -16,17 +24,13 @@
 		crosshairIndex?: number | null;
 		oncrosshairmove?: (index: number | null) => void;
 		formatValue?: (v: number) => string;
-		/**
-		 * Per-point boolean mask (same length as data). true = paused/stationary.
-		 * When provided: restricts y-axis to running data only, improves smoothing.
-		 */
 		pausedMask?: boolean[];
-		/** Whether to render pause gaps (dashed lines). Requires pausedMask. Default true. */
 		showPauseGaps?: boolean;
-		/** Invert the y-axis so higher data values map to the bottom (e.g. pace: faster = up) */
 		invertY?: boolean;
-		/** Moving-average window half-width (default 5). Set to 0 to disable smoothing. */
 		smoothingWindow?: number;
+		notes?: ActivityNoteRef[];
+		showNotes?: boolean;
+		highlightedNoteId?: number | null;
 	}
 
 	let {
@@ -47,6 +51,9 @@
 		showPauseGaps = true,
 		invertY = false,
 		smoothingWindow = 5,
+		notes,
+		showNotes = true,
+		highlightedNoteId = null,
 	}: Props = $props();
 
 	function fmt(v: number): string {
@@ -192,7 +199,7 @@
 		const v = trimXData[crosshairIndex];
 		return xAxis === 'distance'
 			? units === 'imperial'
-				? `${(v / 1609.34).toFixed(2)} mi`
+				? `${(v / MI_TO_M).toFixed(2)} mi`
 				: `${(v / 1000).toFixed(2)} km`
 			: `${Math.floor(v / 60)}:${String(v % 60).padStart(2, '0')}`;
 	});
@@ -211,7 +218,7 @@
 			label:
 				xAxis === 'distance'
 					? units === 'imperial'
-						? `${(trimXData[i] / 1609.34).toFixed(1)} mi`
+						? `${(trimXData[i] / MI_TO_M).toFixed(1)} mi`
 						: `${(trimXData[i] / 1000).toFixed(1)} km`
 					: `${Math.floor(trimXData[i] / 60)}m`,
 		}));
@@ -249,23 +256,59 @@
 		oncrosshairmove?.(null);
 	}
 
+	function noteToX(note: ActivityNoteRef, which: 'start' | 'end'): number | null {
+		const dist = which === 'start' ? note.distanceStart : note.distanceEnd;
+		if (dist == null || !distanceData) return null;
+		if (xAxis === 'distance') return toX(dist);
+		if (!timeData) return null;
+		const idx = findIndexAtDistance(distanceData, dist);
+		const time = timeData[idx];
+		return time != null ? toX(time) : null;
+	}
+
+	let activeNote = $derived.by(() => {
+		if (!notes || !showNotes || crosshairIndex == null) return null;
+		let dist: number;
+		if (xAxis === 'distance' && distanceData) {
+			dist = trimXData[crosshairIndex];
+		} else if (distanceData) {
+			const origIdx = crosshairIndex + (startIdx > 0 ? startIdx : 0);
+			dist = distanceData[origIdx] ?? 0;
+		} else {
+			return null;
+		}
+		const tolerance = distanceData
+			? (distanceData[distanceData.length - 1] - distanceData[0]) * 0.01
+			: 0;
+		return notes.find(n =>
+			n.distanceEnd
+				? dist >= n.distanceStart && dist <= n.distanceEnd
+				: Math.abs(dist - n.distanceStart) < tolerance
+		) ?? null;
+	});
+
 	const clipId = `chart-clip-${Math.random().toString(36).slice(2)}`;
 </script>
 
 <div class="mb-6">
-	<div class="flex items-baseline justify-between mb-1.5">
+	<div class="flex items-baseline justify-between mb-1.5 gap-2">
 		<span class="text-xs font-medium uppercase tracking-wide text-zinc-400">{label}</span>
-		{#if tooltipPaused}
-			<span class="font-mono text-xs text-zinc-400 tracking-widest uppercase">paused</span>
-		{:else if tooltipValue != null}
-			<span class="font-mono text-xs text-zinc-700" style="font-variant-numeric: tabular-nums;">
-				{fmt(tooltipValue)}
-			</span>
-		{:else}
-			<span class="font-mono text-xs text-zinc-400" style="font-variant-numeric: tabular-nums;">
-				{fmt(yMin)}–{fmt(yMax)}
-			</span>
-		{/if}
+		<div class="flex items-baseline gap-2 min-w-0">
+			{#if activeNote}
+				<span class="text-xs text-amber-600 truncate max-w-48">{activeNote.content}</span>
+			{/if}
+			{#if tooltipPaused}
+				<span class="font-mono text-xs text-zinc-400 tracking-widest uppercase">paused</span>
+			{:else if tooltipValue != null}
+				<span class="font-mono text-xs text-zinc-700" style="font-variant-numeric: tabular-nums;">
+					{fmt(tooltipValue)}
+				</span>
+			{:else}
+				<span class="font-mono text-xs text-zinc-400" style="font-variant-numeric: tabular-nums;">
+					{fmt(yMin)}–{fmt(yMax)}
+				</span>
+			{/if}
+		</div>
 	</div>
 
 	<svg
@@ -313,6 +356,44 @@
 				fill-opacity="0.14"
 			/>
 		{/each}
+
+		{#if showNotes && notes}
+			{#each notes as note (note.id)}
+				{@const nx = noteToX(note, 'start')}
+				{#if nx != null}
+					{#if note.distanceEnd == null}
+						<line
+							x1={nx} y1={PAD_TOP} x2={nx} y2={PAD_TOP + chartH}
+							stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3"
+							opacity={highlightedNoteId === note.id ? 1 : 0.6}
+							clip-path="url(#{clipId})"
+						/>
+						<polygon
+							points="{nx},{PAD_TOP + 2} {nx + 4},{PAD_TOP + 6} {nx},{PAD_TOP + 10} {nx - 4},{PAD_TOP + 6}"
+							fill="#f59e0b"
+							opacity={highlightedNoteId === note.id ? 1 : 0.7}
+						/>
+					{:else}
+						{@const nx2 = noteToX(note, 'end')}
+						{#if nx2 != null}
+							<rect
+								x={Math.min(nx, nx2)} y={PAD_TOP}
+								width={Math.abs(nx2 - nx)} height={chartH}
+								fill="#f59e0b"
+								fill-opacity={highlightedNoteId === note.id ? 0.2 : 0.1}
+								clip-path="url(#{clipId})"
+							/>
+							<line x1={nx} y1={PAD_TOP} x2={nx} y2={PAD_TOP + chartH}
+								stroke="#f59e0b" stroke-width="1" opacity="0.4"
+								clip-path="url(#{clipId})" />
+							<line x1={nx2} y1={PAD_TOP} x2={nx2} y2={PAD_TOP + chartH}
+								stroke="#f59e0b" stroke-width="1" opacity="0.4"
+								clip-path="url(#{clipId})" />
+						{/if}
+					{/if}
+				{/if}
+			{/each}
+		{/if}
 
 		{#if showPauseGaps && pauseResult}
 			{#each pauseResult.segs as seg}

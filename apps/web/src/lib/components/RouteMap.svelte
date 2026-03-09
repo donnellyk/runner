@@ -2,20 +2,37 @@
 	import { onMount } from 'svelte';
 	import type L from 'leaflet';
 
-	interface Props {
-		coordinates: [number, number][];
-		/** [lng, lat] of the crosshair position, or null */
-		marker?: [number, number] | null;
-		darkMap?: boolean;
+	export interface NoteMarker {
+		id: number;
+		content: string;
+		point: [number, number];
+		range?: [number, number][];
 	}
 
-	let { coordinates, marker = null, darkMap = false }: Props = $props();
+	interface Props {
+		coordinates: [number, number][];
+		marker?: [number, number] | null;
+		darkMap?: boolean;
+		noteMarkers?: NoteMarker[];
+		showNotes?: boolean;
+		highlightedNoteId?: number | null;
+	}
+
+	let {
+		coordinates,
+		marker = null,
+		darkMap = false,
+		noteMarkers = [],
+		showNotes = true,
+		highlightedNoteId = null,
+	}: Props = $props();
 	let mapEl: HTMLDivElement;
 
-	// Non-reactive refs — Leaflet objects must not be wrapped in Svelte's proxy
 	let leafletRef: typeof L | null = null;
 	let mapRef: L.Map | null = null;
 	let markerCircle: L.CircleMarker | null = null;
+	let noteLayerGroup: L.LayerGroup | null = null;
+	let noteLayers: Map<number, L.CircleMarker | L.Polyline> = new Map();
 	let ready = $state(false);
 
 	onMount(() => {
@@ -30,6 +47,8 @@
 			const latLngs: L.LatLngTuple[] = coordinates.map(([lng, lat]) => [lat, lng]);
 			const polyline = leaflet.polyline(latLngs, { color: '#3b82f6', weight: 3 }).addTo(map);
 			map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
+
+			noteLayerGroup = leaflet.layerGroup().addTo(map);
 
 			leafletRef = leaflet;
 			mapRef = map;
@@ -52,6 +71,51 @@
 				fillOpacity: 1,
 				weight: 2,
 			}).addTo(mapRef);
+		}
+	});
+
+	$effect(() => {
+		if (!ready || !leafletRef || !noteLayerGroup) return;
+		noteLayerGroup.clearLayers();
+		noteLayers.clear();
+
+		if (!showNotes) return;
+
+		for (const nm of noteMarkers) {
+			if (nm.range && nm.range.length > 1) {
+				const latLngs = nm.range.map(([lng, lat]) => [lat, lng] as L.LatLngTuple);
+				const line = leafletRef.polyline(latLngs, {
+					color: '#f59e0b',
+					weight: 5,
+					opacity: 0.7,
+				}).bindTooltip(nm.content, { sticky: true });
+				line.addTo(noteLayerGroup);
+				noteLayers.set(nm.id, line);
+			} else {
+				const [lng, lat] = nm.point;
+				const circle = leafletRef.circleMarker([lat, lng], {
+					radius: 6,
+					fillColor: '#f59e0b',
+					color: '#ffffff',
+					weight: 2,
+					fillOpacity: 0.9,
+				}).bindTooltip(nm.content, { direction: 'top', offset: [0, -8] });
+				circle.addTo(noteLayerGroup);
+				noteLayers.set(nm.id, circle);
+			}
+		}
+	});
+
+	$effect(() => {
+		if (!ready || !mapRef || highlightedNoteId == null) return;
+		const layer = noteLayers.get(highlightedNoteId);
+		if (!layer) return;
+		layer.openTooltip();
+		const bounds = 'getBounds' in layer ? (layer as L.Polyline).getBounds() : (layer as L.CircleMarker).getLatLng();
+		if (bounds instanceof leafletRef!.LatLng) {
+			mapRef.panTo(bounds);
+		} else {
+			mapRef.panTo((bounds as L.LatLngBounds).getCenter());
 		}
 	});
 </script>
