@@ -55,6 +55,35 @@ export const actions: Actions = {
 		return { success: true };
 	},
 
+	resetColors: async ({ request, locals }) => {
+		const userId = locals.user!.id;
+		const db = getDb();
+		const data = await request.formData();
+		const zoneType = data.get('zoneType') as string;
+
+		if (zoneType !== 'pace' && zoneType !== 'heartrate') {
+			return fail(400, { error: 'Invalid zone type' });
+		}
+
+		// Load existing zones, apply default colors, save back
+		const existing = await getUserZones(userId);
+		const current: ZoneDefinition[] = zoneType === 'pace' ? existing.paceZones : existing.hrZones;
+		const zones = current.map((z) => ({
+			...z,
+			color: DEFAULT_ZONES.find((d) => d.index === z.index)?.color ?? z.color,
+		}));
+
+		await db
+			.insert(userZones)
+			.values({ userId, zoneType, zones, updatedAt: new Date() })
+			.onConflictDoUpdate({
+				target: [userZones.userId, userZones.zoneType],
+				set: { zones, updatedAt: new Date() },
+			});
+
+		return { success: true };
+	},
+
 	calcFromRace: async ({ request, locals }) => {
 		const userId = locals.user!.id;
 		const db = getDb();

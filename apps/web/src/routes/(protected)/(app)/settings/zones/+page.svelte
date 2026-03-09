@@ -226,8 +226,18 @@
 
 	<button
 		type="submit"
-		class="px-4 py-2 text-sm font-medium bg-zinc-900 text-white rounded hover:bg-zinc-700"
+		class="w-32 px-4 py-2 text-sm font-medium bg-zinc-900 text-white rounded hover:bg-zinc-700"
 	>
 		Save zones
+	</button>
+</form>
+
+<form method="POST" action="?/resetColors" use:enhance class="mt-2">
+	<input type="hidden" name="zoneType" value={zoneType} />
+	<button
+		type="submit"
+		class="w-32 px-4 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded"
+	>
+		Reset colors
 	</button>
 </form>
