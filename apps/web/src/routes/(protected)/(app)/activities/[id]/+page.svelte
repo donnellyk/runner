@@ -31,14 +31,21 @@
         return Array.isArray(s) && s.length > 0 ? s : null;
     }
 
+    const PAUSE_VELOCITY_MS = 0.3; // m/s — below this is considered paused/stationary
+
+    const velocityStream = $derived(getStream("velocity_smooth"));
+
     const paceStream = $derived.by(() => {
-        const v = getStream("velocity_smooth");
-        if (!v) return null;
-        const secPerKm = v.map((ms) => (ms > 0 ? 1000 / ms : 0));
+        if (!velocityStream) return null;
+        const secPerKm = velocityStream.map((ms) => (ms > 0 ? 1000 / ms : 0));
         return units === "imperial"
             ? secPerKm.map((s) => s * KM_TO_MI_PACE)
             : secPerKm;
     });
+
+    const pausedMask = $derived(
+        velocityStream ? velocityStream.map((ms) => ms < PAUSE_VELOCITY_MS) : null,
+    );
 
     const paceZonesDisplay = $derived(
         units === "imperial"
@@ -71,7 +78,7 @@
         );
     });
 
-    function sample(stream: number[] | null): number[] | null {
+    function sample<T>(stream: T[] | null): T[] | null {
         if (!stream || !chartIndices) return stream;
         return chartIndices.map((i) => stream[i]);
     }
@@ -82,6 +89,7 @@
     const chartCad = $derived(sample(cadStream));
     const chartDist = $derived(sample(distStream));
     const chartTime = $derived(sample(timeStream));
+    const chartPausedMask = $derived(sample(pausedMask));
 
     function getRouteCoords(): [number, number][] | null {
         if (a.routeGeoJson) {
@@ -268,9 +276,8 @@
                 color="var(--color-stream-pace)"
                 unit=""
                 formatValue={formatPaceSec}
-                yMaxPercentile={0.9815}
-                yAvgCenter={true}
-                showPauseGaps={true}
+                pausedMask={chartPausedMask ?? undefined}
+                invertY={true}
                 zones={paceZonesDisplay}
                 zoneMetric="pace"
                 {crosshairIndex}

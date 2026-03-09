@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { ZoneDefinition } from '@web-runner/shared';
-
 	import type { Units } from '$lib/format';
 
 	interface Props {
@@ -17,12 +16,13 @@
 		crosshairIndex?: number | null;
 		oncrosshairmove?: (index: number | null) => void;
 		formatValue?: (v: number) => string;
-		/** Clamp yMax to this percentile (0–1) to suppress outlier spikes */
-		yMaxPercentile?: number;
-		/** Center yMin/yMax symmetrically around the average, ignoring zeros */
-		yAvgCenter?: boolean;
-		/** Detect pauses and render gaps with vertical bookend markers */
-		showPauseGaps?: boolean;
+		/**
+		 * Per-point boolean mask (same length as data). true = paused/stationary.
+		 * When provided: enables gap rendering, restricts y-axis to running data only.
+		 */
+		pausedMask?: boolean[];
+		/** Invert the y-axis so higher data values map to the bottom (e.g. pace: faster = up) */
+		invertY?: boolean;
 	}
 
 	let {
@@ -39,9 +39,8 @@
 		crosshairIndex = null,
 		oncrosshairmove,
 		formatValue,
-		yMaxPercentile = 1,
-		yAvgCenter = false,
-		showPauseGaps = false,
+		pausedMask,
+		invertY = false,
 	}: Props = $props();
 
 	function fmt(v: number): string {
@@ -79,90 +78,79 @@
 	let startIdx = $derived(data.findIndex((v) => v !== 0));
 	let trimData = $derived(startIdx > 0 ? data.slice(startIdx) : data);
 	let trimXData = $derived(startIdx > 0 ? xData.slice(startIdx) : xData);
+	let trimPausedMask = $derived(
+		pausedMask ? (startIdx > 0 ? pausedMask.slice(startIdx) : pausedMask) : null,
+	);
 
 	let xMin = $derived(trimXData[0] ?? 0);
 	let xMax = $derived(trimXData[trimXData.length - 1] ?? 1);
-
-	let yBounds = $derived.by(() => {
-		const sorted = [...trimData].filter((v) => v > 0).sort((a, b) => a - b);
-
-		if (!yAvgCenter || sorted.length === 0) {
-			const yMaxVal =
-				yMaxPercentile >= 1
-					? Math.max(...trimData)
-					: sorted[Math.min(Math.floor(sorted.length * yMaxPercentile), sorted.length - 1)] ?? 1;
-			return { yMin: Math.min(...trimData), yMax: yMaxVal };
-		}
-
-		// yMax: percentile of raw values (clips slow outliers / pauses)
-		const yMaxVal = sorted[Math.min(Math.floor(sorted.length * yMaxPercentile), sorted.length - 1)];
-		// avg: only from values within the cap so avg is always ≤ yMax
-		const capped = sorted.filter((v) => v <= yMaxVal);
-		const avg = capped.reduce((a, b) => a + b, 0) / capped.length;
-		// Mirror symmetrically: avg sits exactly at midline
-		return { yMin: Math.max(0, 2 * avg - yMaxVal), yMax: yMaxVal };
-	});
-	let yMin = $derived(yBounds.yMin);
-	let yMax = $derived(yBounds.yMax);
-	let yRange = $derived(yMax - yMin || 1);
 
 	function toX(xVal: number): number {
 		return PAD_LEFT + ((xVal - xMin) / (xMax - xMin)) * chartW;
 	}
 
-	function toY(yVal: number): number {
-		return PAD_TOP + chartH - ((yVal - yMin) / yRange) * chartH;
-	}
-
-	// Simple moving average — used for all charts
+	// Moving average — skips paused points so they don't bleed into transitions
 	let smoothData = $derived.by(() => {
 		const w = 5;
+		const mask = trimPausedMask;
 		return trimData.map((_, i) => {
 			const lo = Math.max(0, i - w);
 			const hi = Math.min(trimData.length - 1, i + w);
-			let sum = 0;
-			for (let j = lo; j <= hi; j++) sum += trimData[j];
-			return sum / (hi - lo + 1);
+			let sum = 0, count = 0;
+			for (let j = lo; j <= hi; j++) {
+				if (!mask || !mask[j]) {
+					sum += trimData[j];
+					count++;
+				}
+			}
+			return count > 0 ? sum / count : trimData[i];
 		});
 	});
 
-	// Pause gap logic — only used when showPauseGaps is true (pace chart)
+	let yBounds = $derived.by(() => {
+		if (trimPausedMask) {
+			// Restrict y-axis to non-paused smoothed values only
+			const vals = smoothData.filter((v, i) => v > 0 && !trimPausedMask![i]);
+			if (vals.length === 0) return { yMin: 0, yMax: 1 };
+			const lo = Math.min(...vals);
+			const hi = Math.max(...vals);
+			const pad = Math.max((hi - lo) * 0.05, 5);
+			return { yMin: Math.max(0, lo - pad), yMax: hi + pad };
+		}
+		const vals = trimData.filter((v) => v > 0);
+		if (vals.length === 0) return { yMin: 0, yMax: 1 };
+		return { yMin: Math.min(...vals), yMax: Math.max(...vals) };
+	});
+	let yMin = $derived(yBounds.yMin);
+	let yMax = $derived(yBounds.yMax);
+	let yRange = $derived(yMax - yMin || 1);
+
+	function toY(yVal: number): number {
+		const t = (yVal - yMin) / yRange;
+		return invertY
+			? PAD_TOP + t * chartH               // higher value → lower on screen (fast pace at top)
+			: PAD_TOP + chartH - t * chartH;     // higher value → higher on screen (default)
+	}
+
+	// Pause gap rendering — derived from trimPausedMask when provided
 	let pauseResult = $derived.by(() => {
-		if (!showPauseGaps) return null;
-		const w = 5;
-		const medians = trimData.map((_, i) => {
-			const lo = Math.max(0, i - w);
-			const hi = Math.min(trimData.length - 1, i + w);
-			const win = trimData.slice(lo, hi + 1).sort((a, b) => a - b);
-			return win[Math.floor(win.length / 2)];
-		});
-		const isOutlier = trimData.map((v, i) => v > medians[i] * 2);
-		// Segments: consecutive non-outlier runs
+		if (!trimPausedMask) return null;
 		const rawSegs: { startIdx: number; endIdx: number }[] = [];
 		let start = -1;
-		for (let i = 0; i <= isOutlier.length; i++) {
-			const out = i >= isOutlier.length || isOutlier[i];
-			if (!out && start === -1) start = i;
-			if (out && start !== -1) { rawSegs.push({ startIdx: start, endIdx: i - 1 }); start = -1; }
+		for (let i = 0; i <= trimPausedMask.length; i++) {
+			const paused = i >= trimPausedMask.length || trimPausedMask[i];
+			if (!paused && start === -1) start = i;
+			if (paused && start !== -1) {
+				rawSegs.push({ startIdx: start, endIdx: i - 1 });
+				start = -1;
+			}
 		}
-		// Extend gaps: trim points where the rendered (smoothed) line would clip
-		// the chart top. The gap bookend starts exactly where the line goes out of range.
-		const segs = rawSegs.map((seg) => {
-			let { startIdx, endIdx } = seg;
-			while (endIdx > startIdx && smoothData[endIdx] > yMax) endIdx--;
-			while (startIdx < endIdx && smoothData[startIdx] > yMax) startIdx++;
-			return { startIdx, endIdx };
-		}).filter((seg) => seg.startIdx <= seg.endIdx);
-		// Gaps between consecutive segments: x at end of seg N and start of seg N+1
+		const segs = rawSegs.filter((seg) => seg.startIdx <= seg.endIdx);
 		const gaps = segs.slice(0, -1).map((seg, i) => ({
 			x1: toX(trimXData[seg.endIdx]),
 			x2: toX(trimXData[segs[i + 1].startIdx]),
 		}));
-		// Any index not covered by a trimmed segment is considered paused
-		const isPaused = trimData.map((_, i) =>
-			!segs.some((seg) => i >= seg.startIdx && i <= seg.endIdx),
-		);
-		return { isOutlier, segs, gaps, isPaused };
+		return { segs, gaps };
 	});
 
 	let zoneBands = $derived.by(() => {
@@ -202,9 +190,10 @@
 			: `${Math.floor(v / 60)}:${String(v % 60).padStart(2, '0')}`;
 	});
 
-	let tooltipValue = $derived(crosshairIndex != null ? trimData[crosshairIndex] : null);
+	// Use smoothed value so label matches the rendered line
+	let tooltipValue = $derived(crosshairIndex != null ? smoothData[crosshairIndex] : null);
 	let tooltipPaused = $derived(
-		showPauseGaps && crosshairIndex != null && (pauseResult?.isPaused[crosshairIndex] ?? false)
+		crosshairIndex != null && (trimPausedMask?.[crosshairIndex] ?? false),
 	);
 
 	let xLabels = $derived.by(() => {
@@ -223,10 +212,13 @@
 
 	let yLabels = $derived.by(() => {
 		const mid = (yMin + yMax) / 2;
+		// When inverted, yMin (fastest pace) is at top — label order stays visually top→bottom
+		const top    = invertY ? yMin : yMax;
+		const bottom = invertY ? yMax : yMin;
 		return [
-			{ value: yMax, y: toY(yMax) },
-			{ value: mid,  y: toY(mid)  },
-			{ value: yMin, y: toY(yMin) },
+			{ value: top,    y: toY(top)    },
+			{ value: mid,    y: toY(mid)    },
+			{ value: bottom, y: toY(bottom) },
 		];
 	});
 
@@ -315,7 +307,7 @@
 			/>
 		{/each}
 
-		{#if showPauseGaps && pauseResult}
+		{#if pauseResult}
 			{#each pauseResult.segs as seg}
 				<polyline
 					points={smoothData.slice(seg.startIdx, seg.endIdx + 1).map((v, j) => `${toX(trimXData[seg.startIdx + j])},${toY(v)}`).join(' ')}
