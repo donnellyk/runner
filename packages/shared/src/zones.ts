@@ -11,7 +11,7 @@ export interface ZoneDefinition {
 }
 
 export const DEFAULT_ZONES: ZoneDefinition[] = [
-  { index: 1, name: 'Easy',              color: '#6ee7b7', paceMin: null, paceMax: 360, hrMin: null, hrMax: 138 },
+  { index: 1, name: 'Easy',              color: '#93c5fd', paceMin: null, paceMax: 360, hrMin: null, hrMax: 138 },
   { index: 2, name: 'General Aerobic',   color: '#34d399', paceMin: 300,  paceMax: 360, hrMin: 138,  hrMax: 152 },
   { index: 3, name: 'Tempo',             color: '#fcd34d', paceMin: 255,  paceMax: 300, hrMin: 152,  hrMax: 162 },
   { index: 4, name: 'Lactate Threshold', color: '#f97316', paceMin: 210,  paceMax: 255, hrMin: 162,  hrMax: 174 },
