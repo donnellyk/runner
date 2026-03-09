@@ -84,6 +84,18 @@ export const actions: Actions = {
 		return { success: true };
 	},
 
+	setMapStyle: async ({ request, cookies }) => {
+		const data = await request.formData();
+		const dark = data.get('darkMap') === 'true';
+		cookies.set('darkMap', String(dark), {
+			path: '/',
+			maxAge: 60 * 60 * 24 * 365,
+			httpOnly: false,
+			sameSite: 'lax',
+		});
+		return { success: true };
+	},
+
 	calcFromRace: async ({ request, locals }) => {
 		const userId = locals.user!.id;
 		const db = getDb();

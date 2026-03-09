@@ -272,7 +272,7 @@
 
 {#if routeCoords}
     <div class="mb-8">
-        <RouteMap coordinates={routeCoords} marker={markerCoord} />
+        <RouteMap coordinates={routeCoords} marker={markerCoord} darkMap={data.darkMap} />
     </div>
 {/if}
 

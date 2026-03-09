@@ -241,3 +241,18 @@
 		Reset colors
 	</button>
 </form>
+
+<div class="mt-12 mb-6">
+	<h2 class="font-serif text-2xl font-semibold text-zinc-900 mb-1">Map</h2>
+	<p class="text-sm text-zinc-400">Choose a map style for activity routes.</p>
+</div>
+
+<form method="POST" action="?/setMapStyle" use:enhance>
+	<input type="hidden" name="darkMap" value={data.darkMap ? 'false' : 'true'} />
+	<button
+		type="submit"
+		class="w-32 px-4 py-2 text-sm font-medium bg-zinc-900 text-white rounded hover:bg-zinc-700"
+	>
+		{data.darkMap ? 'Light map' : 'Dark map'}
+	</button>
+</form>

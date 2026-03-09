@@ -6,9 +6,10 @@
 		coordinates: [number, number][];
 		/** [lng, lat] of the crosshair position, or null */
 		marker?: [number, number] | null;
+		darkMap?: boolean;
 	}
 
-	let { coordinates, marker = null }: Props = $props();
+	let { coordinates, marker = null, darkMap = false }: Props = $props();
 	let mapEl: HTMLDivElement;
 
 	// Non-reactive refs — Leaflet objects must not be wrapped in Svelte's proxy
@@ -21,9 +22,10 @@
 		import('leaflet').then((leaflet) => {
 			const map = leaflet.map(mapEl, { zoomControl: false, attributionControl: false });
 
-			leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-				maxZoom: 19,
-			}).addTo(map);
+			const tileUrl = darkMap
+				? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+				: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+			leaflet.tileLayer(tileUrl, { maxZoom: 19 }).addTo(map);
 
 			const latLngs: L.LatLngTuple[] = coordinates.map(([lng, lat]) => [lat, lng]);
 			const polyline = leaflet.polyline(latLngs, { color: '#3b82f6', weight: 3 }).addTo(map);
@@ -62,4 +64,4 @@
 	/>
 </svelte:head>
 
-<div bind:this={mapEl} class="w-full h-64 rounded border border-zinc-200"></div>
+<div bind:this={mapEl} class="w-full h-96 rounded border border-zinc-200"></div>
