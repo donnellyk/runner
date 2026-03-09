@@ -51,23 +51,7 @@ export async function handleActivityStreams(
   await rateLimiter.updateFromHeaders(rateLimit.usage);
 
   const streamMap: Record<string, unknown[]> = {};
-
   for (const stream of streamSet) {
-    await db.insert(activityStreams).values({
-      activityId: actDbId,
-      streamType: stream.type,
-      data: stream.data,
-      originalSize: stream.original_size,
-      resolution: stream.resolution,
-    }).onConflictDoUpdate({
-      target: [activityStreams.activityId, activityStreams.streamType],
-      set: {
-        data: stream.data,
-        originalSize: stream.original_size,
-        resolution: stream.resolution,
-      },
-    });
-
     streamMap[stream.type] = stream.data;
   }
 
@@ -82,31 +66,31 @@ export async function handleActivityStreams(
     velocity_smooth: streamMap.velocity_smooth as number[] | undefined,
   });
 
-  for (const seg of segments) {
-    await db.insert(activitySegments).values({
-      activityId: actDbId,
-      segmentIndex: seg.segmentIndex,
-      route: seg.routeWkt ? sql`ST_GeomFromEWKT(${seg.routeWkt})` : null,
-      distanceStart: seg.distanceStart,
-      distanceEnd: seg.distanceEnd,
-      duration: seg.duration,
-      avgPace: seg.avgPace,
-      minPace: seg.minPace,
-      maxPace: seg.maxPace,
-      avgHeartrate: seg.avgHeartrate,
-      minHeartrate: seg.minHeartrate,
-      maxHeartrate: seg.maxHeartrate,
-      avgCadence: seg.avgCadence,
-      minCadence: seg.minCadence,
-      maxCadence: seg.maxCadence,
-      avgPower: seg.avgPower,
-      minPower: seg.minPower,
-      maxPower: seg.maxPower,
-      elevationGain: seg.elevationGain,
-      elevationLoss: seg.elevationLoss,
-    }).onConflictDoUpdate({
-      target: [activitySegments.activityId, activitySegments.segmentIndex],
-      set: {
+  const latlng = streamMap.latlng as [number, number][] | undefined;
+  const routeWkt = latlng ? buildRouteWkt(latlng) : null;
+
+  await db.transaction(async (tx) => {
+    for (const stream of streamSet) {
+      await tx.insert(activityStreams).values({
+        activityId: actDbId,
+        streamType: stream.type,
+        data: stream.data,
+        originalSize: stream.original_size,
+        resolution: stream.resolution,
+      }).onConflictDoUpdate({
+        target: [activityStreams.activityId, activityStreams.streamType],
+        set: {
+          data: stream.data,
+          originalSize: stream.original_size,
+          resolution: stream.resolution,
+        },
+      });
+    }
+
+    for (const seg of segments) {
+      await tx.insert(activitySegments).values({
+        activityId: actDbId,
+        segmentIndex: seg.segmentIndex,
         route: seg.routeWkt ? sql`ST_GeomFromEWKT(${seg.routeWkt})` : null,
         distanceStart: seg.distanceStart,
         distanceEnd: seg.distanceEnd,
@@ -125,20 +109,39 @@ export async function handleActivityStreams(
         maxPower: seg.maxPower,
         elevationGain: seg.elevationGain,
         elevationLoss: seg.elevationLoss,
-      },
-    });
-  }
+      }).onConflictDoUpdate({
+        target: [activitySegments.activityId, activitySegments.segmentIndex],
+        set: {
+          route: seg.routeWkt ? sql`ST_GeomFromEWKT(${seg.routeWkt})` : null,
+          distanceStart: seg.distanceStart,
+          distanceEnd: seg.distanceEnd,
+          duration: seg.duration,
+          avgPace: seg.avgPace,
+          minPace: seg.minPace,
+          maxPace: seg.maxPace,
+          avgHeartrate: seg.avgHeartrate,
+          minHeartrate: seg.minHeartrate,
+          maxHeartrate: seg.maxHeartrate,
+          avgCadence: seg.avgCadence,
+          minCadence: seg.minCadence,
+          maxCadence: seg.maxCadence,
+          avgPower: seg.avgPower,
+          minPower: seg.minPower,
+          maxPower: seg.maxPower,
+          elevationGain: seg.elevationGain,
+          elevationLoss: seg.elevationLoss,
+        },
+      });
+    }
 
-  const latlng = streamMap.latlng as [number, number][] | undefined;
-  const routeWkt = latlng ? buildRouteWkt(latlng) : null;
-
-  await db.update(activities)
-    .set({
-      route: routeWkt ? sql`ST_GeomFromEWKT(${routeWkt})` : null,
-      syncStatus: 'complete',
-      updatedAt: new Date(),
-    })
-    .where(eq(activities.id, actDbId));
+    await tx.update(activities)
+      .set({
+        route: routeWkt ? sql`ST_GeomFromEWKT(${routeWkt})` : null,
+        syncStatus: 'complete',
+        updatedAt: new Date(),
+      })
+      .where(eq(activities.id, actDbId));
+  });
 
   logger.info({ userId, activityId, actDbId, segments: segments.length }, 'Streams imported');
 }

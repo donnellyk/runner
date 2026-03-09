@@ -38,6 +38,8 @@ export async function getValidToken(db: Database, userId: number): Promise<strin
   });
 
   if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.error(`Strava token refresh failed for user ${userId}: ${res.status} ${body}`);
     return null;
   }
 

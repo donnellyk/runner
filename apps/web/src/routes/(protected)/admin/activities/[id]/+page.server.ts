@@ -1,10 +1,13 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import { eq, sql, and, inArray, getTableColumns } from 'drizzle-orm';
 import { getDb } from '@web-runner/db/client';
 import { activities, activityLaps, activityStreams, activitySegments } from '@web-runner/db/schema';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, locals }) => {
+	if (!locals.user?.isAdmin) {
+		redirect(302, '/');
+	}
 	const db = getDb();
 	const activityId = Number(params.id);
 

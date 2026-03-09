@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, between, sql, inArray, getTableColumns } from 'drizzle-orm';
+import { eq, and, desc, gte, lte, lt, or, between, sql, inArray, getTableColumns } from 'drizzle-orm';
 import { getDb } from '@web-runner/db/client';
 import { activities, activityLaps, activityStreams, activitySegments, userZones, activityNotes } from '@web-runner/db/schema';
 import { DEFAULT_ZONES, RACE_DISTANCES, raceDistanceBounds, type ZoneDefinition } from '@web-runner/shared';
@@ -49,7 +49,18 @@ export async function listActivities(userId: number, filters: ActivityListFilter
 	}
 
 	if (cursor) {
-		conditions.push(lte(activities.startDate, new Date(cursor)));
+		const [cursorDate, cursorId] = cursor.split(',');
+		const cursorTime = new Date(cursorDate);
+		if (cursorId) {
+			conditions.push(
+				or(
+					lt(activities.startDate, cursorTime),
+					and(eq(activities.startDate, cursorTime), lt(activities.id, Number(cursorId))),
+				)!,
+			);
+		} else {
+			conditions.push(lte(activities.startDate, cursorTime));
+		}
 	}
 
 	const rows = await db
@@ -68,7 +79,7 @@ export async function listActivities(userId: number, filters: ActivityListFilter
 		})
 		.from(activities)
 		.where(and(...conditions))
-		.orderBy(desc(activities.startDate))
+		.orderBy(desc(activities.startDate), desc(activities.id))
 		.limit(PAGE_SIZE + 1);
 
 	const hasMore = rows.length > PAGE_SIZE;
@@ -100,7 +111,8 @@ export async function listActivities(userId: number, filters: ActivityListFilter
 		.from(activities)
 		.where(eq(activities.userId, userId));
 
-	const nextCursor = hasMore ? items[items.length - 1].startDate.toISOString() : null;
+	const last = items[items.length - 1];
+	const nextCursor = hasMore ? `${last.startDate.toISOString()},${last.id}` : null;
 
 	return {
 		activities: items.map((a) => ({ ...a, sparkline: sparklineMap.get(a.id) ?? null })),

@@ -1,19 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { goto } from '$app/navigation';
+	import { tokenStatus, rowClick } from '$lib/ui-helpers';
 	let { data } = $props();
-
-	function rowClick(event: MouseEvent, id: number) {
-		if ((event.target as HTMLElement).closest('button, a, form')) return;
-		goto(resolve(`/admin/users/${id}`));
-	}
-
-	function tokenStatus(expiresAt: string | Date | null) {
-		if (!expiresAt) return { label: 'Missing', color: 'text-zinc-400' };
-		const expires = new Date(expiresAt);
-		if (expires < new Date()) return { label: 'Expired', color: 'text-red-600' };
-		return { label: 'Valid', color: 'text-green-600' };
-	}
 </script>
 
 <h1 class="text-2xl font-bold mb-6">Users</h1>
@@ -33,7 +21,7 @@
 	<tbody>
 		{#each data.users as user (user.id)}
 			{@const status = tokenStatus(user.tokenExpiresAt)}
-			<tr class="border-b border-zinc-100 cursor-pointer hover:bg-zinc-50" onclick={(e) => rowClick(e, user.id)}>
+			<tr class="border-b border-zinc-100 cursor-pointer hover:bg-zinc-50" onclick={(e) => rowClick(e, resolve(`/admin/users/${user.id}`))}>
 				<td class="py-2 pr-4">{user.firstName} {user.lastName}</td>
 				<td class="py-2 pr-4 font-mono text-xs">{user.stravaAthleteId}</td>
 				<td class="py-2 pr-4">

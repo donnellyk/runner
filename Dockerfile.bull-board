@@ -3,4 +3,5 @@ WORKDIR /app
 RUN npm install @bull-board/api @bull-board/express bullmq express typescript @types/node
 COPY scripts/bull-board.ts .
 RUN npx tsc bull-board.ts --esModuleInterop --module nodenext --moduleResolution nodenext
+USER node
 CMD ["node", "bull-board.js"]

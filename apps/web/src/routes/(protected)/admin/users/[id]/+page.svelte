@@ -2,18 +2,11 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { goto, invalidateAll } from '$app/navigation';
-	import { formatDistance } from '$lib/format';
-	import type { Units } from '$lib/format';
+	import { formatDistance, type Units } from '$lib/format';
+	import { tokenStatus, statusColor, formatTime } from '$lib/ui-helpers';
 	let { data } = $props();
 	let user = $derived(data.profile);
 	let units: Units = $derived(user.distanceUnit as Units);
-
-	function tokenStatus(expiresAt: string | Date | null) {
-		if (!expiresAt) return { label: 'Missing', color: 'text-zinc-400' };
-		const expires = new Date(expiresAt);
-		if (expires < new Date()) return { label: 'Expired', color: 'text-red-600' };
-		return { label: 'Valid', color: 'text-green-600' };
-	}
 
 	let status = $derived(tokenStatus(user.tokenExpiresAt));
 
@@ -21,23 +14,6 @@
 		const target = event.currentTarget as HTMLInputElement;
 		const form = target.closest('form') as HTMLFormElement;
 		form.requestSubmit();
-	}
-
-	function statusColor(s: string) {
-		switch (s) {
-			case 'complete': return 'bg-green-100 text-green-800';
-			case 'failed': return 'bg-red-100 text-red-800';
-			case 'pending': return 'bg-yellow-100 text-yellow-800';
-			case 'streams_pending': return 'bg-blue-100 text-blue-800';
-			default: return 'bg-zinc-100 text-zinc-600';
-		}
-	}
-
-	function formatTime(seconds: number | null) {
-		if (!seconds) return '-';
-		const h = Math.floor(seconds / 3600);
-		const m = Math.floor((seconds % 3600) / 60);
-		return h > 0 ? `${h}h ${m}m` : `${m}m`;
 	}
 </script>
 

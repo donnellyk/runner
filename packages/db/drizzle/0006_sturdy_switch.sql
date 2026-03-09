@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "idx_oauth_accounts_user_provider" ON "oauth_accounts" USING btree ("user_id","provider");--> statement-breakpoint
+CREATE INDEX "idx_sessions_user_id" ON "sessions" USING btree ("user_id");

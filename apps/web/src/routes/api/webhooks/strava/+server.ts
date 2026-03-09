@@ -19,25 +19,51 @@ export const GET: RequestHandler = async ({ url }) => {
 	return json({ error: 'Invalid verify token' }, { status: 403 });
 };
 
-export const POST: RequestHandler = async ({ request }) => {
-	const event = await request.json();
+function validateWebhookEvent(payload: unknown): payload is {
+	subscription_id: number;
+	object_type: string;
+	object_id: number;
+	aspect_type: string;
+	owner_id: number;
+	event_time: number;
+	updates?: Record<string, string>;
+} {
+	if (typeof payload !== 'object' || payload === null) return false;
+	const p = payload as Record<string, unknown>;
+	return (
+		typeof p.subscription_id === 'number' &&
+		typeof p.object_type === 'string' &&
+		typeof p.object_id === 'number' &&
+		typeof p.aspect_type === 'string' &&
+		typeof p.owner_id === 'number' &&
+		typeof p.event_time === 'number'
+	);
+}
 
-	const expectedSubId = process.env.STRAVA_WEBHOOK_SUBSCRIPTION_ID;
+export const POST: RequestHandler = async ({ request }) => {
+	const payload = await request.json();
+
+	if (!validateWebhookEvent(payload)) {
+		logger.warn({ payload }, 'Invalid webhook payload');
+		return json({ error: 'Invalid payload' }, { status: 400 });
+	}
+
+	const expectedSubId = env.STRAVA_WEBHOOK_SUBSCRIPTION_ID;
 	if (!expectedSubId) {
 		logger.error('STRAVA_WEBHOOK_SUBSCRIPTION_ID not configured, rejecting webhook');
 		return json({ error: 'Webhook not configured' }, { status: 500 });
 	}
-	if (String(event.subscription_id) !== expectedSubId) {
-		logger.warn({ subscriptionId: event.subscription_id }, 'Unknown subscription ID');
+	if (String(payload.subscription_id) !== expectedSubId) {
+		logger.warn({ subscriptionId: payload.subscription_id }, 'Unknown subscription ID');
 		return json({ error: 'Unknown subscription' }, { status: 403 });
 	}
 
 	logger.info(
-		{ objectType: event.object_type, aspectType: event.aspect_type, objectId: event.object_id },
+		{ objectType: payload.object_type, aspectType: payload.aspect_type, objectId: payload.object_id },
 		'Webhook event received',
 	);
 
-	const jobData: WebhookEventJobData = { type: 'webhook-event', event };
+	const jobData: WebhookEventJobData = { type: 'webhook-event', event: payload };
 	const queue = getQueue();
 	await queue.add('webhook-event', jobData, { priority: JobPriority.webhook });
 

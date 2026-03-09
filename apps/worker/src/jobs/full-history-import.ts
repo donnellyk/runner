@@ -3,7 +3,8 @@ import { DelayedError } from 'bullmq';
 import type { Logger } from 'pino';
 import type { Database } from '@web-runner/db/client';
 import { activities } from '@web-runner/db/schema';
-import { StravaClient, getValidToken, mapStravaSportType, mapStravaWorkoutType } from '@web-runner/strava';
+import { StravaClient, getValidToken } from '@web-runner/strava';
+import { buildActivityValues, buildActivityUpdateSet } from './activity-values.js';
 import { JobPriority, type FullHistoryImportJobData } from '@web-runner/shared';
 import type { StravaRateLimiter } from '../rate-limiter.js';
 
@@ -50,52 +51,13 @@ export async function handleFullHistoryImport(
       // never get an activity-import job queued.
       if (!shouldImport) continue;
 
+      const values = buildActivityValues(userId, act);
       await db.insert(activities).values({
-        externalId: String(act.id),
-        source: 'strava',
-        userId,
-        name: act.name,
-        sportType: mapStravaSportType(act.sport_type),
-        workoutType: mapStravaWorkoutType(act.workout_type),
-        distance: act.distance,
-        movingTime: act.moving_time,
-        elapsedTime: act.elapsed_time,
-        totalElevationGain: act.total_elevation_gain,
-        startDate: new Date(act.start_date),
-        startLatlng: act.start_latlng,
-        endLatlng: act.end_latlng,
-        averageSpeed: act.average_speed,
-        maxSpeed: act.max_speed,
-        averageHeartrate: act.average_heartrate ?? null,
-        maxHeartrate: act.max_heartrate ?? null,
-        averageCadence: act.average_cadence ?? null,
-        averageWatts: act.average_watts ?? null,
-        hasHeartrate: act.has_heartrate,
-        hasPower: (act.average_watts ?? 0) > 0,
-        deviceName: act.device_name ?? null,
-        gearId: act.gear_id ?? null,
+        ...values,
         syncStatus: 'pending',
       }).onConflictDoUpdate({
         target: [activities.source, activities.externalId],
-        set: {
-          name: act.name,
-          sportType: mapStravaSportType(act.sport_type),
-          workoutType: mapStravaWorkoutType(act.workout_type),
-          distance: act.distance,
-          movingTime: act.moving_time,
-          elapsedTime: act.elapsed_time,
-          totalElevationGain: act.total_elevation_gain,
-          startDate: new Date(act.start_date),
-          averageSpeed: act.average_speed,
-          maxSpeed: act.max_speed,
-          averageHeartrate: act.average_heartrate ?? null,
-          maxHeartrate: act.max_heartrate ?? null,
-          averageCadence: act.average_cadence ?? null,
-          averageWatts: act.average_watts ?? null,
-          hasHeartrate: act.has_heartrate,
-          hasPower: (act.average_watts ?? 0) > 0,
-          updatedAt: new Date(),
-        },
+        set: buildActivityUpdateSet(userId, act),
       });
 
       await queue.add('activity-import', {

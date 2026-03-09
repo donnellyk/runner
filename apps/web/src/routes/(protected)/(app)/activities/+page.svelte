@@ -1,17 +1,13 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import SparkLine from '$lib/components/SparkLine.svelte';
 	import { formatDistance, formatDuration, formatPace, formatElevation, type Units } from '$lib/format';
 	import { sportColor, workoutBadge } from '$lib/activity-colors';
+	import { rowClick } from '$lib/ui-helpers';
 
 	let { data } = $props();
 	const units = data.user.distanceUnit as Units;
-
-	function rowClick(e: MouseEvent, id: number) {
-		if ((e.target as HTMLElement).closest('button, a, form')) return;
-		goto(resolve(`/activities/${id}`));
-	}
 
 	let grouped = $derived.by(() => {
 		const map = new Map<string, typeof data.activities>();
@@ -112,7 +108,7 @@
 				<div
 					class="flex items-center justify-between py-3 border-b border-zinc-50 cursor-pointer hover:bg-zinc-50 -mx-2 px-2 rounded"
 					style="border-left: 3px solid {color};"
-					onclick={(e) => rowClick(e, activity.id)}
+					onclick={(e) => rowClick(e, resolve(`/activities/${activity.id}`))}
 					role="button"
 					tabindex="0"
 					onkeydown={(e) => e.key === 'Enter' && goto(resolve(`/activities/${activity.id}`))}

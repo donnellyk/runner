@@ -3,7 +3,7 @@ export type Units = 'metric' | 'imperial';
 const KM_TO_MI = 0.621371;
 const M_TO_FT = 3.28084;
 export const MI_TO_M = 1609.34;
-const KM_TO_MI_PACE = 1.60934; // multiply sec/km by this to get sec/mi
+export const KM_TO_MI_PACE = 1.60934; // multiply sec/km by this to get sec/mi
 
 export function formatDistance(meters: number | null, units: Units): string {
 	if (!meters) return '-';

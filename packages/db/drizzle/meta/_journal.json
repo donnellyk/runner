@@ -43,6 +43,13 @@
       "when": 1773089285806,
       "tag": "0005_vengeful_stepford_cuckoos",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773095913876,
+      "tag": "0006_sturdy_switch",
+      "breakpoints": true
     }
   ]
 }

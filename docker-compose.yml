@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgis/postgis:17-3.5
+    restart: unless-stopped
     platform: linux/amd64
     environment:
       POSTGRES_USER: postgres
@@ -22,6 +23,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
@@ -40,12 +42,20 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:
-      - web
+      web:
+        condition: service_healthy
 
   web:
     image: ghcr.io/donnellyk/runner/web:latest
+    restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/webrunner
       REDIS_URL: redis://redis:6379
@@ -64,6 +74,7 @@ services:
 
   worker:
     image: ghcr.io/donnellyk/runner/worker:latest
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/webrunner
       REDIS_URL: redis://redis:6379
@@ -76,6 +87,7 @@ services:
 
   bull-board:
     image: ghcr.io/donnellyk/runner/bull-board:latest
+    restart: unless-stopped
     ports:
       - "127.0.0.1:3001:3001"
     environment:

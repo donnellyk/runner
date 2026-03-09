@@ -38,4 +38,5 @@ COPY apps/web/entrypoint.sh /app/apps/web/entrypoint.sh
 WORKDIR /app/apps/web
 EXPOSE 3000
 ENV PORT=3000
+USER node
 CMD ["./entrypoint.sh"]

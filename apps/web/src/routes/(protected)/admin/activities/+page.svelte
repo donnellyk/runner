@@ -1,15 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import { formatDistance } from '$lib/format';
+	import { statusColor, formatTime, rowClick } from '$lib/ui-helpers';
 	let { data } = $props();
 	const units = data.user.distanceUnit as 'metric' | 'imperial';
-
-	function rowClick(event: MouseEvent, id: number) {
-		if ((event.target as HTMLElement).closest('button, a, form')) return;
-		goto(resolve(`/admin/activities/${id}`));
-	}
 
 	const totalPages = Math.ceil(data.total / data.pageSize);
 
@@ -22,28 +17,6 @@
 			sport: data.filters.sport || '',
 			user: data.filters.user || '',
 		}).toString();
-	}
-
-	function statusColor(status: string) {
-		switch (status) {
-			case 'complete':
-				return 'bg-green-100 text-green-800';
-			case 'failed':
-				return 'bg-red-100 text-red-800';
-			case 'pending':
-				return 'bg-yellow-100 text-yellow-800';
-			case 'streams_pending':
-				return 'bg-blue-100 text-blue-800';
-			default:
-				return 'bg-zinc-100 text-zinc-600';
-		}
-	}
-
-	function formatTime(seconds: number | null) {
-		if (!seconds) return '-';
-		const h = Math.floor(seconds / 3600);
-		const m = Math.floor((seconds % 3600) / 60);
-		return h > 0 ? `${h}h ${m}m` : `${m}m`;
 	}
 </script>
 
@@ -116,7 +89,7 @@
 	</thead>
 	<tbody>
 		{#each data.activities as activity (activity.id)}
-			<tr class="border-b border-zinc-100 cursor-pointer hover:bg-zinc-50" onclick={(e) => rowClick(e, activity.id)}>
+			<tr class="border-b border-zinc-100 cursor-pointer hover:bg-zinc-50" onclick={(e) => rowClick(e, resolve(`/admin/activities/${activity.id}`))}>
 				<td class="py-2 pr-4">{activity.name}</td>
 				<td class="py-2 pr-4">{activity.sportType}</td>
 				<td class="py-2 pr-4">

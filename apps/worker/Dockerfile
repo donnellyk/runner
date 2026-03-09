@@ -21,4 +21,5 @@ COPY --from=deps /app/packages/strava/node_modules ./packages/strava/node_module
 COPY . .
 
 WORKDIR /app/apps/worker
+USER node
 CMD ["node", "--import", "tsx/esm", "src/index.ts"]

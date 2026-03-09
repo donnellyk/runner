@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Units } from '$lib/format';
+	import { KM_TO_MI_PACE, type Units } from '$lib/format';
 
 	interface Lap {
 		lapIndex: number;
@@ -37,8 +37,6 @@
 
 	let chartW = $derived(svgWidth - PAD_LEFT - PAD_RIGHT);
 	let chartH = $derived(CHART_H - PAD_TOP - PAD_BOTTOM);
-
-	const KM_TO_MI_PACE = 1.60934;
 
 	function speedToPace(speed: number | null): number | null {
 		if (!speed || speed <= 0) return null;

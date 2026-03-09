@@ -59,6 +59,16 @@ worker.on('failed', (job, err) => {
 
 logger.info('Worker started');
 
+process.on('unhandledRejection', (reason) => {
+	logger.error({ reason }, 'Unhandled promise rejection');
+	process.exit(1);
+});
+
+process.on('uncaughtException', (err) => {
+	logger.error({ err }, 'Uncaught exception');
+	process.exit(1);
+});
+
 async function shutdown() {
 	logger.info('Shutting down worker...');
 	await worker.close();
