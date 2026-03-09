@@ -157,11 +157,19 @@
     }
 </script>
 
-<div class="mb-6">
+<div class="mb-6 flex items-center justify-between">
     <a
         href={resolve("/activities")}
         class="text-sm text-zinc-400 hover:text-zinc-700">&larr; Activities</a
     >
+    {#if a.source === 'strava'}
+        <a
+            href="https://www.strava.com/activities/{a.externalId}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-sm text-zinc-400 hover:text-zinc-700"
+        >Strava &nearr;</a>
+    {/if}
 </div>
 
 <div class="mb-8">
