@@ -1,3 +1,5 @@
+export {};
+
 const action = process.argv[2];
 const clientId = process.env.STRAVA_CLIENT_ID;
 const clientSecret = process.env.STRAVA_CLIENT_SECRET;
