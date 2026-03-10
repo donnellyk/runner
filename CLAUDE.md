@@ -1,6 +1,6 @@
-# web-runner
+# CLAUDE.md
 
-A personal running analytics platform that imports Strava data and provides activity visualization, training plan management, and workout scoring. Built as a learning project for a complete web stack.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Quick Reference
 
@@ -9,8 +9,15 @@ pnpm run dev          # Start all services (SvelteKit + worker)
 pnpm run check        # Full CI: typecheck + lint + test
 pnpm run test         # Vitest across all packages
 pnpm run typecheck    # tsc --build + svelte-check
+pnpm run lint         # ESLint across all packages
 pnpm run build        # Build all packages
 ```
+
+Run a single test file:
+```bash
+pnpm run test -- --project web src/lib/format.test.ts
+```
+Project names: `web`, `worker`, `shared`, `strava`, `db`.
 
 If `tsc --build` fails with TS6305 stale dist errors, run `npx tsc --build --clean && npx tsc --build` first.
 
@@ -66,30 +73,6 @@ All values stored in metric (meters, seconds, m/s). Display conversion to imperi
 
 `SessionUser` is `typeof users.$inferSelect` — adding columns to the users schema automatically propagates through `locals.user` and `data.user` in all pages.
 
-## Route Structure
-
-### Auth (public)
-- `/auth/login` — Login page
-- `/auth/strava` — Initiates Strava OAuth
-- `/auth/strava/callback` — OAuth callback, creates session
-- `/auth/logout` — POST endpoint, destroys session
-
-### User-facing (protected)
-- `/` — Currently a debug/placeholder page showing session info
-
-### Admin (protected, requires isAdmin)
-- `/admin/users` — User list with clickable rows
-- `/admin/users/[id]` — User profile: info, distance unit toggle (auto-saves), activity list
-- `/admin/activities` — Paginated activity list with filters, clickable rows
-- `/admin/activities/[id]` — Activity detail: map, stats, laps, stream charts, segments
-- `/admin/queues` — BullMQ job management
-- `/admin/strava` — Rate limit monitoring, webhook status
-- `/admin/system` — DB stats, Redis stats, slow queries
-
-### API
-- `GET /api/health` — DB + Redis connectivity check
-- `GET/POST /api/webhooks/strava` — Webhook validation + event receiver
-
 ## Layout Hierarchy
 
 ```
@@ -97,6 +80,8 @@ All values stored in metric (meters, seconds, m/s). Display conversion to imperi
 +layout.server.ts           — Returns locals.user to all pages
 (protected)/
   +layout.server.ts         — Redirects to /auth/login if no user
+  (app)/
+    +layout.svelte          — Top nav (Carthage, Activities, Settings, Admin, Logout)
   admin/
     +layout.server.ts       — Redirects to / if not admin
     +layout.svelte          — Sidebar nav + content area
@@ -112,6 +97,7 @@ This project uses Svelte 5. Use runes, not stores:
 - `$state()` for reactive state
 - `$app/state` for page state (not `$app/stores`)
 - Use `$derived()` when capturing values from `data` props that need to stay reactive after `invalidateAll()`
+- When `$state()` is intentionally initialized from `data` (mutable local copy, resynced via `$effect`), suppress the warning with `// svelte-ignore state_referenced_locally`
 
 ### SvelteKit Conventions
 
@@ -126,18 +112,7 @@ Imported via `@import "tailwindcss"` in `app.css`. No config file — Tailwind v
 
 ### Clickable Table Rows
 
-Pattern used across admin tables:
-```svelte
-<tr class="border-b border-zinc-100 cursor-pointer hover:bg-zinc-50"
-    onclick={(e) => rowClick(e, item.id)}>
-```
-With a handler that excludes interactive children:
-```ts
-function rowClick(event: MouseEvent, id: number) {
-  if ((event.target as HTMLElement).closest('button, a, form')) return;
-  goto(resolve(`/admin/items/${id}`));
-}
-```
+Pattern used across admin tables — `rowClick()` from `$lib/ui-helpers` excludes interactive children (buttons, links, forms) before navigating.
 
 ### Format Utilities (`apps/web/src/lib/format.ts`)
 
@@ -151,7 +126,7 @@ pnpm run generate    # drizzle-kit generate (creates SQL in drizzle/)
 pnpm run migrate:run # tsx src/migrate.ts
 ```
 
-Migration files are in `packages/db/drizzle/`. Review generated SQL — drizzle-kit can produce duplicate statements if prior migrations had drift (e.g., the is_admin column).
+Migration files are in `packages/db/drizzle/`. Review generated SQL — drizzle-kit can produce duplicate statements if prior migrations had drift.
 
 ### Testing
 
@@ -160,19 +135,11 @@ Migration files are in `packages/db/drizzle/`. Review generated SQL — drizzle-
 - `apps/web` uses `$lib` alias in vitest via `alias` config
 - Pure function tests (like format.ts) don't need SvelteKit — they run with basic vitest
 
-## Implementation Phases
+### ESLint Rules to Know
 
-See `docs/implementation-plan.md` for the full roadmap:
-- Phase 1-2: Complete (scaffolding, auth)
-- Phase 3: Complete (Strava data pipeline)
-- Phase 3b: Complete (admin tooling)
-- **Phase 4a: Next** (user-facing activity views & charts)
-- Phase 4b: Activity overlay & comparison
-- Phase 5: Training plans
-- Phase 6: Workout scoring
-- Phase 7: Observability
-
-Detailed implementation docs in `docs/phase-3-implementation.md` and `docs/phase-3b-implementation.md`.
+- `svelte/require-each-key` — all `{#each}` blocks need a key expression
+- `svelte/prefer-svelte-reactivity` — use `SvelteMap`/`SvelteURLSearchParams` from `svelte/reactivity` instead of native classes in reactive contexts
+- ESLint enforces `resolve()` for internal hrefs
 
 ## Infrastructure
 
@@ -181,13 +148,3 @@ Detailed implementation docs in `docs/phase-3-implementation.md` and `docs/phase
 - **CI:** GitHub Actions — typecheck, lint, test, image build to GHCR
 - **Deploy:** Manual via Makefile, pulls pre-built images
 - **Backups:** pg_dump to Backblaze B2 on cron
-
-## Scripts (`scripts/`)
-
-- `admin-promote.ts` — Promote a user to admin
-- `bull-board.ts` — Standalone Bull Board queue dashboard (port 3001)
-- `console.ts` — Node REPL with DB, Redis, Strava, queue pre-loaded
-- `simulate-webhook.ts` — Inject fake webhook events for testing
-- `webhook-manage.ts` — Manage Strava webhook subscriptions
-- `wipe-activities.ts` — Delete all activity data
-- `backup.sh` / `restore.sh` — Database backup/restore
