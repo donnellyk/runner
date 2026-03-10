@@ -1,7 +1,7 @@
 export type Units = 'metric' | 'imperial';
 
 const KM_TO_MI = 0.621371;
-const M_TO_FT = 3.28084;
+export const M_TO_FT = 3.28084;
 export const MI_TO_M = 1609.34;
 export const KM_TO_MI_PACE = 1.60934; // multiply sec/km by this to get sec/mi
 
@@ -32,15 +32,15 @@ export function formatElevation(meters: number | null, units: Units): string {
 /** Convert average speed (m/s) to a pace string like "5:30 min/km" or "8:51 min/mi" */
 export function formatPace(averageSpeed: number | null, units: Units): string {
 	if (!averageSpeed) return '-';
-	// sec/km
 	let secPerUnit = 1000 / averageSpeed;
 	let label = 'min/km';
 	if (units === 'imperial') {
 		secPerUnit *= KM_TO_MI_PACE;
 		label = 'min/mi';
 	}
-	const mins = Math.floor(secPerUnit / 60);
-	const secs = Math.round(secPerUnit % 60);
+	const total = Math.round(secPerUnit);
+	const mins = Math.floor(total / 60);
+	const secs = total % 60;
 	return `${mins}:${String(secs).padStart(2, '0')} ${label}`;
 }
 
@@ -53,8 +53,19 @@ export function formatPaceValue(secPerKm: number | null, units: Units): string {
 		secPerUnit *= KM_TO_MI_PACE;
 		label = '/mi';
 	}
-	const mins = Math.floor(secPerUnit / 60);
-	const secs = Math.round(secPerUnit % 60);
+	const total = Math.round(secPerUnit);
+	const mins = Math.floor(total / 60);
+	const secs = total % 60;
+	return `${mins}:${String(secs).padStart(2, '0')} ${label}`;
+}
+
+/** Format a pace value already in the display unit (sec/km or sec/mi) without converting */
+export function formatPaceDisplay(secPerUnit: number | null, units: Units): string {
+	if (secPerUnit == null) return '-';
+	const label = units === 'imperial' ? '/mi' : '/km';
+	const total = Math.round(secPerUnit);
+	const mins = Math.floor(total / 60);
+	const secs = total % 60;
 	return `${mins}:${String(secs).padStart(2, '0')} ${label}`;
 }
 
@@ -110,7 +121,8 @@ export function parsePaceInput(input: string): number | null {
 /** Format sec/km as "M:SS" string for pace input fields */
 export function formatPaceForInput(secPerKm: number | null): string {
 	if (secPerKm == null) return '';
-	const m = Math.floor(secPerKm / 60);
-	const s = Math.round(secPerKm % 60);
+	const total = Math.round(secPerKm);
+	const m = Math.floor(total / 60);
+	const s = total % 60;
 	return `${m}:${String(s).padStart(2, '0')}`;
 }

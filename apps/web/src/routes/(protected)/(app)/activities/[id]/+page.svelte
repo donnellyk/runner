@@ -7,6 +7,7 @@
     import ActivityChart from "$lib/components/ActivityChart.svelte";
     import LapsChart from "$lib/components/LapsChart.svelte";
     import StatCard from "$lib/components/StatCard.svelte";
+    import TerminalEntryCard from "$lib/terminal/TerminalEntryCard.svelte";
     import { sportColor, workoutBadge } from "$lib/activity-colors";
     import { bucketAvgIndices } from "$lib/sampling";
     import { findIndexAtDistance } from "$lib/streams";
@@ -336,6 +337,7 @@
             value="{Math.round(a.averageCadence * 2)} spm"
         />
     {/if}
+    <TerminalEntryCard activityId={a.id} />
 </div>
 
 {#if routeCoords}

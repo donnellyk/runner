@@ -4,6 +4,7 @@ import {
 	formatDistancePrecise,
 	formatElevation,
 	formatPace,
+	formatPaceDisplay,
 	formatPaceValue,
 	formatSegmentDistance,
 	segmentDistanceLabel,
@@ -96,6 +97,26 @@ describe('formatPaceValue', () => {
 	test('formats imperial sec/mi', () => {
 		// 330 * 1.60934 = 531.08 sec/mi = 8:51
 		expect(formatPaceValue(330, 'imperial')).toBe('8:51 /mi');
+	});
+});
+
+describe('formatPaceDisplay', () => {
+	test('returns dash for null', () => {
+		expect(formatPaceDisplay(null, 'metric')).toBe('-');
+	});
+
+	test('formats metric without converting', () => {
+		expect(formatPaceDisplay(330, 'metric')).toBe('5:30 /km');
+	});
+
+	test('formats imperial without converting (value already in sec/mi)', () => {
+		expect(formatPaceDisplay(330, 'imperial')).toBe('5:30 /mi');
+	});
+
+	test('does not double-convert imperial values', () => {
+		// 330 sec/km * 1.60934 = ~531 sec/mi
+		// formatPaceDisplay should NOT multiply again
+		expect(formatPaceDisplay(531, 'imperial')).toBe('8:51 /mi');
 	});
 });
 
