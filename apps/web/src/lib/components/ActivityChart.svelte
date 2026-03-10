@@ -327,7 +327,7 @@
 			</clipPath>
 		</defs>
 
-		{#each yLabels as lbl (lbl.value)}
+		{#each yLabels as lbl, i (i)}
 			<line
 				x1={PAD_LEFT}
 				y1={lbl.y}
@@ -346,7 +346,7 @@
 			>{fmt(lbl.value)}</text>
 		{/each}
 
-		{#each zoneBands as band (band.y)}
+		{#each zoneBands as band, i (i)}
 			<rect
 				x={PAD_LEFT}
 				y={band.y}
@@ -396,7 +396,7 @@
 		{/if}
 
 		{#if showPauseGaps && pauseResult}
-			{#each pauseResult.segs as seg (seg.startIdx)}
+			{#each pauseResult.segs as seg, i (i)}
 				<polyline
 					points={smoothData.slice(seg.startIdx, seg.endIdx + 1).map((v, j) => `${toX(trimXData[seg.startIdx + j])},${toY(v)}`).join(' ')}
 					fill="none"
@@ -407,7 +407,7 @@
 					clip-path="url(#{clipId})"
 				/>
 			{/each}
-			{#each pauseResult.gaps as gap (gap.x1)}
+			{#each pauseResult.gaps as gap, i (i)}
 				{#if xAxis === 'time'}
 					<line x1={gap.x1} y1={PAD_TOP} x2={gap.x1} y2={PAD_TOP + chartH}
 						stroke="#d4d4d8" stroke-width="1.5" stroke-dasharray="3,3" />
@@ -489,7 +489,7 @@
 			{/if}
 		{/if}
 
-		{#each xLabels as lbl, i (lbl.x)}
+		{#each xLabels as lbl, i (i)}
 			<text
 				x={lbl.x}
 				y={CHART_H - 4}

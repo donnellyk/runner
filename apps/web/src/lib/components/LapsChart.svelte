@@ -137,7 +137,7 @@
 		onmousemove={handleMouseMove}
 		onmouseleave={handleMouseLeave}
 	>
-		{#each yLabels as lbl (lbl.value)}
+		{#each yLabels as lbl, i (i)}
 			<line
 				x1={PAD_LEFT}
 				y1={lbl.y}
