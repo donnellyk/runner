@@ -49,7 +49,6 @@
 
 	let yMin = $derived(validPaces.length > 0 ? Math.min(...validPaces) : 0);
 	let yMax = $derived(validPaces.length > 0 ? Math.max(...validPaces) : 1);
-	let yRange = $derived(yMax - yMin || 1);
 
 	let avgPace = $derived(
 		validPaces.length > 0
@@ -138,7 +137,7 @@
 		onmousemove={handleMouseMove}
 		onmouseleave={handleMouseLeave}
 	>
-		{#each yLabels as lbl}
+		{#each yLabels as lbl (lbl.value)}
 			<line
 				x1={PAD_LEFT}
 				y1={lbl.y}
@@ -178,7 +177,7 @@
 			>avg {formatPace(avgPace)}</text>
 		{/if}
 
-		{#each paces as pace, i}
+		{#each paces as pace, i (i)}
 			{#if pace != null}
 				{@const x = PAD_LEFT + i * barSlot + BAR_GAP / 2}
 				{@const isHovered = hoveredIndex === i}
@@ -194,7 +193,7 @@
 			{/if}
 		{/each}
 
-		{#each [0, Math.floor(laps.length / 2), laps.length - 1] as i}
+		{#each [0, Math.floor(laps.length / 2), laps.length - 1] as i (i)}
 			<text
 				x={PAD_LEFT + i * barSlot + barSlot / 2}
 				y={CHART_H - 4}

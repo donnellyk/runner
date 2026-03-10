@@ -25,7 +25,7 @@
 <h1 class="font-serif text-3xl font-semibold text-zinc-900 mb-8">Scripts</h1>
 
 <div class="space-y-4">
-	{#each scripts as script}
+	{#each scripts as script (script.action)}
 		<div class="border border-zinc-200 rounded-lg p-5">
 			<div class="flex items-start justify-between gap-6">
 				<div class="min-w-0">

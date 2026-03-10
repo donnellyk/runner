@@ -86,7 +86,7 @@ export async function listActivities(userId: number, filters: ActivityListFilter
 	const items = rows.slice(0, PAGE_SIZE);
 
 	const activityIds = items.map((a) => a.id);
-	let sparklineMap = new Map<number, number[]>();
+	const sparklineMap = new Map<number, number[]>();
 
 	if (activityIds.length > 0) {
 		const sparklineRows = await db

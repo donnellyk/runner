@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import type L from 'leaflet';
 
 	export interface NoteMarker {
@@ -32,7 +33,7 @@
 	let mapRef: L.Map | null = null;
 	let markerCircle: L.CircleMarker | null = null;
 	let noteLayerGroup: L.LayerGroup | null = null;
-	let noteLayers: Map<number, L.CircleMarker | L.Polyline> = new Map();
+	let noteLayers: SvelteMap<number, L.CircleMarker | L.Polyline> = new SvelteMap();
 	let ready = $state(false);
 
 	onMount(() => {

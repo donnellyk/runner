@@ -5,8 +5,8 @@
 	import { formatDistancePrecise, formatElevation, formatPace, formatPaceValue, formatSegmentDistance, segmentDistanceLabel } from '$lib/format';
 	import type { Units } from '$lib/format';
 	let { data } = $props();
-	const a = data.activity;
-	const units: Units = data.user.distanceUnit as Units;
+	const a = $derived(data.activity);
+	const units = $derived(data.user.distanceUnit as Units);
 
 	function getRouteCoordinates(): [number, number][] | null {
 		if (a.routeGeoJson) {

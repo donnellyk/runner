@@ -1,5 +1,4 @@
 import { fail } from '@sveltejs/kit';
-import { eq, and } from 'drizzle-orm';
 import { getDb } from '@web-runner/db/client';
 import { userZones } from '@web-runner/db/schema';
 import {

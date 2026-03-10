@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { goto, invalidateAll } from "$app/navigation";
+    import { goto } from "$app/navigation";
     import { resolve } from "$app/paths";
     import { enhance } from "$app/forms";
     import SparkLine from "$lib/components/SparkLine.svelte";
@@ -14,26 +14,30 @@
     import { rowClick } from "$lib/ui-helpers";
 
     let { data } = $props();
-    const units = data.user.distanceUnit as Units;
-    const ms = data.mileageSummaries;
+    const units = $derived(data.user.distanceUnit as Units);
+    const ms = $derived(data.mileageSummaries);
 
+    // svelte-ignore state_referenced_locally
     let weekMode = $state(data.weekMode);
     const weekSummary = $derived(
         weekMode === "last7" ? ms.last7Days : ms.thisWeek,
     );
-    const summaries = $derived([weekSummary, ms.month, ms.year]);
 
     let grouped = $derived.by(() => {
-        const map = new Map<string, typeof data.activities>();
+        const keys: string[] = [];
+        const groups: Record<string, typeof data.activities> = {};
         for (const a of data.activities) {
             const key = new Date(a.startDate).toLocaleDateString("en-US", {
                 year: "numeric",
                 month: "long",
             });
-            if (!map.has(key)) map.set(key, []);
-            map.get(key)!.push(a);
+            if (!groups[key]) {
+                keys.push(key);
+                groups[key] = [];
+            }
+            groups[key].push(a);
         }
-        return [...map.entries()];
+        return keys.map((k) => [k, groups[k]] as const);
     });
 
     function dayLabel(date: Date | string): string {
@@ -47,18 +51,17 @@
     const activitiesPath = resolve("/activities");
 
     function buildQuery(overrides: Record<string, string>) {
-        const p = new URLSearchParams({
+        const params: Record<string, string> = {
             sport: data.filters.sport,
             workout: data.filters.workout,
             range: data.filters.range,
             distance: data.filters.distance,
             ...overrides,
-        });
-        // remove empty
-        for (const [k, v] of [...p.entries()]) {
-            if (!v) p.delete(k);
-        }
-        return p.toString();
+        };
+        return Object.entries(params)
+            .filter(([, v]) => v)
+            .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+            .join("&");
     }
 </script>
 
@@ -75,7 +78,7 @@
             class="border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white text-zinc-700"
         >
             <option value="">All sports</option>
-            {#each data.sportTypes as s}
+            {#each data.sportTypes as s (s)}
                 <option value={s} selected={data.filters.sport === s}
                     >{s}</option
                 >
@@ -107,7 +110,7 @@
             class="border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white text-zinc-700"
         >
             <option value="">Any distance</option>
-            {#each data.distancePresets as p}
+            {#each data.distancePresets as p (p)}
                 <option value={p} selected={data.filters.distance === p}
                     >{p}</option
                 >
@@ -247,7 +250,7 @@
     <p class="text-sm text-zinc-400">No activities found.</p>
 {/if}
 
-{#each grouped as [month, acts]}
+{#each grouped as [month, acts] (month)}
     <div class="mb-8">
         <div
             class="font-serif text-lg font-medium text-zinc-400 mb-3 pb-2 border-b border-zinc-100"

@@ -4,11 +4,13 @@
 	import type { ZoneDefinition } from '@web-runner/shared';
 
 	let { data, form } = $props();
-	const units = data.user.distanceUnit as Units;
+	const units = $derived(data.user.distanceUnit as Units);
 
 	let zoneType = $state<'pace' | 'heartrate'>('pace');
 
+	// svelte-ignore state_referenced_locally
 	let paceZones = $state<ZoneDefinition[]>(structuredClone(data.zones.paceZones));
+	// svelte-ignore state_referenced_locally
 	let hrZones = $state<ZoneDefinition[]>(structuredClone(data.zones.hrZones));
 
 	$effect(() => {
@@ -38,9 +40,8 @@
 	}
 
 	import { resolve } from '$app/paths';
-	import { formatDurationClock } from '$lib/format';
 
-	const raceActivities = data.raceActivities;
+	const raceActivities = $derived(data.raceActivities);
 
 	function paceSec(activity: { movingTime: number | null; distance: number | null }): number | null {
 		if (!activity.movingTime || !activity.distance) return null;

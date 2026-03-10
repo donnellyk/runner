@@ -327,7 +327,7 @@
 			</clipPath>
 		</defs>
 
-		{#each yLabels as lbl}
+		{#each yLabels as lbl (lbl.value)}
 			<line
 				x1={PAD_LEFT}
 				y1={lbl.y}
@@ -346,7 +346,7 @@
 			>{fmt(lbl.value)}</text>
 		{/each}
 
-		{#each zoneBands as band}
+		{#each zoneBands as band (band.y)}
 			<rect
 				x={PAD_LEFT}
 				y={band.y}
@@ -396,7 +396,7 @@
 		{/if}
 
 		{#if showPauseGaps && pauseResult}
-			{#each pauseResult.segs as seg}
+			{#each pauseResult.segs as seg (seg.startIdx)}
 				<polyline
 					points={smoothData.slice(seg.startIdx, seg.endIdx + 1).map((v, j) => `${toX(trimXData[seg.startIdx + j])},${toY(v)}`).join(' ')}
 					fill="none"
@@ -407,7 +407,7 @@
 					clip-path="url(#{clipId})"
 				/>
 			{/each}
-			{#each pauseResult.gaps as gap}
+			{#each pauseResult.gaps as gap (gap.x1)}
 				{#if xAxis === 'time'}
 					<line x1={gap.x1} y1={PAD_TOP} x2={gap.x1} y2={PAD_TOP + chartH}
 						stroke="#d4d4d8" stroke-width="1.5" stroke-dasharray="3,3" />
@@ -489,7 +489,7 @@
 			{/if}
 		{/if}
 
-		{#each xLabels as lbl, i}
+		{#each xLabels as lbl, i (lbl.x)}
 			<text
 				x={lbl.x}
 				y={CHART_H - 4}
@@ -505,7 +505,7 @@
 	</svg>
 	{#if zones && zones.length > 0}
 		<div class="flex items-center justify-end gap-3 mt-1" style="padding-left: {PAD_LEFT}px;">
-			{#each zones as zone}
+			{#each zones as zone (zone.index)}
 				<div class="flex items-center gap-1">
 					<span class="inline-block w-1.5 h-1.5 rounded-full" style="background: {zone.color};"></span>
 					<span class="text-[9px] text-zinc-400" style="font-family: 'Geist Mono', monospace;">{zone.name}</span>

@@ -4,9 +4,9 @@
 	import { formatDistance } from '$lib/format';
 	import { statusColor, formatTime, rowClick } from '$lib/ui-helpers';
 	let { data } = $props();
-	const units = data.user.distanceUnit as 'metric' | 'imperial';
+	const units = $derived(data.user.distanceUnit as 'metric' | 'imperial');
 
-	const totalPages = Math.ceil(data.total / data.pageSize);
+	const totalPages = $derived(Math.ceil(data.total / data.pageSize));
 
 	const activitiesPath = resolve('/admin/activities');
 

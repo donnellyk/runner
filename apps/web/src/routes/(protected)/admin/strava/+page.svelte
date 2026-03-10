@@ -169,11 +169,11 @@
 	<div class="text-sm text-red-600 mb-4">{form.error}</div>
 {/if}
 
-{#if form && 'rateLimit' in form}
+{#if form && 'rateLimit' in form && form.rateLimit && form.items}
 	<div class="flex items-center gap-6 text-xs text-zinc-500 mb-3">
-		<span class="font-medium text-zinc-700">{actionLabel[form.action]}</span>
+		<span class="font-medium text-zinc-700">{actionLabel[form.action as string]}</span>
 		<span>
-			{form.items.length} result{form.items.length === 1 ? '' : 's'}{#if 'scanned' in form}&nbsp;(scanned {form.scanned}){/if}{#if 'after' in form}&nbsp;· after {new Date(form.after * 1000).toLocaleString()}{/if}
+			{form.items.length} result{form.items.length === 1 ? '' : 's'}{#if 'scanned' in form}&nbsp;(scanned {form.scanned}){/if}{#if 'after' in form}&nbsp;· after {new Date((form.after as number) * 1000).toLocaleString()}{/if}
 		</span>
 		<span class="ml-auto">
 			Rate limit: {form.rateLimit.usage.shortTerm}/{form.rateLimit.limits.shortTerm} (15m) &middot; {form.rateLimit.usage.daily}/{form.rateLimit.limits.daily} (daily)

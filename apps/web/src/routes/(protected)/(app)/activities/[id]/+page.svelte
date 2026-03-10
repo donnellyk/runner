@@ -22,9 +22,11 @@
     } from "$lib/format";
 
     let { data } = $props();
-    const units = data.user.distanceUnit as Units;
-    const a = data.activity;
-    const { streamMap, paceZones, hrZones } = data;
+    const units = $derived(data.user.distanceUnit as Units);
+    const a = $derived(data.activity);
+    const streamMap = $derived(data.streamMap);
+    const paceZones = $derived(data.paceZones);
+    const hrZones = $derived(data.hrZones);
 
     let crosshairIndex = $state<number | null>(null);
     let xAxis = $state<"distance" | "time">("distance");
