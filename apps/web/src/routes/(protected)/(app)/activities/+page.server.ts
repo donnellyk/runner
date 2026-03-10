@@ -1,7 +1,7 @@
-import { listActivities, RACE_DISTANCE_PRESETS } from '$lib/server/queries/activities';
-import type { PageServerLoad } from './$types';
+import { listActivities, getRunningMileageSummaries, RACE_DISTANCE_PRESETS } from '$lib/server/queries/activities';
+import type { PageServerLoad, Actions } from './$types';
 
-export const load: PageServerLoad = async ({ locals, url }) => {
+export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	const userId = locals.user!.id;
 	const filters = {
 		sport:    url.searchParams.get('sport')    ?? '',
@@ -11,11 +11,26 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		cursor:   url.searchParams.get('cursor')   ?? '',
 	};
 
-	const result = await listActivities(userId, filters);
+	const weekMode = (cookies.get('weekMode') ?? 'last7') as 'last7' | 'thisWeek';
+
+	const [result, mileageSummaries] = await Promise.all([
+		listActivities(userId, filters),
+		getRunningMileageSummaries(userId),
+	]);
 
 	return {
 		...result,
 		filters,
 		distancePresets: RACE_DISTANCE_PRESETS.map((p) => p.label),
+		mileageSummaries,
+		weekMode,
 	};
+};
+
+export const actions: Actions = {
+	toggleWeekMode: async ({ cookies }) => {
+		const current = cookies.get('weekMode') ?? 'last7';
+		const next = current === 'last7' ? 'thisWeek' : 'last7';
+		cookies.set('weekMode', next, { path: '/', httpOnly: false, maxAge: 60 * 60 * 24 * 365 });
+	},
 };
