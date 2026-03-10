@@ -21,7 +21,7 @@
 
 	const PAD_TOP = 6;
 	const PAD_BOTTOM = 18;
-	const PAD_LEFT = 46;
+	const PAD_LEFT = 56;
 	const PAD_RIGHT = 4;
 
 	let svgEl = $state<SVGSVGElement | null>(null);
@@ -104,10 +104,7 @@
 </script>
 
 <div class="relative w-full h-full flex flex-col" style="min-height: 0;">
-	<div class="flex items-baseline justify-between px-2 py-1 shrink-0">
-		<span class="text-[10px] uppercase tracking-widest" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">
-			Candlestick ({mode})
-		</span>
+	<div class="flex items-baseline justify-end px-2 py-1 shrink-0">
 		<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums;">
 			{#if tooltipCandle}
 				O:{formatPaceDisplay(tooltipCandle.open, units)} C:{formatPaceDisplay(tooltipCandle.close, units)}

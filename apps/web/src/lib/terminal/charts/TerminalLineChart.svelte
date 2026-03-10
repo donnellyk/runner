@@ -20,7 +20,11 @@
 		zones?: ZoneDefinition[];
 		zoneMetric?: 'pace' | 'heartrate';
 		crosshairIndex?: number | null;
+		crosshairLocked?: boolean;
+		highlightRange?: { start: number; end: number } | null;
 		oncrosshairmove?: (index: number | null) => void;
+		oncrosshairclick?: (index: number | null) => void;
+		oncrosshairleave?: () => void;
 		showZones?: boolean;
 		filled?: boolean;
 	}
@@ -42,7 +46,11 @@
 		zones,
 		zoneMetric,
 		crosshairIndex = null,
+		crosshairLocked = false,
+		highlightRange = null,
 		oncrosshairmove,
+		oncrosshairclick,
+		oncrosshairleave,
 		showZones = true,
 		filled = false,
 	}: Props = $props();
@@ -53,7 +61,7 @@
 
 	const PAD_TOP = 6;
 	const PAD_BOTTOM = 18;
-	const PAD_LEFT = 46;
+	const PAD_LEFT = 56;
 	const PAD_RIGHT = 4;
 
 	let svgEl = $state<SVGSVGElement | null>(null);
@@ -168,9 +176,8 @@
 		];
 	});
 
-	function handleMouseMove(e: MouseEvent) {
-		if (!svgEl) return;
-		const rect = svgEl.getBoundingClientRect();
+	function findClosestIndex(e: MouseEvent): number {
+		const rect = svgEl!.getBoundingClientRect();
 		const mouseX = e.clientX - rect.left;
 		let closest = 0;
 		let minDist = Infinity;
@@ -178,16 +185,39 @@
 			const d = Math.abs(toX(trimXData[i]) - mouseX);
 			if (d < minDist) { minDist = d; closest = i; }
 		}
-		oncrosshairmove?.(closest);
+		return closest;
+	}
+
+	function handleMouseMove(e: MouseEvent) {
+		if (!svgEl) return;
+		oncrosshairmove?.(findClosestIndex(e));
+	}
+
+	function handleClick(e: MouseEvent) {
+		if (!svgEl) return;
+		oncrosshairclick?.(findClosestIndex(e));
 	}
 
 	function handleMouseLeave() {
-		oncrosshairmove?.(null);
+		oncrosshairleave?.();
 	}
 
 	let polylinePoints = $derived(
 		smoothData.map((v, i) => `${toX(trimXData[i])},${toY(v)}`).join(' '),
 	);
+
+	let highlightPixels = $derived.by((): { x1: number; x2: number } | null => {
+		if (!highlightRange || !distanceData) return null;
+		const dist = startIdx > 0 ? distanceData.slice(startIdx) : distanceData;
+		let si = 0, ei = dist.length - 1;
+		for (let i = 0; i < dist.length; i++) {
+			if (dist[i] >= highlightRange.start) { si = i; break; }
+		}
+		for (let i = dist.length - 1; i >= 0; i--) {
+			if (dist[i] <= highlightRange.end) { ei = i; break; }
+		}
+		return { x1: toX(trimXData[si]), x2: toX(trimXData[ei]) };
+	});
 
 	let areaPath = $derived.by(() => {
 		if (!filled || smoothData.length === 0) return '';
@@ -204,8 +234,7 @@
 </script>
 
 <div class="relative w-full h-full flex flex-col" style="min-height: 0;">
-	<div class="flex items-baseline justify-between px-2 py-1 shrink-0">
-		<span class="text-[10px] uppercase tracking-widest" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">{label}</span>
+	<div class="flex items-baseline justify-end px-2 py-1 shrink-0">
 		<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums;">
 			{#if tooltipPaused}
 				<span style="color: var(--term-text-muted);">PAUSED</span>
@@ -217,6 +246,7 @@
 		</span>
 	</div>
 
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 	<svg
 		bind:this={svgEl}
 		class="flex-1 w-full"
@@ -226,6 +256,7 @@
 		role="img"
 		aria-label="{label} chart"
 		onmousemove={handleMouseMove}
+		onclick={handleClick}
 		onmouseleave={handleMouseLeave}
 	>
 		<defs>
@@ -246,6 +277,17 @@
 			<rect x={PAD_LEFT} y={band.y} width={chartW} height={band.h}
 				fill={band.color} fill-opacity="0.2" />
 		{/each}
+
+		{#if highlightPixels}
+			<rect
+				x={highlightPixels.x1}
+				y={PAD_TOP}
+				width={Math.max(2, highlightPixels.x2 - highlightPixels.x1)}
+				height={chartH}
+				fill="var(--term-text-bright)"
+				fill-opacity="0.1"
+			/>
+		{/if}
 
 		{#if filled && areaPath}
 			<path d={areaPath} fill={color} fill-opacity="0.15" clip-path="url(#{clipId})" />
@@ -272,11 +314,12 @@
 		{/if}
 
 		{#if crosshairX != null}
+			{@const dashStyle = crosshairLocked ? undefined : '3,2'}
 			<line x1={crosshairX} y1={PAD_TOP} x2={crosshairX} y2={PAD_TOP + chartH}
-				stroke="var(--term-crosshair)" stroke-width="1" stroke-dasharray="3,2" />
+				stroke="var(--term-crosshair)" stroke-width="1" stroke-dasharray={dashStyle} />
 			{#if crosshairY != null && !tooltipPaused}
 				<line x1={PAD_LEFT} y1={crosshairY} x2={PAD_LEFT + chartW} y2={crosshairY}
-					stroke="var(--term-crosshair)" stroke-width="1" stroke-dasharray="3,2" />
+					stroke="var(--term-crosshair)" stroke-width="1" stroke-dasharray={dashStyle} />
 				{#if tooltipValue != null}
 					{@const labelText = fmt(tooltipValue)}
 					{@const labelW = labelText.length * 5.5 + 8}

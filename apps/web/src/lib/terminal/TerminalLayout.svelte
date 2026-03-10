@@ -129,14 +129,37 @@
 		return result;
 	});
 
+	let highlightRange = $derived.by((): { start: number; end: number } | null => {
+		if (state.highlightedNoteId == null) return null;
+		const note = notes.find((n) => n.id === state.highlightedNoteId);
+		if (!note) return null;
+		return { start: note.distanceStart, end: note.distanceEnd ?? note.distanceStart };
+	});
+
 	function updatePanel(index: number, config: PanelConfig) {
 		const newPanels = [...state.panels];
 		newPanels[index] = config;
 		state.panels = newPanels;
 	}
 
-	function setCrosshair(index: number | null) {
+	function onCrosshairMove(index: number | null) {
+		if (state.crosshairLocked) return;
 		state.crosshairIndex = index;
+	}
+
+	function onCrosshairClick(index: number | null) {
+		if (state.crosshairLocked) {
+			state.crosshairLocked = false;
+			state.crosshairIndex = index;
+		} else if (index != null) {
+			state.crosshairIndex = index;
+			state.crosshairLocked = true;
+		}
+	}
+
+	function onCrosshairLeave() {
+		if (state.crosshairLocked) return;
+		state.crosshairIndex = null;
 	}
 </script>
 
@@ -154,7 +177,9 @@
 						<TerminalMap
 							coordinates={routeCoords}
 							latlngStream={streams.latlng}
+							distanceStream={streams.distance}
 							{crosshairOrigIdx}
+							{highlightRange}
 						/>
 					{:else if panel.specialType === 'notes'}
 						<NotesPanel
@@ -201,7 +226,11 @@
 								formatValue={panel.dataSource === 'pace' ? (v: number) => formatPaceDisplay(v, units) : undefined}
 								smoothingWindow={state.params.smoothingWindow}
 								crosshairIndex={state.crosshairIndex}
-								oncrosshairmove={setCrosshair}
+								crosshairLocked={state.crosshairLocked}
+								{highlightRange}
+								oncrosshairmove={onCrosshairMove}
+								oncrosshairclick={onCrosshairClick}
+								oncrosshairleave={onCrosshairLeave}
 							/>
 						{:else}
 							{@const zoneInfo = state.showZones ? getZonesForSource(panel.dataSource, paceZones, hrZones, units) : null}
@@ -224,7 +253,11 @@
 								showZones={state.showZones}
 								filled={panel.chartType === 'area'}
 								crosshairIndex={state.crosshairIndex}
-								oncrosshairmove={setCrosshair}
+								crosshairLocked={state.crosshairLocked}
+								{highlightRange}
+								oncrosshairmove={onCrosshairMove}
+								oncrosshairclick={onCrosshairClick}
+								oncrosshairleave={onCrosshairLeave}
 							/>
 						{/if}
 					{:else}

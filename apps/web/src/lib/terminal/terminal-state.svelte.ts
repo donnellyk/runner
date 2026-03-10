@@ -101,6 +101,7 @@ export const DEFAULT_PANELS: PanelConfig[] = [
 
 export function createTerminalState() {
 	let crosshairIndex = $state<number | null>(null);
+	let crosshairLocked = $state(false);
 	let highlightedNoteId = $state<number | null>(null);
 	let xAxis = $state<'distance' | 'time'>('distance');
 	let params = $state<ProcessingParams>({
@@ -116,6 +117,8 @@ export function createTerminalState() {
 	return {
 		get crosshairIndex() { return crosshairIndex; },
 		set crosshairIndex(v) { crosshairIndex = v; },
+		get crosshairLocked() { return crosshairLocked; },
+		set crosshairLocked(v) { crosshairLocked = v; },
 		get highlightedNoteId() { return highlightedNoteId; },
 		set highlightedNoteId(v) { highlightedNoteId = v; },
 		get xAxis() { return xAxis; },

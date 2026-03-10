@@ -5,13 +5,17 @@
 	interface Props {
 		coordinates: [number, number][];
 		latlngStream?: [number, number][] | null;
+		distanceStream?: number[] | null;
 		crosshairOrigIdx?: number | null;
+		highlightRange?: { start: number; end: number } | null;
 	}
 
 	let {
 		coordinates,
 		latlngStream = null,
+		distanceStream = null,
 		crosshairOrigIdx = null,
+		highlightRange = null,
 	}: Props = $props();
 
 	let mapEl: HTMLDivElement;
@@ -19,6 +23,7 @@
 	let mapRef: L.Map | null = null;
 	let markerCircle: L.CircleMarker | null = null;
 	let coveredPolyline: L.Polyline | null = null;
+	let highlightPolyline: L.Polyline | null = null;
 	let ready = $state(false);
 
 	onMount(() => {
@@ -27,7 +32,7 @@
 
 			leaflet.tileLayer(
 				'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-				{ maxZoom: 19 },
+				{ maxZoom: 19, keepBuffer: 5 },
 			).addTo(map);
 
 			const latLngs: L.LatLngTuple[] = coordinates.map(([lng, lat]) => [lat, lng]);
@@ -54,13 +59,18 @@
 		if (crosshairOrigIdx != null && latlngStream) {
 			const pt = latlngStream[crosshairOrigIdx];
 			if (pt) {
-				markerCircle = leafletRef.circleMarker([pt[0], pt[1]], {
+				const latLng = leafletRef.latLng(pt[0], pt[1]);
+				markerCircle = leafletRef.circleMarker(latLng, {
 					radius: 5,
 					color: '#ffffff',
 					fillColor: '#3b82f6',
 					fillOpacity: 1,
 					weight: 2,
 				}).addTo(mapRef);
+
+				if (!mapRef.getBounds().contains(latLng)) {
+					mapRef.panTo(latLng, { animate: true, duration: 0.3 });
+				}
 
 				const covered: L.LatLngTuple[] = [];
 				for (let i = 0; i <= crosshairOrigIdx && i < latlngStream.length; i++) {
@@ -78,6 +88,35 @@
 	});
 
 	$effect(() => {
+		if (!ready || !leafletRef || !mapRef) return;
+		highlightPolyline?.remove();
+		highlightPolyline = null;
+
+		if (highlightRange && latlngStream && distanceStream) {
+			let si = 0, ei = distanceStream.length - 1;
+			for (let i = 0; i < distanceStream.length; i++) {
+				if (distanceStream[i] >= highlightRange.start) { si = i; break; }
+			}
+			for (let i = distanceStream.length - 1; i >= 0; i--) {
+				if (distanceStream[i] <= highlightRange.end) { ei = i; break; }
+			}
+			if (si <= ei) {
+				const pts: L.LatLngTuple[] = [];
+				for (let i = si; i <= ei; i++) {
+					pts.push([latlngStream[i][0], latlngStream[i][1]]);
+				}
+				if (pts.length > 1) {
+					highlightPolyline = leafletRef.polyline(pts, {
+						color: '#fbbf24',
+						weight: 4,
+						opacity: 0.9,
+					}).addTo(mapRef);
+				}
+			}
+		}
+	});
+
+	$effect(() => {
 		if (!ready || !mapRef || !leafletRef) return;
 		mapRef.invalidateSize();
 	});
@@ -88,10 +127,5 @@
 </svelte:head>
 
 <div class="relative w-full h-full flex flex-col" style="min-height: 0;">
-	<div class="flex items-baseline justify-between px-2 py-1 shrink-0">
-		<span class="text-[10px] uppercase tracking-widest" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">
-			Map
-		</span>
-	</div>
 	<div bind:this={mapEl} class="flex-1" style="min-height: 0; border-radius: 2px;"></div>
 </div>

@@ -14,7 +14,11 @@
 		formatValue?: (v: number) => string;
 		smoothingWindow?: number;
 		crosshairIndex?: number | null;
+		crosshairLocked?: boolean;
+		highlightRange?: { start: number; end: number } | null;
 		oncrosshairmove?: (index: number | null) => void;
+		oncrosshairclick?: (index: number | null) => void;
+		oncrosshairleave?: () => void;
 	}
 
 	let {
@@ -29,7 +33,11 @@
 		formatValue,
 		smoothingWindow = 2,
 		crosshairIndex = null,
+		crosshairLocked = false,
+		highlightRange = null,
 		oncrosshairmove,
+		oncrosshairclick,
+		oncrosshairleave,
 	}: Props = $props();
 
 	function fmt(v: number): string {
@@ -38,7 +46,7 @@
 
 	const PAD_TOP = 6;
 	const PAD_BOTTOM = 18;
-	const PAD_LEFT = 46;
+	const PAD_LEFT = 56;
 	const PAD_RIGHT = 4;
 	const BUCKET_COUNT = 60;
 
@@ -103,18 +111,22 @@
 		return PAD_LEFT + ((xVal - xMin) / (xMax - xMin)) * chartW;
 	}
 
+	let barStep = $derived(buckets.length > 0 ? chartW / buckets.length : 0);
 	let barWidth = $derived(
-		buckets.length > 1 ? Math.max(2, (chartW / buckets.length) * 0.7) : chartW * 0.5,
+		buckets.length > 1 ? Math.max(2, barStep * 0.7) : chartW * 0.5,
 	);
+
+	function barX(i: number): number {
+		return PAD_LEFT + barStep * (i + 0.5);
+	}
 
 	let tooltipValue = $derived(
 		crosshairIndex != null && smoothData[crosshairIndex] != null
 			? smoothData[crosshairIndex] : null,
 	);
 
-	function handleMouseMove(e: MouseEvent) {
-		if (!svgEl) return;
-		const rect = svgEl.getBoundingClientRect();
+	function findClosestIndex(e: MouseEvent): number {
+		const rect = svgEl!.getBoundingClientRect();
 		const mouseX = e.clientX - rect.left;
 		let closest = 0;
 		let minDist = Infinity;
@@ -122,26 +134,47 @@
 			const d = Math.abs(toX(trimXData[i]) - mouseX);
 			if (d < minDist) { minDist = d; closest = i; }
 		}
-		oncrosshairmove?.(closest);
+		return closest;
+	}
+
+	function handleMouseMove(e: MouseEvent) {
+		if (!svgEl) return;
+		oncrosshairmove?.(findClosestIndex(e));
+	}
+
+	function handleClick(e: MouseEvent) {
+		if (!svgEl) return;
+		oncrosshairclick?.(findClosestIndex(e));
 	}
 
 	function handleMouseLeave() {
-		oncrosshairmove?.(null);
+		oncrosshairleave?.();
 	}
 
+	let highlightPixels = $derived.by((): { x1: number; x2: number } | null => {
+		if (!highlightRange || !distanceData || buckets.length === 0) return null;
+		let si = 0, ei = buckets.length - 1;
+		for (let i = 0; i < buckets.length; i++) {
+			if (buckets[i].xMid >= highlightRange.start) { si = i; break; }
+		}
+		for (let i = buckets.length - 1; i >= 0; i--) {
+			if (buckets[i].xMid <= highlightRange.end) { ei = i; break; }
+		}
+		return { x1: barX(si) - barStep / 2, x2: barX(ei) + barStep / 2 };
+	});
+
 	let xLabels = $derived.by(() => {
-		if (trimXData.length < 2) return [];
-		const indices = [0, Math.floor(trimXData.length / 2), trimXData.length - 1];
-		return indices.map((i) => ({
-			x: toX(trimXData[i]),
-			label: formatXLabelShort(trimXData[i], xAxis, units),
+		if (buckets.length < 2) return [];
+		const bucketIndices = [0, Math.floor(buckets.length / 2), buckets.length - 1];
+		return bucketIndices.map((bi) => ({
+			x: barX(bi),
+			label: formatXLabelShort(buckets[bi].xMid, xAxis, units),
 		}));
 	});
 </script>
 
 <div class="relative w-full h-full flex flex-col" style="min-height: 0;">
-	<div class="flex items-baseline justify-between px-2 py-1 shrink-0">
-		<span class="text-[10px] uppercase tracking-widest" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">{label}</span>
+	<div class="flex items-baseline justify-end px-2 py-1 shrink-0">
 		<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums;">
 			{#if tooltipValue != null}
 				{fmt(tooltipValue)}
@@ -151,6 +184,7 @@
 		</span>
 	</div>
 
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 	<svg
 		bind:this={svgEl}
 		class="flex-1 w-full"
@@ -160,10 +194,22 @@
 		role="img"
 		aria-label="{label} bar chart"
 		onmousemove={handleMouseMove}
+		onclick={handleClick}
 		onmouseleave={handleMouseLeave}
 	>
+		{#if highlightPixels}
+			<rect
+				x={highlightPixels.x1}
+				y={PAD_TOP}
+				width={Math.max(2, highlightPixels.x2 - highlightPixels.x1)}
+				height={chartH}
+				fill="var(--term-text-bright)"
+				fill-opacity="0.1"
+			/>
+		{/if}
+
 		{#each buckets as bucket, i (i)}
-			{@const bx = toX(bucket.xMid)}
+			{@const bx = barX(i)}
 			{@const h = yMax > 0 ? (bucket.avg / yMax) * chartH : 0}
 			{@const intensity = yMax > 0 ? 0.3 + (bucket.avg / yMax) * 0.7 : 0.3}
 			<rect
@@ -180,7 +226,7 @@
 		{#if crosshairIndex != null && trimXData[crosshairIndex] != null}
 			{@const cx = toX(trimXData[crosshairIndex])}
 			<line x1={cx} y1={PAD_TOP} x2={cx} y2={PAD_TOP + chartH}
-				stroke="var(--term-crosshair)" stroke-width="1" stroke-dasharray="3,2" />
+				stroke="var(--term-crosshair)" stroke-width="1" stroke-dasharray={crosshairLocked ? undefined : '3,2'} />
 		{/if}
 
 		{#each xLabels as lbl, i (i)}

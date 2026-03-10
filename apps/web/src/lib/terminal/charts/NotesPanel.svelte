@@ -22,10 +22,7 @@
 </script>
 
 <div class="relative w-full h-full flex flex-col" style="min-height: 0;">
-	<div class="flex items-baseline justify-between px-2 py-1 shrink-0">
-		<span class="text-[10px] uppercase tracking-widest" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">
-			Notes
-		</span>
+	<div class="flex items-baseline justify-end px-2 py-1 shrink-0">
 		<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">
 			{notes.length}
 		</span>
