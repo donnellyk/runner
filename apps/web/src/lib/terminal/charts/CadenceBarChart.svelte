@@ -45,9 +45,9 @@
 	}
 
 	const PAD_TOP = 6;
-	const PAD_BOTTOM = 18;
-	const PAD_LEFT = 56;
-	const PAD_RIGHT = 4;
+	const PAD_BOTTOM = 20;
+	const PAD_LEFT = 4;
+	const PAD_RIGHT = 56;
 	const BUCKET_COUNT = 60;
 
 	let svgEl = $state<SVGSVGElement | null>(null);
@@ -175,7 +175,7 @@
 
 <div class="relative w-full h-full flex flex-col" style="min-height: 0;">
 	<div class="flex items-baseline justify-end px-2 py-1 shrink-0">
-		<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums;">
+		<span class="text-[12px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums;">
 			{#if tooltipValue != null}
 				{fmt(tooltipValue)}
 			{:else}
@@ -230,9 +230,9 @@
 		{/if}
 
 		{#each xLabels as lbl, i (i)}
-			<text x={lbl.x} y={svgHeight - 3}
+			<text x={lbl.x} y={svgHeight - 4}
 				text-anchor={i === 0 ? 'start' : i === xLabels.length - 1 ? 'end' : 'middle'}
-				fill="var(--term-text-muted)" font-size="9" font-family="'Geist Mono', monospace"
+				fill="var(--term-text-muted)" font-size="10" font-family="'Geist Mono', monospace"
 			>{lbl.label}</text>
 		{/each}
 	</svg>

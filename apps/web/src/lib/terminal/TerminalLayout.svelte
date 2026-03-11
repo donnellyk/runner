@@ -163,7 +163,7 @@
 	}
 </script>
 
-<div class="flex h-full w-full" style="background: var(--term-bg);">
+<div class="flex h-full w-full">
 	<div class="flex-1 grid grid-cols-3 grid-rows-2 gap-1 p-1" style="min-width: 0;">
 		{#each state.panels as panel, idx (idx)}
 			<TerminalPanel
@@ -197,7 +197,7 @@
 						<LapComparison {laps} {units} />
 					{:else}
 						<div class="flex items-center justify-center h-full">
-							<span class="text-[11px]" style="color: var(--term-text-muted);">No data</span>
+							<span class="text-[12px]" style="color: var(--term-text-muted);">No data</span>
 						</div>
 					{/if}
 				{:else if panel.dataSource}
@@ -221,7 +221,7 @@
 								xAxis={state.xAxis}
 								{units}
 								label={DATA_SOURCE_LABELS[panel.dataSource]}
-								color={DATA_SOURCE_COLORS[panel.dataSource]}
+								color={panel.colorOverride ?? DATA_SOURCE_COLORS[panel.dataSource]}
 								unit={getUnitForSource(panel.dataSource, units)}
 								formatValue={panel.dataSource === 'pace' ? (v: number) => formatPaceDisplay(v, units) : undefined}
 								smoothingWindow={state.params.smoothingWindow}
@@ -241,7 +241,7 @@
 								xAxis={state.xAxis}
 								{units}
 								label={DATA_SOURCE_LABELS[panel.dataSource]}
-								color={DATA_SOURCE_COLORS[panel.dataSource]}
+								color={panel.colorOverride ?? DATA_SOURCE_COLORS[panel.dataSource]}
 								unit={getUnitForSource(panel.dataSource, units)}
 								formatValue={panel.dataSource === 'pace' ? (v: number) => formatPaceDisplay(v, units) : undefined}
 								pausedMask={sampledPausedMask ?? undefined}
@@ -262,7 +262,7 @@
 						{/if}
 					{:else}
 						<div class="flex items-center justify-center h-full">
-							<span class="text-[11px]" style="color: var(--term-text-muted);">No data</span>
+							<span class="text-[12px]" style="color: var(--term-text-muted);">No data</span>
 						</div>
 					{/if}
 				{/if}

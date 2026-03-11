@@ -65,7 +65,7 @@
 
 <div class="relative w-full h-full flex flex-col" style="min-height: 0;">
 	<div class="flex items-baseline justify-end px-2 py-1 shrink-0">
-		<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">
+		<span class="text-[12px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">
 			{laps.length} laps
 		</span>
 	</div>
@@ -86,7 +86,7 @@
 			{@const fastest = pace === paceRange.min}
 
 			<text x={PAD_LEFT - 4} y={y + barHeight / 4} text-anchor="end"
-				fill="var(--term-text-muted)" font-size="9" font-family="'Geist Mono', monospace"
+				fill="var(--term-text-muted)" font-size="10" font-family="'Geist Mono', monospace"
 			>{i + 1}</text>
 
 			<rect x={PAD_LEFT} y={y - barHeight / 2} width={w} height={barHeight}
@@ -95,7 +95,7 @@
 
 			{#if pace > 0}
 				<text x={PAD_LEFT + w + 4} y={y + barHeight / 4} text-anchor="start"
-					fill="var(--term-text-bright)" font-size="9" font-family="'Geist Mono', monospace"
+					fill="var(--term-text-bright)" font-size="10" font-family="'Geist Mono', monospace"
 					style="font-variant-numeric: tabular-nums;"
 				>{formatPaceDisplay(pace, units)}</text>
 			{/if}

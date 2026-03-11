@@ -59,10 +59,17 @@
 		return formatValue ? formatValue(v) : `${v.toFixed(0)}${unit}`;
 	}
 
+	function fmtShort(v: number): string {
+		if (formatValue) {
+			return formatValue(v).replace(/\s*\/\w+$/, '');
+		}
+		return v.toFixed(0);
+	}
+
 	const PAD_TOP = 6;
-	const PAD_BOTTOM = 18;
-	const PAD_LEFT = 56;
-	const PAD_RIGHT = 4;
+	const PAD_BOTTOM = 20;
+	const PAD_LEFT = 4;
+	const PAD_RIGHT = 42;
 
 	let svgEl = $state<SVGSVGElement | null>(null);
 	let svgWidth = $state(400);
@@ -123,9 +130,10 @@
 		return { segs, gaps };
 	});
 
-	let zoneBands = $derived.by(() => {
+	let zoneDotGrid = $derived.by(() => {
 		if (!zones || !zoneMetric || !showZones) return [];
-		return zones.map((z) => {
+
+		const bands = zones.map((z) => {
 			const lo = zoneMetric === 'pace' ? z.paceMin : z.hrMin;
 			const hi = zoneMetric === 'pace' ? z.paceMax : z.hrMax;
 			const rawLo = lo ?? yMin;
@@ -134,7 +142,39 @@
 			const y2 = Math.max(toY(rawLo), toY(rawHi));
 			const bandY = Math.max(y1, PAD_TOP);
 			const bandH = Math.min(y2, PAD_TOP + chartH) - bandY;
-			return { color: z.color, y: bandY, h: Math.max(0, bandH) };
+			return { color: z.color, y: bandY, h: bandH };
+		}).filter((b) => b.h > 0);
+
+		if (bands.length === 0) return [];
+
+		// Uniform grid across all bands
+		const totalTop = Math.min(...bands.map((b) => b.y));
+		const totalBottom = Math.max(...bands.map((b) => b.y + b.h));
+		const totalH = totalBottom - totalTop;
+		const DOT_SPACING = 8;
+		const cols = Math.max(1, Math.floor(chartW / DOT_SPACING));
+		const totalRows = Math.max(1, Math.floor(totalH / DOT_SPACING));
+		const hSpace = chartW / cols;
+		const vSpace = totalH / totalRows;
+
+		function isCorner(globalRow: number): boolean {
+			const edge = Math.min(globalRow, totalRows - 1 - globalRow);
+			return edge === 0;
+		}
+
+		return bands.map((band) => {
+			const dots: { cx: number; cy: number }[] = [];
+			for (let gr = 0; gr < totalRows; gr++) {
+				const cy = totalTop + vSpace * (gr + 0.5);
+				// Skip rows outside this band
+				if (cy < band.y || cy >= band.y + band.h) continue;
+
+				const skip = isCorner(gr) ? 1 : 0;
+				for (let c = skip; c < cols - skip; c++) {
+					dots.push({ cx: PAD_LEFT + hSpace * (c + 0.5), cy });
+				}
+			}
+			return { color: band.color, dots };
 		});
 	});
 
@@ -166,14 +206,14 @@
 	});
 
 	let yLabels = $derived.by(() => {
-		const mid = (yMin + yMax) / 2;
-		const top = invertY ? yMin : yMax;
-		const bottom = invertY ? yMax : yMin;
-		return [
-			{ value: top, y: toY(top) },
-			{ value: mid, y: toY(mid) },
-			{ value: bottom, y: toY(bottom) },
-		];
+		const steps = 5;
+		const labels: { value: number; y: number }[] = [];
+		for (let i = 0; i < steps; i++) {
+			const t = i / (steps - 1);
+			const value = invertY ? yMin + t * yRange : yMax - t * yRange;
+			labels.push({ value, y: toY(value) });
+		}
+		return labels;
 	});
 
 	function findClosestIndex(e: MouseEvent): number {
@@ -235,7 +275,7 @@
 
 <div class="relative w-full h-full flex flex-col" style="min-height: 0;">
 	<div class="flex items-baseline justify-end px-2 py-1 shrink-0">
-		<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums;">
+		<span class="text-[12px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums;">
 			{#if tooltipPaused}
 				<span style="color: var(--term-text-muted);">PAUSED</span>
 			{:else if tooltipValue != null}
@@ -268,14 +308,16 @@
 		{#each yLabels as lbl, i (i)}
 			<line x1={PAD_LEFT} y1={lbl.y} x2={PAD_LEFT + chartW} y2={lbl.y}
 				stroke="var(--term-grid)" stroke-width="1" />
-			<text x={PAD_LEFT - 4} y={lbl.y + 3} text-anchor="end"
-				fill="var(--term-text-muted)" font-size="9" font-family="'Geist Mono', monospace"
-			>{fmt(lbl.value)}</text>
+			<text x={PAD_LEFT + chartW + 4} y={lbl.y + 3} text-anchor="start"
+				fill="var(--term-text-muted)" font-size="10" font-family="'Geist Mono', monospace"
+			>{fmtShort(lbl.value)}</text>
 		{/each}
 
-		{#each zoneBands as band, i (i)}
-			<rect x={PAD_LEFT} y={band.y} width={chartW} height={band.h}
-				fill={band.color} fill-opacity="0.2" />
+		{#each zoneDotGrid as band, i (i)}
+			{#each band.dots as dot, j (j)}
+				<circle cx={dot.cx} cy={dot.cy} r="1.25"
+					fill={band.color} fill-opacity="0.35" />
+			{/each}
 		{/each}
 
 		{#if highlightPixels}
@@ -321,31 +363,32 @@
 				<line x1={PAD_LEFT} y1={crosshairY} x2={PAD_LEFT + chartW} y2={crosshairY}
 					stroke="var(--term-crosshair)" stroke-width="1" stroke-dasharray={dashStyle} />
 				{#if tooltipValue != null}
-					{@const labelText = fmt(tooltipValue)}
-					{@const labelW = labelText.length * 5.5 + 8}
-					<rect x={PAD_LEFT - labelW - 2} y={crosshairY - 7} width={labelW} height={14}
-						rx="2" fill="var(--term-crosshair-label-bg)" />
-					<text x={PAD_LEFT - 4} y={crosshairY + 3} text-anchor="end"
-						fill="var(--term-text-bright)" font-size="9" font-weight="500"
+					{@const labelText = fmtShort(tooltipValue)}
+					{@const labelW = labelText.length * 6 + 4}
+					<rect x={PAD_LEFT + chartW + 2} y={crosshairY - 7} width={labelW} height={14}
+						rx="2" fill={color} fill-opacity="0.85" />
+					<text x={PAD_LEFT + chartW + 4} y={crosshairY + 3} text-anchor="start"
+						fill="var(--term-text-bright)" font-size="10" font-weight="500"
 						font-family="'Geist Mono', monospace">{labelText}</text>
 				{/if}
 			{/if}
-			{#if crosshairXLabel != null}
-				{@const lw = crosshairXLabel.length * 5.5 + 8}
-				{@const lx = Math.min(Math.max(crosshairX, PAD_LEFT + lw / 2), PAD_LEFT + chartW - lw / 2)}
-				<rect x={lx - lw / 2} y={svgHeight - 16} width={lw} height={14}
-					rx="2" fill="var(--term-crosshair-label-bg)" />
-				<text x={lx} y={svgHeight - 5} text-anchor="middle"
-					fill="var(--term-text-bright)" font-size="9" font-weight="500"
-					font-family="'Geist Mono', monospace">{crosshairXLabel}</text>
 			{/if}
-		{/if}
 
 		{#each xLabels as lbl, i (i)}
-			<text x={lbl.x} y={svgHeight - 3}
+			<text x={lbl.x} y={svgHeight - 4}
 				text-anchor={i === 0 ? 'start' : i === xLabels.length - 1 ? 'end' : 'middle'}
-				fill="var(--term-text-muted)" font-size="9" font-family="'Geist Mono', monospace"
+				fill="var(--term-text-muted)" font-size="10" font-family="'Geist Mono', monospace"
 			>{lbl.label}</text>
 		{/each}
+
+		{#if crosshairX != null && crosshairXLabel != null}
+			{@const lw = crosshairXLabel.length * 6 + 8}
+			{@const lx = Math.min(Math.max(crosshairX, PAD_LEFT + lw / 2), PAD_LEFT + chartW - lw / 2)}
+			<rect x={lx - lw / 2} y={svgHeight - 17} width={lw} height={15}
+				rx="2" fill={color} fill-opacity="0.85" />
+			<text x={lx} y={svgHeight - 5} text-anchor="middle"
+				fill="var(--term-text-bright)" font-size="10" font-weight="500"
+				font-family="'Geist Mono', monospace">{crosshairXLabel}</text>
+		{/if}
 	</svg>
 </div>

@@ -11,7 +11,19 @@ export interface PanelConfig {
 	chartType?: ChartType;
 	specialType?: SpecialPanel;
 	candlestickMode?: 'splits' | 'laps';
+	colorOverride?: string;
 }
+
+export const COLOR_PALETTE: { label: string; value: string }[] = [
+	{ label: 'Green', value: '#50fa7b' },
+	{ label: 'Cyan', value: '#8be9fd' },
+	{ label: 'Purple', value: '#bd93f9' },
+	{ label: 'Orange', value: '#ff9e44' },
+	{ label: 'Yellow', value: '#f1fa8c' },
+	{ label: 'Pink', value: '#ff6e8a' },
+	{ label: 'Red', value: '#ff5555' },
+	{ label: 'Warm Orange', value: '#ffb86c' },
+];
 
 export interface ProcessingParams {
 	smoothingWindow: number;
@@ -110,9 +122,12 @@ export function createTerminalState() {
 		pauseThreshold: 1.0,
 	});
 	let panels = $state<PanelConfig[]>([...DEFAULT_PANELS]);
-	let showZones = $state(true);
+	let showZones = $state(false);
 	let showNotes = $state(true);
 	let showPauseGaps = $state(true);
+	let meshSpeed = $state(1.3);
+	let meshDrift = $state(2);
+	let meshScale = $state(2);
 
 	return {
 		get crosshairIndex() { return crosshairIndex; },
@@ -133,6 +148,12 @@ export function createTerminalState() {
 		set showNotes(v) { showNotes = v; },
 		get showPauseGaps() { return showPauseGaps; },
 		set showPauseGaps(v) { showPauseGaps = v; },
+		get meshSpeed() { return meshSpeed; },
+		set meshSpeed(v) { meshSpeed = v; },
+		get meshDrift() { return meshDrift; },
+		set meshDrift(v) { meshDrift = v; },
+		get meshScale() { return meshScale; },
+		set meshScale(v) { meshScale = v; },
 		resetPanels() { panels = [...DEFAULT_PANELS]; },
 	};
 }

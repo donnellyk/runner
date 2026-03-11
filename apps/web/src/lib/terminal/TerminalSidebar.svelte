@@ -44,44 +44,44 @@
 	}
 </script>
 
-<div class="h-full overflow-y-auto" style="background: var(--term-surface); border-left: 1px solid var(--term-border); width: 280px;">
+<div class="h-full overflow-y-auto" style="background: var(--term-surface); backdrop-filter: blur(12px); border-left: 1px solid var(--term-border); width: 280px;">
 	<!-- Stats -->
 	<div class="px-3 py-3" style="border-bottom: 1px solid var(--term-border);">
 		<div class="grid grid-cols-2 gap-x-4 gap-y-1.5" style="font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums;">
 			{#if activity.distance}
 				<div>
-					<div class="text-[9px] uppercase tracking-wide" style="color: var(--term-text-muted);">Distance</div>
-					<div class="text-[13px] font-medium" style="color: var(--term-text-bright);">{formatDistance(activity.distance, units)}</div>
+					<div class="text-[10px] uppercase tracking-wide" style="color: var(--term-text-muted);">Distance</div>
+					<div class="text-[14px] font-medium" style="color: var(--term-text-bright);">{formatDistance(activity.distance, units)}</div>
 				</div>
 			{/if}
 			{#if activity.averageSpeed}
 				<div>
-					<div class="text-[9px] uppercase tracking-wide" style="color: var(--term-text-muted);">Avg Pace</div>
-					<div class="text-[13px] font-medium" style="color: var(--term-text-bright);">{crosshairValues.pace ?? formatPace(activity.averageSpeed, units)}</div>
+					<div class="text-[10px] uppercase tracking-wide" style="color: var(--term-text-muted);">Avg Pace</div>
+					<div class="text-[14px] font-medium" style="color: var(--term-text-bright);">{crosshairValues.pace ?? formatPace(activity.averageSpeed, units)}</div>
 				</div>
 			{/if}
 			{#if activity.movingTime}
 				<div>
-					<div class="text-[9px] uppercase tracking-wide" style="color: var(--term-text-muted);">Time</div>
-					<div class="text-[13px] font-medium" style="color: var(--term-text-bright);">{formatDurationClock(activity.movingTime)}</div>
+					<div class="text-[10px] uppercase tracking-wide" style="color: var(--term-text-muted);">Time</div>
+					<div class="text-[14px] font-medium" style="color: var(--term-text-bright);">{formatDurationClock(activity.movingTime)}</div>
 				</div>
 			{/if}
 			{#if activity.averageHeartrate}
 				<div>
-					<div class="text-[9px] uppercase tracking-wide" style="color: var(--term-text-muted);">Avg HR</div>
-					<div class="text-[13px] font-medium" style="color: var(--term-text-bright);">{crosshairValues.heartrate ?? `${Math.round(activity.averageHeartrate)} bpm`}</div>
+					<div class="text-[10px] uppercase tracking-wide" style="color: var(--term-text-muted);">Avg HR</div>
+					<div class="text-[14px] font-medium" style="color: var(--term-text-bright);">{crosshairValues.heartrate ?? `${Math.round(activity.averageHeartrate)} bpm`}</div>
 				</div>
 			{/if}
 			{#if activity.totalElevationGain && activity.totalElevationGain > 0}
 				<div>
-					<div class="text-[9px] uppercase tracking-wide" style="color: var(--term-text-muted);">Elevation</div>
-					<div class="text-[13px] font-medium" style="color: var(--term-text-bright);">{crosshairValues.elevation ?? `+${formatElevation(activity.totalElevationGain, units)}`}</div>
+					<div class="text-[10px] uppercase tracking-wide" style="color: var(--term-text-muted);">Elevation</div>
+					<div class="text-[14px] font-medium" style="color: var(--term-text-bright);">{crosshairValues.elevation ?? `+${formatElevation(activity.totalElevationGain, units)}`}</div>
 				</div>
 			{/if}
 			{#if activity.averageCadence}
 				<div>
-					<div class="text-[9px] uppercase tracking-wide" style="color: var(--term-text-muted);">Cadence</div>
-					<div class="text-[13px] font-medium" style="color: var(--term-text-bright);">{crosshairValues.cadence ?? `${Math.round(activity.averageCadence * 2)} spm`}</div>
+					<div class="text-[10px] uppercase tracking-wide" style="color: var(--term-text-muted);">Cadence</div>
+					<div class="text-[14px] font-medium" style="color: var(--term-text-bright);">{crosshairValues.cadence ?? `${Math.round(activity.averageCadence * 2)} spm`}</div>
 				</div>
 			{/if}
 		</div>
@@ -91,7 +91,7 @@
 	<div style="border-bottom: 1px solid var(--term-border);">
 		<button
 			class="w-full flex items-center justify-between px-3 py-2 cursor-pointer"
-			style="color: var(--term-text); font-size: 11px; font-weight: 500;"
+			style="color: var(--term-text); font-size: 12px; font-weight: 500;"
 			onclick={() => showDisplay = !showDisplay}
 		>
 			Display
@@ -100,30 +100,30 @@
 		{#if showDisplay}
 			<div class="px-3 pb-3 flex flex-col gap-2">
 				<div class="flex items-center justify-between">
-					<span class="text-[10px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">X-Axis</span>
+					<span class="text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">X-Axis</span>
 					<div class="flex gap-0.5">
 						<button
-							class="px-2 py-0.5 text-[9px] rounded"
+							class="px-2 py-0.5 text-[10px] rounded"
 							style="font-family: 'Geist Mono', monospace; {termState.xAxis === 'distance' ? 'background: var(--term-surface-hover); color: var(--term-text-bright);' : 'color: var(--term-text-muted);'}"
 							onclick={() => termState.xAxis = 'distance'}
 						>Dist</button>
 						<button
-							class="px-2 py-0.5 text-[9px] rounded"
+							class="px-2 py-0.5 text-[10px] rounded"
 							style="font-family: 'Geist Mono', monospace; {termState.xAxis === 'time' ? 'background: var(--term-surface-hover); color: var(--term-text-bright);' : 'color: var(--term-text-muted);'}"
 							onclick={() => termState.xAxis = 'time'}
 						>Time</button>
 					</div>
 				</div>
 				<label class="flex items-center justify-between cursor-pointer">
-					<span class="text-[10px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Zones</span>
+					<span class="text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Zones</span>
 					<input type="checkbox" bind:checked={termState.showZones} class="rounded" />
 				</label>
 				<label class="flex items-center justify-between cursor-pointer">
-					<span class="text-[10px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Notes</span>
+					<span class="text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Notes</span>
 					<input type="checkbox" bind:checked={termState.showNotes} class="rounded" />
 				</label>
 				<label class="flex items-center justify-between cursor-pointer">
-					<span class="text-[10px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Pause Gaps</span>
+					<span class="text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Pause Gaps</span>
 					<input type="checkbox" bind:checked={termState.showPauseGaps} class="rounded" />
 				</label>
 			</div>
@@ -133,7 +133,7 @@
 	<div style="border-bottom: 1px solid var(--term-border);">
 		<button
 			class="w-full flex items-center justify-between px-3 py-2 cursor-pointer"
-			style="color: var(--term-text); font-size: 11px; font-weight: 500;"
+			style="color: var(--term-text); font-size: 12px; font-weight: 500;"
 			onclick={() => showProcessing = !showProcessing}
 		>
 			Processing
@@ -143,8 +143,8 @@
 			<div class="px-3 pb-3 flex flex-col gap-2">
 				<div>
 					<div class="flex items-center justify-between mb-1">
-						<span class="text-[10px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Smoothing</span>
-						<span class="text-[10px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">{termState.params.smoothingWindow}</span>
+						<span class="text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Smoothing</span>
+						<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">{termState.params.smoothingWindow}</span>
 					</div>
 					<input type="range" min="0" max="10" step="1" value={termState.params.smoothingWindow}
 						oninput={(e) => updateParam('smoothingWindow', parseInt((e.target as HTMLInputElement).value))}
@@ -152,8 +152,8 @@
 				</div>
 				<div>
 					<div class="flex items-center justify-between mb-1">
-						<span class="text-[10px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Samples</span>
-						<span class="text-[10px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">{termState.params.samplePoints}</span>
+						<span class="text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Samples</span>
+						<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">{termState.params.samplePoints}</span>
 					</div>
 					<input type="range" min="100" max="2000" step="100" value={termState.params.samplePoints}
 						oninput={(e) => updateParam('samplePoints', parseInt((e.target as HTMLInputElement).value))}
@@ -161,8 +161,8 @@
 				</div>
 				<div>
 					<div class="flex items-center justify-between mb-1">
-						<span class="text-[10px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Pause (m/s)</span>
-						<span class="text-[10px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">{termState.params.pauseThreshold.toFixed(1)}</span>
+						<span class="text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Pause (m/s)</span>
+						<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">{termState.params.pauseThreshold.toFixed(1)}</span>
 					</div>
 					<input type="range" min="0.1" max="3.0" step="0.1" value={termState.params.pauseThreshold}
 						oninput={(e) => updateParam('pauseThreshold', parseFloat((e.target as HTMLInputElement).value))}
@@ -176,7 +176,7 @@
 	<div style="border-bottom: 1px solid var(--term-border);">
 		<div class="px-3 py-2">
 			<button
-				class="w-full text-[10px] px-2 py-1 rounded"
+				class="w-full text-[11px] px-2 py-1 rounded"
 				style="color: var(--term-text-muted); border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
 				onclick={() => termState.resetPanels()}
 			>Reset Layout</button>
@@ -194,7 +194,7 @@
 			<div class="px-2 pb-2">
 				{#each notes as note (note.id)}
 					<button
-						class="w-full text-left py-1 px-1.5 rounded text-[10px] cursor-pointer"
+						class="w-full text-left py-1 px-1.5 rounded text-[11px] cursor-pointer"
 						style="background: {termState.highlightedNoteId === note.id ? 'var(--term-surface-hover)' : 'transparent'};"
 						onclick={() => termState.highlightedNoteId = termState.highlightedNoteId === note.id ? null : note.id}
 					>
@@ -214,7 +214,7 @@
 			<span class="text-[10px] uppercase tracking-wide" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">
 				Laps ({laps.length})
 			</span>
-			<table class="w-full mt-1" style="font-family: 'Geist Mono', monospace; font-size: 10px; font-variant-numeric: tabular-nums;">
+			<table class="w-full mt-1" style="font-family: 'Geist Mono', monospace; font-size: 11px; font-variant-numeric: tabular-nums;">
 				<thead>
 					<tr style="color: var(--term-text-muted);">
 						<th class="text-left font-normal py-0.5">#</th>

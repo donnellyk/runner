@@ -7,6 +7,8 @@
 		type SpecialPanel,
 		CHART_TYPE_MATRIX,
 		DATA_SOURCE_LABELS,
+		DATA_SOURCE_COLORS,
+		COLOR_PALETTE,
 		type StreamData,
 	} from './terminal-state.svelte';
 	import { getAvailableDataSources } from './terminal-state.svelte';
@@ -22,6 +24,18 @@
 	let { config, streams, onchange, children, hasLaps = false }: Props = $props();
 
 	let availableSources = $derived(getAvailableDataSources(streams));
+	let showColorPicker = $state(false);
+
+	function setColor(color: string | undefined) {
+		onchange({ ...config, colorOverride: color });
+		showColorPicker = false;
+	}
+
+	let activeColor = $derived(
+		config.kind === 'chart' && config.dataSource
+			? config.colorOverride ?? DATA_SOURCE_COLORS[config.dataSource]
+			: undefined,
+	);
 
 	function setSpecial(type: SpecialPanel) {
 		onchange({ kind: 'special', specialType: type });
@@ -49,10 +63,10 @@
 	);
 </script>
 
-<div class="flex flex-col h-full" style="background: var(--term-surface); border: 1px solid var(--term-border); border-radius: 4px; overflow: hidden;">
+<div class="flex flex-col h-full" style="background: var(--term-surface); backdrop-filter: blur(12px); border: 1px solid var(--term-border); border-radius: 4px; overflow: hidden;">
 	<div class="flex items-center gap-1 px-1.5 py-0.5 shrink-0" style="border-bottom: 1px solid var(--term-border);">
 		<select
-			class="bg-transparent text-[9px] uppercase tracking-wide cursor-pointer border-none outline-none"
+			class="bg-transparent text-[10px] uppercase tracking-wide cursor-pointer border-none outline-none"
 			style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;"
 			value={config.kind === 'special' ? `special:${config.specialType}` : `data:${config.dataSource}`}
 			onchange={(e) => {
@@ -81,7 +95,7 @@
 
 		{#if config.kind === 'chart' && chartTypes.length > 0}
 			<select
-				class="bg-transparent text-[9px] uppercase tracking-wide cursor-pointer border-none outline-none"
+				class="bg-transparent text-[10px] uppercase tracking-wide cursor-pointer border-none outline-none"
 				style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;"
 				value={config.chartType}
 				onchange={(e) => setChartType((e.target as HTMLSelectElement).value as ChartType)}
@@ -104,6 +118,49 @@
 					<option value="laps">Laps</option>
 				{/if}
 			</select>
+		{/if}
+
+		{#if config.kind === 'chart' && activeColor}
+			<div class="ml-auto" style="position: relative;">
+				<button
+					class="w-3 h-3 rounded-sm cursor-pointer"
+					style="background: {activeColor}; border: 1px solid var(--term-border);"
+					title="Change color"
+					onclick={() => showColorPicker = !showColorPicker}
+				></button>
+				{#if showColorPicker}
+					<div
+						style="
+							position: fixed;
+							z-index: 100;
+							display: grid;
+							grid-template-columns: repeat(4, 14px);
+							gap: 3px;
+							padding: 5px;
+							border-radius: 4px;
+							background: var(--term-bg);
+							border: 1px solid var(--term-border);
+							transform: translate(-100%, 4px);
+						"
+					>
+						{#each COLOR_PALETTE as color (color.value)}
+							<button
+								class="rounded-sm cursor-pointer"
+								style="width: 14px; height: 14px; background: {color.value}; border: 1px solid {color.value === activeColor ? 'var(--term-text-bright)' : 'transparent'};"
+								title={color.label}
+								onclick={() => setColor(color.value)}
+							></button>
+						{/each}
+						{#if config.colorOverride}
+							<button
+								class="rounded-sm cursor-pointer"
+								style="width: 100%; height: 14px; grid-column: 1 / -1; margin-top: 2px; color: var(--term-text-muted); border: 1px solid var(--term-border); font-size: 8px;"
+								onclick={() => setColor(undefined)}
+							>Reset</button>
+						{/if}
+					</div>
+				{/if}
+			</div>
 		{/if}
 	</div>
 

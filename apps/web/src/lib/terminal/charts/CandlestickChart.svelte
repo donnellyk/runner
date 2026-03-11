@@ -20,9 +20,9 @@
 	}: Props = $props();
 
 	const PAD_TOP = 6;
-	const PAD_BOTTOM = 18;
-	const PAD_LEFT = 56;
-	const PAD_RIGHT = 4;
+	const PAD_BOTTOM = 20;
+	const PAD_LEFT = 4;
+	const PAD_RIGHT = 56;
 
 	let svgEl = $state<SVGSVGElement | null>(null);
 	let svgWidth = $state(400);
@@ -105,7 +105,7 @@
 
 <div class="relative w-full h-full flex flex-col" style="min-height: 0;">
 	<div class="flex items-baseline justify-end px-2 py-1 shrink-0">
-		<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums;">
+		<span class="text-[12px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums;">
 			{#if tooltipCandle}
 				O:{formatPaceDisplay(tooltipCandle.open, units)} C:{formatPaceDisplay(tooltipCandle.close, units)}
 			{:else if candles.length > 0}
@@ -128,8 +128,8 @@
 		{#each yLabels as lbl, i (i)}
 			<line x1={PAD_LEFT} y1={lbl.y} x2={PAD_LEFT + chartW} y2={lbl.y}
 				stroke="var(--term-grid)" stroke-width="1" />
-			<text x={PAD_LEFT - 4} y={lbl.y + 3} text-anchor="end"
-				fill="var(--term-text-muted)" font-size="9" font-family="'Geist Mono', monospace"
+			<text x={PAD_LEFT + chartW + 4} y={lbl.y + 3} text-anchor="start"
+				fill="var(--term-text-muted)" font-size="10" font-family="'Geist Mono', monospace"
 			>{formatPaceDisplay(lbl.value, units)}</text>
 		{/each}
 
@@ -155,8 +155,8 @@
 
 		{#each candles as candle, i (i)}
 			{#if i % Math.max(1, Math.floor(candles.length / 8)) === 0 || i === candles.length - 1}
-				<text x={candleX(i)} y={svgHeight - 3} text-anchor="middle"
-					fill="var(--term-text-muted)" font-size="9" font-family="'Geist Mono', monospace"
+				<text x={candleX(i)} y={svgHeight - 4} text-anchor="middle"
+					fill="var(--term-text-muted)" font-size="10" font-family="'Geist Mono', monospace"
 				>{candle.label}</text>
 			{/if}
 		{/each}

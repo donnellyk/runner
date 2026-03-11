@@ -55,7 +55,7 @@
 		if (!range || range.max === range.min) return 'var(--term-zone-3-solid)';
 		let t = (value - range.min) / (range.max - range.min);
 		if (metric === 'pace') t = 1 - t;
-		const colors = ['#60a5fa', '#2dd4a8', '#eab308', '#f97316', '#ef4444'];
+		const colors = ['#8be9fd', '#50fa7b', '#f1fa8c', '#ffb86c', '#ff5555'];
 		const idx = Math.min(Math.floor(t * colors.length), colors.length - 1);
 		return colors[idx];
 	}
@@ -77,13 +77,13 @@
 
 <div class="relative w-full h-full flex flex-col overflow-auto" style="min-height: 0;">
 	<div class="flex items-baseline justify-end px-2 py-1 shrink-0">
-		<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">
+		<span class="text-[12px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">
 			{segments.length} splits
 		</span>
 	</div>
 
 	<div class="flex-1 overflow-auto px-1 pb-1" style="min-height: 0;">
-		<table class="w-full border-collapse" style="font-family: 'Geist Mono', monospace; font-size: 9px;">
+		<table class="w-full border-collapse" style="font-family: 'Geist Mono', monospace; font-size: 10px;">
 			<thead>
 				<tr>
 					<th class="px-1 py-0.5 text-left" style="color: var(--term-text-muted); font-weight: normal;">#</th>
