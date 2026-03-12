@@ -118,6 +118,24 @@
 					<span class="text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Pause Gaps</span>
 					<input type="checkbox" bind:checked={termState.showPauseGaps} class="rounded" />
 				</label>
+				<div>
+					<div class="flex items-center justify-between mb-1">
+						<span class="text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Line Glow</span>
+						<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">{termState.lineGlow.toFixed(1)}</span>
+					</div>
+					<input type="range" min="0" max="10" step="0.5" value={termState.lineGlow}
+						oninput={(e) => termState.lineGlow = parseFloat((e.target as HTMLInputElement).value)}
+						class="w-full h-1 rounded appearance-none" style="background: var(--term-border);" />
+				</div>
+				<div>
+					<div class="flex items-center justify-between mb-1">
+						<span class="text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Glow Opacity</span>
+						<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">{termState.glowOpacity.toFixed(2)}</span>
+					</div>
+					<input type="range" min="0" max="1" step="0.05" value={termState.glowOpacity}
+						oninput={(e) => termState.glowOpacity = parseFloat((e.target as HTMLInputElement).value)}
+						class="w-full h-1 rounded appearance-none" style="background: var(--term-border);" />
+				</div>
 			</div>
 		{/if}
 	</div>
