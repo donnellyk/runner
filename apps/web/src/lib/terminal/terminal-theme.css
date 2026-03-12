@@ -31,6 +31,9 @@
 	--term-crosshair-label-bg: rgba(22, 27, 44, 0.92);
 
 	--term-mesh: #0b0e17;
+
+	--term-selection: rgba(255, 255, 255, 0.08);
+	--term-selection-border: rgba(255, 255, 255, 0.25);
 }
 
 @keyframes mesh-drift {

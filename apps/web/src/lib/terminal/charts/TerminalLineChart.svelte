@@ -10,6 +10,12 @@
         formatXLabelShort,
     } from "../shared/axes";
     import { findClosestIndex, TERM_PAD } from "../shared/chart-utils";
+    import {
+        computeHorizontalStats,
+        computeVerticalStats,
+        type Selection,
+        type SelectionStats,
+    } from "../shared/selection-stats";
 
     interface Props {
         data: number[];
@@ -67,6 +73,8 @@
         glowOpacity = 0.4,
     }: Props = $props();
 
+    // --- Reference lines ---
+
     interface RefLine {
         value: number;
         label: string;
@@ -94,6 +102,45 @@
         refLines = refLines.filter((_, i) => i !== index);
     }
 
+    // --- Region selection ---
+
+    const DRAG_THRESHOLD = 5;
+
+    let dragOrigin = $state<{
+        clientX: number;
+        clientY: number;
+        svgX: number;
+        svgY: number;
+    } | null>(null);
+    let dragMode = $state<"horizontal" | "vertical" | null>(null);
+    let selection = $state<Selection | null>(null);
+    let justFinishedDrag = $state(false);
+
+    let selectionStats = $derived.by((): SelectionStats | null => {
+        if (!selection) return null;
+        if (selection.mode === "horizontal") {
+            return computeHorizontalStats(
+                smoothData,
+                trimXData,
+                selection.startIdx,
+                selection.endIdx,
+                trimPausedMask,
+            );
+        }
+        return computeVerticalStats(
+            smoothData,
+            selection.lowValue,
+            selection.highValue,
+            trimPausedMask,
+        );
+    });
+
+    function clearSelection() {
+        selection = null;
+    }
+
+    // --- Formatting ---
+
     function fmt(v: number): string {
         return formatValue ? formatValue(v) : `${v.toFixed(0)}${unit}`;
     }
@@ -104,6 +151,8 @@
         }
         return v.toFixed(0);
     }
+
+    // --- Chart geometry ---
 
     const PAD_TOP = TERM_PAD.top;
     const PAD_BOTTOM = TERM_PAD.bottom;
@@ -152,6 +201,7 @@
         return PAD_LEFT + ((xVal - xMin) / xRange) * chartW;
     }
 
+
     let smoothData = $derived(
         smoothStream(trimData, smoothingWindow, trimPausedMask),
     );
@@ -173,6 +223,8 @@
         return yMin + t * yRange;
     }
 
+    // --- Pause segments ---
+
     let pauseResult = $derived.by(() => {
         if (!trimPausedMask) return null;
         const { segs } = computePauseSegments(trimPausedMask);
@@ -182,6 +234,8 @@
         }));
         return { segs, gaps };
     });
+
+    // --- Zone dot grid ---
 
     let zoneDotGrid = $derived.by(() => {
         if (!zones || !zoneMetric || !showZones) return [];
@@ -202,7 +256,6 @@
 
         if (bands.length === 0) return [];
 
-        // Uniform grid across all bands
         const totalTop = Math.min(...bands.map((b) => b.y));
         const totalBottom = Math.max(...bands.map((b) => b.y + b.h));
         const totalH = totalBottom - totalTop;
@@ -232,6 +285,8 @@
         });
     });
 
+    // --- Crosshair ---
+
     let crosshairX = $derived(
         crosshairIndex != null && trimXData[crosshairIndex] != null
             ? toX(trimXData[crosshairIndex])
@@ -254,6 +309,8 @@
     let tooltipPaused = $derived(
         crosshairIndex != null && (trimPausedMask?.[crosshairIndex] ?? false),
     );
+
+    // --- Axis labels ---
 
     let xLabels = $derived.by(() => {
         if (trimXData.length < 2) return [];
@@ -279,6 +336,8 @@
         return labels;
     });
 
+    // --- Mouse event handlers ---
+
     function resolveIndex(e: MouseEvent): number | null {
         if (!svgEl) return null;
         const rect = svgEl.getBoundingClientRect();
@@ -289,18 +348,101 @@
         );
     }
 
+    function resolveSvgPos(e: MouseEvent): { x: number; y: number } | null {
+        if (!svgEl) return null;
+        const rect = svgEl.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    function handleMouseDown(e: MouseEvent) {
+        // Don't start selection drag if ref line drag is active
+        if (draggingRefIdx != null) return;
+        const pos = resolveSvgPos(e);
+        if (!pos) return;
+        // Only start in chart area
+        if (
+            pos.x < PAD_LEFT ||
+            pos.x > PAD_LEFT + chartW ||
+            pos.y < PAD_TOP ||
+            pos.y > PAD_TOP + chartH
+        )
+            return;
+        dragOrigin = {
+            clientX: e.clientX,
+            clientY: e.clientY,
+            svgX: pos.x,
+            svgY: pos.y,
+        };
+        dragMode = null;
+        justFinishedDrag = false;
+    }
+
     function handleMouseMove(e: MouseEvent) {
+        // Ref line drag takes priority
         if (draggingRefIdx != null) {
             if (!svgEl) return;
             const rect = svgEl.getBoundingClientRect();
             const mouseY = e.clientY - rect.top;
-            const clamped = Math.max(PAD_TOP, Math.min(PAD_TOP + chartH, mouseY));
+            const clamped = Math.max(
+                PAD_TOP,
+                Math.min(PAD_TOP + chartH, mouseY),
+            );
             const val = fromY(clamped);
             refLines = refLines.map((r, i) =>
-                i === draggingRefIdx ? { value: val, label: fmtShort(val) } : r,
+                i === draggingRefIdx
+                    ? { value: val, label: fmtShort(val) }
+                    : r,
             );
             return;
         }
+
+        // Selection drag
+        if (dragOrigin) {
+            const dx = Math.abs(e.clientX - dragOrigin.clientX);
+            const dy = Math.abs(e.clientY - dragOrigin.clientY);
+
+            if (dragMode == null) {
+                if (dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return;
+                dragMode = dx >= dy ? "horizontal" : "vertical";
+            }
+
+            const pos = resolveSvgPos(e);
+            if (!pos) return;
+
+            if (dragMode === "horizontal") {
+                const xPositions = trimXData.map((x) => toX(x));
+                const si = findClosestIndex(dragOrigin.svgX, xPositions);
+                const ei = findClosestIndex(pos.x, xPositions);
+                if (si != null && ei != null) {
+                    const lo = Math.min(si, ei);
+                    const hi = Math.max(si, ei);
+                    selection = {
+                        mode: "horizontal",
+                        startIdx: lo,
+                        endIdx: hi,
+                    };
+                }
+            } else {
+                const clampedOriginY = Math.max(
+                    PAD_TOP,
+                    Math.min(PAD_TOP + chartH, dragOrigin.svgY),
+                );
+                const clampedCurrentY = Math.max(
+                    PAD_TOP,
+                    Math.min(PAD_TOP + chartH, pos.y),
+                );
+                const v1 = fromY(clampedOriginY);
+                const v2 = fromY(clampedCurrentY);
+                selection = {
+                    mode: "vertical",
+                    lowValue: Math.min(v1, v2),
+                    highValue: Math.max(v1, v2),
+                };
+            }
+            return;
+        }
+
+        // Normal crosshair
         const idx = resolveIndex(e);
         if (idx != null) oncrosshairmove?.(idx);
     }
@@ -308,10 +450,30 @@
     function handleMouseUp() {
         if (draggingRefIdx != null) {
             draggingRefIdx = null;
+            return;
         }
+        if (dragOrigin && dragMode != null) {
+            // Drag completed — keep selection, prevent click from firing
+            dragOrigin = null;
+            dragMode = null;
+            justFinishedDrag = true;
+            return;
+        }
+        // Click without drag — reset
+        dragOrigin = null;
+        dragMode = null;
     }
 
     function handleClick(e: MouseEvent) {
+        if (justFinishedDrag) {
+            justFinishedDrag = false;
+            return;
+        }
+        // Click clears selection if one exists
+        if (selection) {
+            clearSelection();
+            return;
+        }
         const idx = resolveIndex(e);
         if (idx != null) oncrosshairclick?.(idx);
     }
@@ -321,8 +483,70 @@
             draggingRefIdx = null;
             return;
         }
+        if (dragOrigin) {
+            dragOrigin = null;
+            dragMode = null;
+            return;
+        }
         oncrosshairleave?.();
     }
+
+    function handleKeyDown(e: KeyboardEvent) {
+        if (e.key === "Escape" && selection) {
+            e.stopPropagation();
+            clearSelection();
+        }
+    }
+
+    // --- Selection overlay geometry ---
+
+    let selectionRect = $derived.by(
+        (): {
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+        } | null => {
+            if (!selection) return null;
+            if (selection.mode === "horizontal") {
+                const x1 = toX(trimXData[selection.startIdx]);
+                const x2 = toX(trimXData[selection.endIdx]);
+                return {
+                    x: x1,
+                    y: PAD_TOP,
+                    width: Math.max(1, x2 - x1),
+                    height: chartH,
+                };
+            }
+            const y1 = toY(selection.highValue);
+            const y2 = toY(selection.lowValue);
+            const top = Math.min(y1, y2);
+            const bottom = Math.max(y1, y2);
+            return {
+                x: PAD_LEFT,
+                y: top,
+                width: chartW,
+                height: Math.max(1, bottom - top),
+            };
+        },
+    );
+
+    // Stats overlay positioning (pixel coords relative to wrapper div)
+    let statsPosition = $derived.by(
+        (): { left: string; top: string } | null => {
+            if (!selectionRect || !selectionStats) return null;
+            if (selectionStats.mode === "horizontal") {
+                const cx = selectionRect.x + selectionRect.width / 2;
+                // Account for the header bar height (~28px)
+                return { left: `${cx}px`, top: `${PAD_TOP + 28 + 8}px` };
+            }
+            const cy =
+                selectionRect.y + selectionRect.height / 2 + 28; // 28 for header
+            return { left: `${PAD_LEFT + chartW / 2}px`, top: `${cy}px` };
+        },
+    );
+
+    // --- Polyline + area ---
 
     let polylinePoints = $derived(
         smoothData.map((v, i) => `${toX(trimXData[i])},${toY(v)}`).join(" "),
@@ -362,9 +586,26 @@
     const uid = Math.random().toString(36).slice(2);
     const clipId = `term-clip-${uid}`;
     const glowId = `term-glow-${uid}`;
+
+    // --- Cursor ---
+
+    let cursorStyle = $derived.by(() => {
+        if (draggingRefIdx != null) return "ns-resize";
+        if (dragMode === "horizontal") return "col-resize";
+        if (dragMode === "vertical") return "row-resize";
+        if (dragOrigin) return "crosshair";
+        return "";
+    });
 </script>
 
-<div class="relative w-full h-full flex flex-col" style="min-height: 0;">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+    class="relative w-full h-full flex flex-col"
+    style="min-height: 0;"
+    role="group"
+    tabindex="-1"
+    onkeydown={handleKeyDown}
+>
     <div class="flex items-baseline justify-end px-2 py-1 shrink-0">
         <span
             class="text-[12px]"
@@ -388,7 +629,8 @@
         viewBox="0 0 {svgWidth} {svgHeight}"
         role="img"
         aria-label="{label} chart"
-        style="display: block; min-height: 0;{draggingRefIdx != null ? ' cursor: ns-resize;' : ''}"
+        style="display: block; min-height: 0;{cursorStyle ? ` cursor: ${cursorStyle};` : ''}"
+        onmousedown={handleMouseDown}
         onmousemove={handleMouseMove}
         onmouseup={handleMouseUp}
         onclick={handleClick}
@@ -510,6 +752,53 @@
                 clip-path="url(#{clipId})"
                 filter={lineGlow > 0 ? `url(#${glowId})` : undefined}
             />
+        {/if}
+
+        <!-- Selection overlay -->
+        {#if selectionRect}
+            <rect
+                x={selectionRect.x}
+                y={selectionRect.y}
+                width={selectionRect.width}
+                height={selectionRect.height}
+                fill="var(--term-selection)"
+                clip-path="url(#{clipId})"
+            />
+            {#if selection?.mode === "horizontal"}
+                <line
+                    x1={selectionRect.x}
+                    y1={PAD_TOP}
+                    x2={selectionRect.x}
+                    y2={PAD_TOP + chartH}
+                    stroke="var(--term-selection-border)"
+                    stroke-width="1"
+                />
+                <line
+                    x1={selectionRect.x + selectionRect.width}
+                    y1={PAD_TOP}
+                    x2={selectionRect.x + selectionRect.width}
+                    y2={PAD_TOP + chartH}
+                    stroke="var(--term-selection-border)"
+                    stroke-width="1"
+                />
+            {:else}
+                <line
+                    x1={PAD_LEFT}
+                    y1={selectionRect.y}
+                    x2={PAD_LEFT + chartW}
+                    y2={selectionRect.y}
+                    stroke="var(--term-selection-border)"
+                    stroke-width="1"
+                />
+                <line
+                    x1={PAD_LEFT}
+                    y1={selectionRect.y + selectionRect.height}
+                    x2={PAD_LEFT + chartW}
+                    y2={selectionRect.y + selectionRect.height}
+                    stroke="var(--term-selection-border)"
+                    stroke-width="1"
+                />
+            {/if}
         {/if}
 
         {#each refLines as ref, ri (ri)}
@@ -700,4 +989,63 @@
             >
         {/if}
     </svg>
+
+    <!-- Selection stats overlay -->
+    {#if selectionStats && statsPosition && !dragOrigin}
+        <div
+            class="absolute pointer-events-none"
+            style="
+                left: {statsPosition.left};
+                top: {statsPosition.top};
+                transform: translate(-50%, 0);
+                background: var(--term-surface);
+                backdrop-filter: blur(12px);
+                border: 1px solid var(--term-border);
+                border-radius: 4px;
+                padding: 6px 10px;
+                font-family: 'Geist Mono', monospace;
+                font-size: 10px;
+                font-variant-numeric: tabular-nums;
+                z-index: 10;
+                white-space: nowrap;
+            "
+        >
+            {#if selectionStats.mode === "horizontal"}
+                <div style="color: var(--term-text-muted); margin-bottom: 3px;">
+                    {formatXLabel(selectionStats.xStart, xAxis, units)} – {formatXLabel(selectionStats.xEnd, xAxis, units)}
+                </div>
+                <div class="flex gap-4">
+                    <div>
+                        <span style="color: var(--term-text-muted);">Avg</span>
+                        <span style="color: var(--term-text-bright);">{fmt(selectionStats.avg)}</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--term-text-muted);">Hi</span>
+                        <span style="color: var(--term-text-bright);">{fmt(invertY ? selectionStats.min : selectionStats.max)}</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--term-text-muted);">Lo</span>
+                        <span style="color: var(--term-text-bright);">{fmt(invertY ? selectionStats.max : selectionStats.min)}</span>
+                    </div>
+                </div>
+            {:else}
+                <div style="color: var(--term-text-muted); margin-bottom: 3px;">
+                    {fmt(selectionStats.lowValue)} – {fmt(selectionStats.highValue)}
+                </div>
+                <div class="flex gap-4">
+                    <div>
+                        <span style="color: var(--term-text-muted);">Pts</span>
+                        <span style="color: var(--term-text-bright);">{selectionStats.points}</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--term-text-muted);">of</span>
+                        <span style="color: var(--term-text-bright);">{selectionStats.totalPoints}</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--term-text-bright);">{selectionStats.pct.toFixed(1)}%</span>
+                    </div>
+                </div>
+            {/if}
+        </div>
+    {/if}
 </div>
