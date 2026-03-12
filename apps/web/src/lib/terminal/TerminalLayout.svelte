@@ -25,7 +25,8 @@
 		DATA_SOURCE_LABELS,
 		DATA_SOURCE_COLORS,
 	} from './terminal-state.svelte';
-	import { candlesFromSegments, candlesFromLaps } from './candlestick';
+	import { candlesFromSegments, candlesFromLaps, type CandleData } from './candlestick';
+	import { findIndexAtDistance } from '$lib/streams';
 	import type { ActivityData } from './types';
 
 	interface Props {
@@ -133,6 +134,22 @@
 		state.panels = newPanels;
 	}
 
+	function streamIdxToCandleIdx(streamIdx: number | null, candles: CandleData[]): number | null {
+		if (streamIdx == null || candles.length === 0 || !sampledDist) return null;
+		const dist = sampledDist[streamIdx];
+		if (dist == null) return null;
+		for (let i = candles.length - 1; i >= 0; i--) {
+			if (dist >= candles[i].distanceStart) return i;
+		}
+		return 0;
+	}
+
+	function candleIdxToStreamIdx(candleIdx: number | null, candles: CandleData[]): number | null {
+		if (candleIdx == null || !candles[candleIdx] || !sampledDist) return null;
+		const midDist = (candles[candleIdx].distanceStart + candles[candleIdx].distanceEnd) / 2;
+		return findIndexAtDistance(sampledDist, midDist);
+	}
+
 	function onCrosshairMove(index: number | null) {
 		if (state.crosshairLocked) return;
 		state.crosshairIndex = index;
@@ -203,10 +220,10 @@
 								{candles}
 								{units}
 								{mode}
-								crosshairIndex={state.crosshairIndex}
+								crosshairIndex={streamIdxToCandleIdx(state.crosshairIndex, candles)}
 								crosshairLocked={state.crosshairLocked}
-								oncrosshairmove={onCrosshairMove}
-								oncrosshairclick={onCrosshairClick}
+								oncrosshairmove={(ci) => onCrosshairMove(candleIdxToStreamIdx(ci, candles))}
+								oncrosshairclick={(ci) => onCrosshairClick(candleIdxToStreamIdx(ci, candles))}
 								oncrosshairleave={onCrosshairLeave}
 							/>
 						{:else if panel.chartType === 'bar'}

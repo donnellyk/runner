@@ -11,6 +11,8 @@ export interface CandleData {
 	high: number;
 	low: number;
 	label: string;
+	distanceStart: number;
+	distanceEnd: number;
 }
 
 export function candlesFromSegments(
@@ -46,6 +48,8 @@ export function candlesFromSegments(
 			high: minPace,
 			low: maxPace,
 			label: `${i + 1}`,
+			distanceStart: seg.distanceStart,
+			distanceEnd: seg.distanceEnd,
 		};
 	});
 }
@@ -76,6 +80,7 @@ export function candlesFromLaps(
 			}
 		}
 
+		const lapStart = cumulativeDist;
 		cumulativeDist += lap.distance ?? 0;
 
 		const high = Math.min(open, close) * 0.95;
@@ -88,6 +93,8 @@ export function candlesFromLaps(
 			high,
 			low,
 			label: `${i + 1}`,
+			distanceStart: lapStart,
+			distanceEnd: cumulativeDist,
 		};
 	});
 }
