@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Units } from '$lib/format';
 	import { smoothStream, formatXLabelShort } from '../shared/axes';
-	import { resolveMouseIndex, trimChartData, TERM_PAD_WIDE } from '../shared/chart-utils';
+	import { resolveMouseIndex, trimChartData, TERM_PAD } from '../shared/chart-utils';
 	import { createChartDimensions } from '../shared/chart-dimensions.svelte';
 	import ChartShell from './ChartShell.svelte';
 	import XAxisLabels from './XAxisLabels.svelte';
@@ -49,7 +49,7 @@
 		return formatValue ? formatValue(v) : `${v.toFixed(0)}${unit}`;
 	}
 
-	const dims = createChartDimensions(TERM_PAD_WIDE);
+	const dims = createChartDimensions(TERM_PAD);
 	const BUCKET_COUNT = 60;
 
 	let xData = $derived(

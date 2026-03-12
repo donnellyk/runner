@@ -1,7 +1,6 @@
 import { trimLeadingZeros } from "./axes";
 
 export const TERM_PAD = { top: 6, bottom: 20, left: 4, right: 38 } as const;
-export const TERM_PAD_WIDE = TERM_PAD;
 
 export type Padding = { top: number; bottom: number; left: number; right: number };
 

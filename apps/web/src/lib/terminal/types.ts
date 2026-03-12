@@ -8,8 +8,6 @@ export interface ActivityData {
 	routeGeoJson?: string | null;
 }
 
-export type { ActivityNote, ActivityLap, ActivitySegment } from './terminal-state.svelte';
-
 export function isNumberArray(data: unknown): data is number[] {
 	return Array.isArray(data) && data.every((v) => typeof v === 'number');
 }

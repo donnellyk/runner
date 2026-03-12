@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { ZoneDefinition } from '@web-runner/shared';
-	import { type Units, MI_TO_M } from '$lib/format';
+	import type { Units } from '$lib/format';
 	import { findIndexAtDistance } from '$lib/streams';
-	import { findClosestIndex } from '$lib/terminal/shared/chart-utils';
+	import { smoothStream, computeYBounds, computePauseSegments, formatXLabel, formatXLabelShort } from '$lib/terminal/shared/axes';
+	import { resolveMouseIndex, trimChartData } from '$lib/terminal/shared/chart-utils';
 
 	interface ActivityNoteRef {
 		id: number;
@@ -88,13 +89,11 @@
 			: timeData ?? data.map((_, i) => i),
 	);
 
-	// Drop leading zero data points (e.g. HR/pace sensor not yet active)
-	let startIdx = $derived(data.findIndex((v) => v !== 0));
-	let trimData = $derived(startIdx > 0 ? data.slice(startIdx) : data);
-	let trimXData = $derived(startIdx > 0 ? xData.slice(startIdx) : xData);
-	let trimPausedMask = $derived(
-		pausedMask ? (startIdx > 0 ? pausedMask.slice(startIdx) : pausedMask) : null,
-	);
+	let trimmed = $derived(trimChartData(data, xData, pausedMask));
+	let startIdx = $derived(trimmed.startIdx);
+	let trimData = $derived(trimmed.trimData);
+	let trimXData = $derived(trimmed.trimXData);
+	let trimPausedMask = $derived(trimmed.trimPausedMask);
 
 	let xMin = $derived(trimXData[0] ?? 0);
 	let xMax = $derived(trimXData[trimXData.length - 1] ?? 1);
@@ -103,39 +102,9 @@
 		return PAD_LEFT + ((xVal - xMin) / (xMax - xMin)) * chartW;
 	}
 
-	// Moving average — skips paused points so they don't bleed into transitions
-	let smoothData = $derived.by(() => {
-		if (smoothingWindow === 0) return trimData.slice();
-		const w = smoothingWindow;
-		const mask = trimPausedMask;
-		return trimData.map((_, i) => {
-			const lo = Math.max(0, i - w);
-			const hi = Math.min(trimData.length - 1, i + w);
-			let sum = 0, count = 0;
-			for (let j = lo; j <= hi; j++) {
-				if (!mask || !mask[j]) {
-					sum += trimData[j];
-					count++;
-				}
-			}
-			return count > 0 ? sum / count : trimData[i];
-		});
-	});
+	let smoothData = $derived(smoothStream(trimData, smoothingWindow, trimPausedMask));
 
-	let yBounds = $derived.by(() => {
-		if (trimPausedMask) {
-			// Restrict y-axis to non-paused smoothed values only
-			const vals = smoothData.filter((v, i) => v > 0 && !trimPausedMask![i]);
-			if (vals.length === 0) return { yMin: 0, yMax: 1 };
-			const lo = Math.min(...vals);
-			const hi = Math.max(...vals);
-			const pad = Math.max((hi - lo) * 0.05, 5);
-			return { yMin: Math.max(0, lo - pad), yMax: hi + pad };
-		}
-		const vals = trimData.filter((v) => v > 0);
-		if (vals.length === 0) return { yMin: 0, yMax: 1 };
-		return { yMin: Math.min(...vals), yMax: Math.max(...vals) };
-	});
+	let yBounds = $derived(computeYBounds(smoothData, trimPausedMask));
 	let yMin = $derived(yBounds.yMin);
 	let yMax = $derived(yBounds.yMax);
 	let yRange = $derived(yMax - yMin || 1);
@@ -147,20 +116,9 @@
 			: PAD_TOP + chartH - t * chartH;     // higher value → higher on screen (default)
 	}
 
-	// Pause gap rendering — derived from trimPausedMask when provided
 	let pauseResult = $derived.by(() => {
 		if (!trimPausedMask) return null;
-		const rawSegs: { startIdx: number; endIdx: number }[] = [];
-		let start = -1;
-		for (let i = 0; i <= trimPausedMask.length; i++) {
-			const paused = i >= trimPausedMask.length || trimPausedMask[i];
-			if (!paused && start === -1) start = i;
-			if (paused && start !== -1) {
-				rawSegs.push({ startIdx: start, endIdx: i - 1 });
-				start = -1;
-			}
-		}
-		const segs = rawSegs.filter((seg) => seg.startIdx <= seg.endIdx);
+		const { segs } = computePauseSegments(trimPausedMask);
 		const gaps = segs.slice(0, -1).map((seg, i) => ({
 			x1: toX(trimXData[seg.endIdx]),
 			x2: toX(trimXData[segs[i + 1].startIdx]),
@@ -197,12 +155,7 @@
 
 	let crosshairXLabel = $derived.by(() => {
 		if (crosshairIndex == null || trimXData[crosshairIndex] == null) return null;
-		const v = trimXData[crosshairIndex];
-		return xAxis === 'distance'
-			? units === 'imperial'
-				? `${(v / MI_TO_M).toFixed(2)} mi`
-				: `${(v / 1000).toFixed(2)} km`
-			: `${Math.floor(v / 60)}:${String(v % 60).padStart(2, '0')}`;
+		return formatXLabel(trimXData[crosshairIndex], xAxis, units);
 	});
 
 	// Use smoothed value so label matches the rendered line
@@ -216,12 +169,7 @@
 		const indices = [0, Math.floor(trimXData.length / 2), trimXData.length - 1];
 		return indices.map((i) => ({
 			x: toX(trimXData[i]),
-			label:
-				xAxis === 'distance'
-					? units === 'imperial'
-						? `${(trimXData[i] / MI_TO_M).toFixed(1)} mi`
-						: `${(trimXData[i] / 1000).toFixed(1)} km`
-					: `${Math.floor(trimXData[i] / 60)}m`,
+			label: formatXLabelShort(trimXData[i], xAxis, units),
 		}));
 	});
 
@@ -237,11 +185,10 @@
 		];
 	});
 
+	let xPositions = $derived(trimXData.map((x) => toX(x)));
+
 	function handleMouseMove(e: MouseEvent) {
-		if (!svgEl) return;
-		const rect = svgEl.getBoundingClientRect();
-		const mouseX = e.clientX - rect.left;
-		const idx = findClosestIndex(mouseX, trimXData.map((x) => toX(x)));
+		const idx = resolveMouseIndex(svgEl, e, xPositions);
 		if (idx != null) oncrosshairmove?.(idx);
 	}
 

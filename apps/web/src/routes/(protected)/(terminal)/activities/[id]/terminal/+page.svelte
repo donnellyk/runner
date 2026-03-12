@@ -6,8 +6,10 @@
 	import {
 		createTerminalState,
 		type StreamData,
+		type ActivityNote,
+		type ActivityLap,
+		type ActivitySegment,
 	} from '$lib/terminal/terminal-state.svelte';
-	import type { ActivityNote, ActivityLap, ActivitySegment } from '$lib/terminal/types';
 	import { isLatLngArray, isNumberArray } from '$lib/terminal/types';
 	import type { Units } from '$lib/format';
 

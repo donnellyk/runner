@@ -4,7 +4,6 @@ import {
   resolveMouseIndex,
   trimChartData,
   TERM_PAD,
-  TERM_PAD_WIDE,
 } from "./chart-utils";
 
 describe("findClosestIndex", () => {
@@ -63,7 +62,4 @@ describe("padding constants", () => {
     expect(TERM_PAD).toEqual({ top: 6, bottom: 20, left: 4, right: 38 });
   });
 
-  it("TERM_PAD_WIDE is the same as TERM_PAD", () => {
-    expect(TERM_PAD_WIDE).toBe(TERM_PAD);
-  });
 });

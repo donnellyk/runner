@@ -2,11 +2,12 @@ import { error, fail } from '@sveltejs/kit';
 import { eq, sql, and, desc } from 'drizzle-orm';
 import { getDb } from '@web-runner/db/client';
 import { users, oauthAccounts, activities } from '@web-runner/db/schema';
+import { requireParamId } from '$lib/server/validation';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {
 	const db = getDb();
-	const userId = Number(params.id);
+	const userId = requireParamId(params.id);
 
 	const [user] = await db
 		.select({
@@ -65,7 +66,7 @@ export const actions: Actions = {
 	updateUnits: async ({ request, locals, params }) => {
 		if (!locals.user?.isAdmin) return fail(403);
 
-		const userId = Number(params.id);
+		const userId = requireParamId(params.id);
 		const data = await request.formData();
 		const unit = data.get('distanceUnit');
 		if (unit !== 'metric' && unit !== 'imperial') {

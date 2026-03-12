@@ -2,6 +2,7 @@ import { error, redirect } from '@sveltejs/kit';
 import { eq, sql, and, inArray, getTableColumns } from 'drizzle-orm';
 import { getDb } from '@web-runner/db/client';
 import { activities, activityLaps, activityStreams, activitySegments } from '@web-runner/db/schema';
+import { requireParamId } from '$lib/server/validation';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -9,7 +10,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		redirect(302, '/');
 	}
 	const db = getDb();
-	const activityId = Number(params.id);
+	const activityId = requireParamId(params.id);
 
 	const [activity] = await db
 		.select({

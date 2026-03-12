@@ -15,6 +15,27 @@ export interface CandleData {
 	distanceEnd: number;
 }
 
+function candleFromStream(
+	velocityStream: number[],
+	distanceStream: number[],
+	distanceStart: number,
+	distanceEnd: number,
+	factor: number,
+	wickPercentile: number,
+): { open: number; close: number; high: number; low: number } | null {
+	const startIdx = findIndexAtDistance(distanceStream, distanceStart);
+	const endIdx = findIndexAtDistance(distanceStream, distanceEnd);
+	if (startIdx >= endIdx) return null;
+	const quarterLen = Math.max(1, Math.floor((endIdx - startIdx) / 4));
+	const { min, max } = percentilePaceFromVelocity(velocityStream, startIdx, endIdx, wickPercentile);
+	return {
+		open: avgPaceFromVelocity(velocityStream, startIdx, startIdx + quarterLen) * factor,
+		close: avgPaceFromVelocity(velocityStream, endIdx - quarterLen, endIdx) * factor,
+		high: min * factor,
+		low: max * factor,
+	};
+}
+
 export function candlesFromSegments(
 	segments: ActivitySegment[],
 	velocityStream: number[] | null,
@@ -32,16 +53,8 @@ export function candlesFromSegments(
 		let low = (seg.maxPace != null ? seg.maxPace : Math.max(open, close) * 1.05) * factor;
 
 		if (velocityStream && distanceStream) {
-			const startIdx = findIndexAtDistance(distanceStream, seg.distanceStart);
-			const endIdx = findIndexAtDistance(distanceStream, seg.distanceEnd);
-			if (startIdx < endIdx) {
-				const quarterLen = Math.max(1, Math.floor((endIdx - startIdx) / 4));
-				open = avgPaceFromVelocity(velocityStream, startIdx, startIdx + quarterLen) * factor;
-				close = avgPaceFromVelocity(velocityStream, endIdx - quarterLen, endIdx) * factor;
-				const { min, max } = percentilePaceFromVelocity(velocityStream, startIdx, endIdx, wickPercentile);
-				high = min * factor;
-				low = max * factor;
-			}
+			const stream = candleFromStream(velocityStream, distanceStream, seg.distanceStart, seg.distanceEnd, factor, wickPercentile);
+			if (stream) ({ open, close, high, low } = stream);
 		}
 
 		return {
@@ -75,22 +88,15 @@ export function candlesFromLaps(
 		let high = Math.min(open, close) * 0.95;
 		let low = Math.max(open, close) * 1.05;
 
+		const lapStart = cumulativeDist;
+		const lapEnd = cumulativeDist + (lap.distance ?? 0);
+
 		if (velocityStream && distanceStream) {
-			const startIdx = findIndexAtDistance(distanceStream, cumulativeDist);
-			const endDist = cumulativeDist + (lap.distance ?? 0);
-			const endIdx = findIndexAtDistance(distanceStream, endDist);
-			if (startIdx < endIdx) {
-				const quarterLen = Math.max(1, Math.floor((endIdx - startIdx) / 4));
-				open = avgPaceFromVelocity(velocityStream, startIdx, startIdx + quarterLen) * factor;
-				close = avgPaceFromVelocity(velocityStream, endIdx - quarterLen, endIdx) * factor;
-				const { min, max } = percentilePaceFromVelocity(velocityStream, startIdx, endIdx, wickPercentile);
-				high = min * factor;
-				low = max * factor;
-			}
+			const stream = candleFromStream(velocityStream, distanceStream, lapStart, lapEnd, factor, wickPercentile);
+			if (stream) ({ open, close, high, low } = stream);
 		}
 
-		const lapStart = cumulativeDist;
-		cumulativeDist += lap.distance ?? 0;
+		cumulativeDist = lapEnd;
 
 		return {
 			index: i,

@@ -2,7 +2,7 @@
 	import type { CandleData } from '../candlestick';
 	import type { Units } from '$lib/format';
 	import { formatPaceDisplay } from '$lib/format';
-	import { findClosestIndex, TERM_PAD_WIDE } from '../shared/chart-utils';
+	import { findClosestIndex, TERM_PAD } from '../shared/chart-utils';
 	import { createChartDimensions } from '../shared/chart-dimensions.svelte';
 	import ChartShell from './ChartShell.svelte';
 	import YGridLines from './YGridLines.svelte';
@@ -32,8 +32,8 @@
 		mode = 'splits',
 	}: Props = $props();
 
-	const dims = createChartDimensions(TERM_PAD_WIDE);
-	const P = TERM_PAD_WIDE;
+	const dims = createChartDimensions(TERM_PAD);
+	const P = TERM_PAD;
 
 	let yBounds = $derived.by(() => {
 		if (candles.length === 0) return { yMin: 0, yMax: 1 };
@@ -85,17 +85,18 @@
 		mouseY != null ? Math.max(P.top, Math.min(P.top + dims.chartH, mouseY)) : null,
 	);
 
+	let xPositions = $derived(candles.map((_, i) => candleX(i)));
+
 	function handleMouseMove(e: MouseEvent) {
 		if (!dims.svgEl || candles.length === 0) return;
 		const rect = dims.svgEl.getBoundingClientRect();
-		const mx = e.clientX - rect.left;
 		const my = e.clientY - rect.top;
 
 		if (!crosshairLocked) {
 			mouseY = my;
 		}
 
-		const idx = findClosestIndex(mx, candles.map((_, i) => candleX(i)));
+		const idx = findClosestIndex(e.clientX - rect.left, xPositions);
 		if (crosshairLocked) return;
 		oncrosshairmove?.(idx);
 	}
@@ -103,9 +104,8 @@
 	function handleClick(e: MouseEvent) {
 		if (!dims.svgEl || candles.length === 0) return;
 		const rect = dims.svgEl.getBoundingClientRect();
-		const mx = e.clientX - rect.left;
 		const my = e.clientY - rect.top;
-		const idx = findClosestIndex(mx, candles.map((_, i) => candleX(i)));
+		const idx = findClosestIndex(e.clientX - rect.left, xPositions);
 
 		if (crosshairLocked) {
 			mouseY = my;
