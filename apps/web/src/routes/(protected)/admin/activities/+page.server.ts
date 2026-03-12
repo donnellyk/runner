@@ -4,6 +4,7 @@ import { getDb } from '@web-runner/db/client';
 import { activities, users } from '@web-runner/db/schema';
 import { getQueue } from '$lib/server/queue';
 import { getUserOptions } from '$lib/server/admin-queries';
+import { parseId } from '$lib/server/validation';
 import { JobPriority } from '@web-runner/shared';
 import type { ActivityImportJobData, FullHistoryImportJobData } from '@web-runner/shared';
 import type { PageServerLoad, Actions } from './$types';
@@ -79,8 +80,8 @@ export const actions: Actions = {
 		if (!locals.user?.isAdmin) return fail(403);
 
 		const data = await request.formData();
-		const activityId = Number(data.get('activityId'));
-		if (!Number.isFinite(activityId) || activityId <= 0) return fail(400, { error: 'Invalid activityId' });
+		const activityId = parseId(data.get('activityId'));
+		if (!activityId) return fail(400, { error: 'Invalid activityId' });
 
 		const db = getDb();
 		const [activity] = await db
@@ -108,8 +109,8 @@ export const actions: Actions = {
 		if (!locals.user?.isAdmin) return fail(403);
 
 		const data = await request.formData();
-		const userId = Number(data.get('userId'));
-		if (!Number.isFinite(userId) || userId <= 0) return fail(400, { error: 'Invalid userId' });
+		const userId = parseId(data.get('userId'));
+		if (!userId) return fail(400, { error: 'Invalid userId' });
 
 		const jobData: FullHistoryImportJobData = { type: 'full-history-import', userId };
 		const queue = getQueue();
@@ -120,8 +121,8 @@ export const actions: Actions = {
 		if (!locals.user?.isAdmin) return fail(403);
 
 		const data = await request.formData();
-		const userId = Number(data.get('userId'));
-		if (!Number.isFinite(userId) || userId <= 0) return fail(400, { error: 'Invalid userId' });
+		const userId = parseId(data.get('userId'));
+		if (!userId) return fail(400, { error: 'Invalid userId' });
 
 		// Strava workout_type=1 is Race for runs
 		const jobData: FullHistoryImportJobData = {

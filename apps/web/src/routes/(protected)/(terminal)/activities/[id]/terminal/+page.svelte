@@ -6,10 +6,9 @@
 	import {
 		createTerminalState,
 		type StreamData,
-		type ActivityNote,
-		type ActivityLap,
-		type ActivitySegment,
 	} from '$lib/terminal/terminal-state.svelte';
+	import type { ActivityNote, ActivityLap, ActivitySegment } from '$lib/terminal/types';
+	import { isLatLngArray, isNumberArray } from '$lib/terminal/types';
 	import type { Units } from '$lib/format';
 
 	let { data } = $props();
@@ -21,7 +20,7 @@
 
 	function getStream(type: string): number[] | null {
 		const s = data.streamMap[type];
-		return Array.isArray(s) && s.length > 0 ? s : null;
+		return isNumberArray(s) && s.length > 0 ? s : null;
 	}
 
 	let streams = $derived<StreamData>({
@@ -35,7 +34,7 @@
 		time: getStream('time'),
 		latlng: (() => {
 			const s = data.streamMap['latlng'];
-			return Array.isArray(s) && s.length > 0 ? s as unknown as [number, number][] : null;
+			return isLatLngArray(s) ? s : null;
 		})(),
 	});
 

@@ -2,6 +2,7 @@ import { eq, and, desc, gte, lte, lt, or, between, sql, inArray, getTableColumns
 import { getDb } from '@web-runner/db/client';
 import { activities, activityLaps, activityStreams, activitySegments, userZones, activityNotes } from '@web-runner/db/schema';
 import { DEFAULT_ZONES, RACE_DISTANCES, raceDistanceBounds, type ZoneDefinition } from '@web-runner/shared';
+import { isNumberArray, isLatLngArray } from '$lib/terminal/types';
 
 export const PAGE_SIZE = 30;
 
@@ -100,9 +101,9 @@ export async function listActivities(userId: number, filters: ActivityListFilter
 			);
 
 		for (const row of sparklineRows) {
-			const d = row.data as number[];
-			const step = Math.max(1, Math.floor(d.length / 60));
-			sparklineMap.set(row.activityId, d.filter((_, i) => i % step === 0));
+			if (!isNumberArray(row.data)) continue;
+			const step = Math.max(1, Math.floor(row.data.length / 60));
+			sparklineMap.set(row.activityId, row.data.filter((_, i) => i % step === 0));
 		}
 	}
 
@@ -257,23 +258,27 @@ export async function getActivity(activityId: number, userId: number) {
 
 	const streamTypes = ['heartrate', 'altitude', 'cadence', 'watts', 'velocity_smooth', 'grade_smooth', 'latlng', 'distance', 'time'];
 
-	const [laps, streams, segments, paceZonesRow, hrZonesRow, notes] = await Promise.all([
+	const [laps, streams, segments, zones, notes] = await Promise.all([
 		db.select().from(activityLaps).where(eq(activityLaps.activityId, activityId)).orderBy(activityLaps.lapIndex),
 		db
 			.select({ streamType: activityStreams.streamType, data: activityStreams.data })
 			.from(activityStreams)
 			.where(and(eq(activityStreams.activityId, activityId), inArray(activityStreams.streamType, streamTypes))),
 		db.select().from(activitySegments).where(eq(activitySegments.activityId, activityId)).orderBy(activitySegments.segmentIndex),
-		db.select().from(userZones).where(and(eq(userZones.userId, userId), eq(userZones.zoneType, 'pace'))).limit(1),
-		db.select().from(userZones).where(and(eq(userZones.userId, userId), eq(userZones.zoneType, 'heartrate'))).limit(1),
+		getUserZones(userId),
 		db.select().from(activityNotes).where(eq(activityNotes.activityId, activityId)).orderBy(activityNotes.distanceStart),
 	]);
 
-	const streamMap = Object.fromEntries(streams.map((s) => [s.streamType, s.data as number[]]));
-	const paceZones: ZoneDefinition[] = (paceZonesRow[0]?.zones as ZoneDefinition[]) ?? DEFAULT_ZONES;
-	const hrZones: ZoneDefinition[] = (hrZonesRow[0]?.zones as ZoneDefinition[]) ?? DEFAULT_ZONES;
+	const streamMap: Record<string, number[] | [number, number][]> = {};
+	for (const s of streams) {
+		if (s.streamType === 'latlng') {
+			if (isLatLngArray(s.data)) streamMap[s.streamType] = s.data;
+		} else {
+			if (isNumberArray(s.data)) streamMap[s.streamType] = s.data;
+		}
+	}
 
-	return { activity, laps, segments, streamMap, paceZones, hrZones, notes };
+	return { activity, laps, segments, streamMap, ...zones, notes };
 }
 
 export async function getUserZones(userId: number) {

@@ -8,15 +8,7 @@
 		type Units,
 	} from '$lib/format';
 	import type { TerminalState, ActivityNote, ActivityLap, ProcessingParams } from './terminal-state.svelte';
-
-	interface ActivityData {
-		distance: number | null;
-		movingTime: number | null;
-		averageSpeed: number | null;
-		averageHeartrate: number | null;
-		totalElevationGain: number | null;
-		averageCadence: number | null;
-	}
+	import type { ActivityData } from './types';
 
 	interface Props {
 		activity: ActivityData;

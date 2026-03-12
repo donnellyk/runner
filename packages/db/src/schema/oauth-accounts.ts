@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, serial, integer, text, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
 export const oauthAccounts = pgTable('oauth_accounts', {
@@ -13,4 +13,5 @@ export const oauthAccounts = pgTable('oauth_accounts', {
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 }, (table) => [
   uniqueIndex('idx_oauth_accounts_user_provider').on(table.userId, table.provider),
+  index('idx_oauth_accounts_provider_user_id').on(table.providerUserId),
 ]);

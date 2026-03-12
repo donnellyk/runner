@@ -1,5 +1,4 @@
 import type { Job } from 'bullmq';
-import { DelayedError } from 'bullmq';
 import type { Logger } from 'pino';
 import { eq, and, sql } from 'drizzle-orm';
 import type { Database } from '@web-runner/db/client';
@@ -7,6 +6,7 @@ import { activities, activityStreams, activitySegments } from '@web-runner/db/sc
 import { StravaClient, getValidToken, STREAM_KEYS } from '@web-runner/strava';
 import type { StravaRateLimiter } from '../rate-limiter.js';
 import { computeSegments, buildRouteWkt } from '../segments.js';
+import { checkRateLimit } from '../rate-limit-guard.js';
 
 interface ActivityStreamsData {
   type: 'activity-streams';
@@ -36,13 +36,7 @@ export async function handleActivityStreams(
 
   const client = new StravaClient();
 
-  const state = await rateLimiter.check();
-  if (!state.allowed) {
-    await job.moveToDelayed(Date.now() + state.delayMs, deps.token);
-    throw new DelayedError();
-  }
-
-  await rateLimiter.increment();
+  await checkRateLimit(rateLimiter, job, deps.token);
   const { data: streamSet, rateLimit } = await client.getActivityStreams(
     token,
     activityId,

@@ -2,6 +2,7 @@
 	import type { ZoneDefinition } from '@web-runner/shared';
 	import { type Units, MI_TO_M } from '$lib/format';
 	import { findIndexAtDistance } from '$lib/streams';
+	import { findClosestIndex } from '$lib/terminal/shared/chart-utils';
 
 	interface ActivityNoteRef {
 		id: number;
@@ -240,16 +241,8 @@
 		if (!svgEl) return;
 		const rect = svgEl.getBoundingClientRect();
 		const mouseX = e.clientX - rect.left;
-		let closest = 0;
-		let minDist = Infinity;
-		for (let i = 0; i < trimXData.length; i++) {
-			const d = Math.abs(toX(trimXData[i]) - mouseX);
-			if (d < minDist) {
-				minDist = d;
-				closest = i;
-			}
-		}
-		oncrosshairmove?.(closest);
+		const idx = findClosestIndex(mouseX, trimXData.map((x) => toX(x)));
+		if (idx != null) oncrosshairmove?.(idx);
 	}
 
 	function handleMouseLeave() {

@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { getQueue } from '$lib/server/queue';
 import { getUserOptions } from '$lib/server/admin-queries';
+import { parseId } from '$lib/server/validation';
 import { getDb } from '@web-runner/db/client';
 import { activities } from '@web-runner/db/schema';
 import { eq, desc } from 'drizzle-orm';
@@ -8,14 +9,6 @@ import { JobPriority } from '@web-runner/shared';
 import type { ActivityImportJobData, FullHistoryImportJobData } from '@web-runner/shared';
 import type { Job } from 'bullmq';
 import type { PageServerLoad, Actions } from './$types';
-
-function parseIntParam(value: FormDataEntryValue | null, name: string) {
-	const num = Number(value);
-	if (!Number.isFinite(num) || num <= 0 || num !== Math.floor(num)) {
-		return { error: `Invalid ${name}` as const };
-	}
-	return { value: num };
-}
 
 function serializeJob(job: Job) {
 	return {
@@ -49,10 +42,10 @@ export const actions: Actions = {
 		if (!locals.user?.isAdmin) return fail(403);
 
 		const data = await request.formData();
-		const parsed = parseIntParam(data.get('userId'), 'userId');
-		if ('error' in parsed) return fail(400, { error: parsed.error });
+		const userId = parseId(data.get('userId'));
+		if (!userId) return fail(400, { error: 'Invalid userId' });
 
-		const jobData: FullHistoryImportJobData = { type: 'full-history-import', userId: parsed.value };
+		const jobData: FullHistoryImportJobData = { type: 'full-history-import', userId };
 		const queue = getQueue();
 		await queue.add('full-history-import', jobData, { priority: JobPriority.fullHistoryImport });
 	},
@@ -61,12 +54,12 @@ export const actions: Actions = {
 		if (!locals.user?.isAdmin) return fail(403);
 
 		const data = await request.formData();
-		const parsed = parseIntParam(data.get('userId'), 'userId');
-		if ('error' in parsed) return fail(400, { error: parsed.error });
+		const userId = parseId(data.get('userId'));
+		if (!userId) return fail(400, { error: 'Invalid userId' });
 
 		const jobData: FullHistoryImportJobData = {
 			type: 'full-history-import',
-			userId: parsed.value,
+			userId,
 			workoutTypeFilter: [1],
 			after: 0, // override dev SYNC_AFTER limit — races can be at any point in history
 		};
@@ -78,14 +71,14 @@ export const actions: Actions = {
 		if (!locals.user?.isAdmin) return fail(403);
 
 		const data = await request.formData();
-		const parsed = parseIntParam(data.get('userId'), 'userId');
-		if ('error' in parsed) return fail(400, { error: parsed.error });
+		const userId = parseId(data.get('userId'));
+		if (!userId) return fail(400, { error: 'Invalid userId' });
 
 		const db = getDb();
 		const [latest] = await db
 			.select({ startDate: activities.startDate })
 			.from(activities)
-			.where(eq(activities.userId, parsed.value))
+			.where(eq(activities.userId, userId))
 			.orderBy(desc(activities.startDate))
 			.limit(1);
 
@@ -94,7 +87,7 @@ export const actions: Actions = {
 		const after = Math.floor(latest.startDate.getTime() / 1000);
 		const jobData: FullHistoryImportJobData = {
 			type: 'full-history-import',
-			userId: parsed.value,
+			userId,
 			after,
 		};
 		const queue = getQueue();
@@ -105,15 +98,15 @@ export const actions: Actions = {
 		if (!locals.user?.isAdmin) return fail(403);
 
 		const data = await request.formData();
-		const userParsed = parseIntParam(data.get('userId'), 'userId');
-		if ('error' in userParsed) return fail(400, { error: userParsed.error });
-		const activityParsed = parseIntParam(data.get('activityId'), 'activityId');
-		if ('error' in activityParsed) return fail(400, { error: activityParsed.error });
+		const userId = parseId(data.get('userId'));
+		if (!userId) return fail(400, { error: 'Invalid userId' });
+		const activityId = parseId(data.get('activityId'));
+		if (!activityId) return fail(400, { error: 'Invalid activityId' });
 
 		const jobData: ActivityImportJobData = {
 			type: 'activity-import',
-			userId: userParsed.value,
-			activityId: activityParsed.value,
+			userId,
+			activityId,
 		};
 		const queue = getQueue();
 		await queue.add('activity-import', jobData, { priority: JobPriority.activityImport });

@@ -2,6 +2,7 @@
 	import type { ZoneDefinition } from '@web-runner/shared';
 	import type { Units } from '$lib/format';
 	import { smoothStream, computeYBounds, trimLeadingZeros, computePauseSegments, formatXLabel, formatXLabelShort } from '../shared/axes';
+	import { findClosestIndex, TERM_PAD } from '../shared/chart-utils';
 
 	interface Props {
 		data: number[];
@@ -66,10 +67,10 @@
 		return v.toFixed(0);
 	}
 
-	const PAD_TOP = 6;
-	const PAD_BOTTOM = 20;
-	const PAD_LEFT = 4;
-	const PAD_RIGHT = 42;
+	const PAD_TOP = TERM_PAD.top;
+	const PAD_BOTTOM = TERM_PAD.bottom;
+	const PAD_LEFT = TERM_PAD.left;
+	const PAD_RIGHT = TERM_PAD.right;
 
 	let svgEl = $state<SVGSVGElement | null>(null);
 	let svgWidth = $state(400);
@@ -103,9 +104,10 @@
 
 	let xMin = $derived(trimXData[0] ?? 0);
 	let xMax = $derived(trimXData[trimXData.length - 1] ?? 1);
+	let xRange = $derived(xMax - xMin || 1);
 
 	function toX(xVal: number): number {
-		return PAD_LEFT + ((xVal - xMin) / (xMax - xMin)) * chartW;
+		return PAD_LEFT + ((xVal - xMin) / xRange) * chartW;
 	}
 
 	let smoothData = $derived(smoothStream(trimData, smoothingWindow, trimPausedMask));
@@ -216,26 +218,21 @@
 		return labels;
 	});
 
-	function findClosestIndex(e: MouseEvent): number {
-		const rect = svgEl!.getBoundingClientRect();
+	function resolveIndex(e: MouseEvent): number | null {
+		if (!svgEl) return null;
+		const rect = svgEl.getBoundingClientRect();
 		const mouseX = e.clientX - rect.left;
-		let closest = 0;
-		let minDist = Infinity;
-		for (let i = 0; i < trimXData.length; i++) {
-			const d = Math.abs(toX(trimXData[i]) - mouseX);
-			if (d < minDist) { minDist = d; closest = i; }
-		}
-		return closest;
+		return findClosestIndex(mouseX, trimXData.map((x) => toX(x)));
 	}
 
 	function handleMouseMove(e: MouseEvent) {
-		if (!svgEl) return;
-		oncrosshairmove?.(findClosestIndex(e));
+		const idx = resolveIndex(e);
+		if (idx != null) oncrosshairmove?.(idx);
 	}
 
 	function handleClick(e: MouseEvent) {
-		if (!svgEl) return;
-		oncrosshairclick?.(findClosestIndex(e));
+		const idx = resolveIndex(e);
+		if (idx != null) oncrosshairclick?.(idx);
 	}
 
 	function handleMouseLeave() {

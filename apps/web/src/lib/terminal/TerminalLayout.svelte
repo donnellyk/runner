@@ -26,16 +26,7 @@
 		DATA_SOURCE_COLORS,
 	} from './terminal-state.svelte';
 	import { candlesFromSegments, candlesFromLaps } from './candlestick';
-
-	interface ActivityData {
-		distance: number | null;
-		movingTime: number | null;
-		averageSpeed: number | null;
-		averageHeartrate: number | null;
-		totalElevationGain: number | null;
-		averageCadence: number | null;
-		routeGeoJson?: string | null;
-	}
+	import type { ActivityData } from './types';
 
 	interface Props {
 		activity: ActivityData;

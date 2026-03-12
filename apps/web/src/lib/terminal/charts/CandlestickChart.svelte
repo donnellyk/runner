@@ -2,6 +2,7 @@
 	import type { CandleData } from '../candlestick';
 	import type { Units } from '$lib/format';
 	import { formatPaceDisplay } from '$lib/format';
+	import { findClosestIndex } from '../shared/chart-utils';
 
 	interface Props {
 		candles: CandleData[];
@@ -78,13 +79,8 @@
 		if (!svgEl || candles.length === 0) return;
 		const rect = svgEl.getBoundingClientRect();
 		const mouseX = e.clientX - rect.left;
-		let closest = 0;
-		let minDist = Infinity;
-		for (let i = 0; i < candles.length; i++) {
-			const d = Math.abs(candleX(i) - mouseX);
-			if (d < minDist) { minDist = d; closest = i; }
-		}
-		oncrosshairmove?.(closest);
+		const idx = findClosestIndex(mouseX, candles.map((_, i) => candleX(i)));
+		oncrosshairmove?.(idx);
 	}
 
 	function handleMouseLeave() {

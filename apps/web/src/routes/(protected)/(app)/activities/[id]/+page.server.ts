@@ -1,5 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
 import { getActivity } from '$lib/server/queries/activities';
+import { parseId, requireParamId } from '$lib/server/validation';
 import { getDb } from '@web-runner/db/client';
 import { activityNotes, activities } from '@web-runner/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -7,8 +8,7 @@ import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const userId = locals.user!.id;
-	const id = Number(params.id);
-	if (isNaN(id)) error(404, 'Activity not found');
+	const id = requireParamId(params.id);
 
 	const result = await getActivity(id, userId);
 	if (!result) error(404, 'Activity not found');
@@ -28,8 +28,8 @@ async function verifyActivityOwnership(activityId: number, userId: number) {
 export const actions: Actions = {
 	createNote: async ({ params, request, locals }) => {
 		const userId = locals.user!.id;
-		const activityId = Number(params.id);
-		if (isNaN(activityId)) return fail(400, { error: 'Invalid activity' });
+		const activityId = parseId(params.id);
+		if (!activityId) return fail(400, { error: 'Invalid activity' });
 
 		const activity = await verifyActivityOwnership(activityId, userId);
 		if (!activity) return fail(404, { error: 'Activity not found' });
@@ -66,15 +66,15 @@ export const actions: Actions = {
 
 	updateNote: async ({ params, request, locals }) => {
 		const userId = locals.user!.id;
-		const activityId = Number(params.id);
-		if (isNaN(activityId)) return fail(400, { error: 'Invalid activity' });
+		const activityId = parseId(params.id);
+		if (!activityId) return fail(400, { error: 'Invalid activity' });
 
 		const activity = await verifyActivityOwnership(activityId, userId);
 		if (!activity) return fail(404, { error: 'Activity not found' });
 
 		const formData = await request.formData();
-		const noteId = parseInt(formData.get('noteId') as string);
-		if (isNaN(noteId)) return fail(400, { error: 'Invalid note' });
+		const noteId = parseId(formData.get('noteId'));
+		if (!noteId) return fail(400, { error: 'Invalid note' });
 
 		const content = (formData.get('content') as string)?.trim();
 		if (!content || content.length > 1000) {
@@ -101,15 +101,15 @@ export const actions: Actions = {
 
 	deleteNote: async ({ params, request, locals }) => {
 		const userId = locals.user!.id;
-		const activityId = Number(params.id);
-		if (isNaN(activityId)) return fail(400, { error: 'Invalid activity' });
+		const activityId = parseId(params.id);
+		if (!activityId) return fail(400, { error: 'Invalid activity' });
 
 		const activity = await verifyActivityOwnership(activityId, userId);
 		if (!activity) return fail(404, { error: 'Activity not found' });
 
 		const formData = await request.formData();
-		const noteId = parseInt(formData.get('noteId') as string);
-		if (isNaN(noteId)) return fail(400, { error: 'Invalid note' });
+		const noteId = parseId(formData.get('noteId'));
+		if (!noteId) return fail(400, { error: 'Invalid note' });
 
 		const db = getDb();
 		await db.delete(activityNotes)

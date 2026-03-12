@@ -21,6 +21,7 @@
         toMeters,
         type Units,
     } from "$lib/format";
+    import { isLatLngArray, isNumberArray } from "$lib/terminal/types";
 
     let { data } = $props();
     const units = $derived(data.user.distanceUnit as Units);
@@ -42,7 +43,7 @@
 
     function getStream(type: string): number[] | null {
         const s = streamMap[type];
-        return Array.isArray(s) && s.length > 0 ? s : null;
+        return isNumberArray(s) && s.length > 0 ? s : null;
     }
 
     const velocityStream = $derived(getStream("velocity_smooth"));
@@ -111,9 +112,9 @@
                 return null;
             }
         }
-        const latlng = getStream("latlng");
-        if (latlng) {
-            return (latlng as unknown as [number, number][]).map(
+        const latlng = streamMap["latlng"];
+        if (isLatLngArray(latlng) && latlng.length > 0) {
+            return latlng.map(
                 ([lat, lng]) => [lng, lat],
             );
         }
@@ -124,8 +125,8 @@
 
     // Map marker: find the latlng at the crosshair's original stream index
     const latlngStream = $derived(
-        Array.isArray(streamMap["latlng"]) && streamMap["latlng"].length > 0
-            ? (streamMap["latlng"] as unknown as [number, number][])
+        isLatLngArray(streamMap["latlng"]) && streamMap["latlng"].length > 0
+            ? streamMap["latlng"]
             : null,
     );
     const markerCoord = $derived.by((): [number, number] | null => {

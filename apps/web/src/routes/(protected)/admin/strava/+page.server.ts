@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { redis } from '$lib/server/redis';
 import { StravaClient, getValidToken } from '@web-runner/strava';
 import { getUserOptions } from '$lib/server/admin-queries';
+import { parseId } from '$lib/server/validation';
 import { getDb } from '@web-runner/db/client';
 import { activities } from '@web-runner/db/schema';
 import { eq, desc } from 'drizzle-orm';
@@ -40,8 +41,8 @@ export const actions: Actions = {
 		if (!locals.user?.isAdmin) return fail(403);
 
 		const formData = await request.formData();
-		const userId = Number(formData.get('userId'));
-		if (!Number.isFinite(userId) || userId <= 0) return fail(400, { error: 'Invalid userId' });
+		const userId = parseId(formData.get('userId'));
+		if (!userId) return fail(400, { error: 'Invalid userId' });
 
 		const db = getDb();
 		const token = await getValidToken(db, userId);
@@ -56,8 +57,8 @@ export const actions: Actions = {
 		if (!locals.user?.isAdmin) return fail(403);
 
 		const formData = await request.formData();
-		const userId = Number(formData.get('userId'));
-		if (!Number.isFinite(userId) || userId <= 0) return fail(400, { error: 'Invalid userId' });
+		const userId = parseId(formData.get('userId'));
+		if (!userId) return fail(400, { error: 'Invalid userId' });
 
 		const db = getDb();
 		const token = await getValidToken(db, userId);
@@ -73,8 +74,8 @@ export const actions: Actions = {
 		if (!locals.user?.isAdmin) return fail(403);
 
 		const formData = await request.formData();
-		const userId = Number(formData.get('userId'));
-		if (!Number.isFinite(userId) || userId <= 0) return fail(400, { error: 'Invalid userId' });
+		const userId = parseId(formData.get('userId'));
+		if (!userId) return fail(400, { error: 'Invalid userId' });
 
 		const db = getDb();
 		const [latest] = await db
@@ -99,10 +100,10 @@ export const actions: Actions = {
 		if (!locals.user?.isAdmin) return fail(403);
 
 		const formData = await request.formData();
-		const userId = Number(formData.get('userId'));
-		const activityId = Number(formData.get('activityId'));
-		if (!Number.isFinite(userId) || userId <= 0) return fail(400, { error: 'Invalid userId' });
-		if (!Number.isFinite(activityId) || activityId <= 0) return fail(400, { error: 'Invalid activityId' });
+		const userId = parseId(formData.get('userId'));
+		const activityId = parseId(formData.get('activityId'));
+		if (!userId) return fail(400, { error: 'Invalid userId' });
+		if (!activityId) return fail(400, { error: 'Invalid activityId' });
 
 		const db = getDb();
 		const token = await getValidToken(db, userId);

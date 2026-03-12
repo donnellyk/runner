@@ -1,5 +1,4 @@
 import type { Job, Queue } from 'bullmq';
-import { DelayedError } from 'bullmq';
 import type { Logger } from 'pino';
 import type { Database } from '@web-runner/db/client';
 import { activities, activityLaps } from '@web-runner/db/schema';
@@ -7,6 +6,7 @@ import { StravaClient, getValidToken } from '@web-runner/strava';
 import { buildActivityValues, buildActivityUpdateSet } from './activity-values.js';
 import { JobPriority, type ActivityImportJobData } from '@web-runner/shared';
 import type { StravaRateLimiter } from '../rate-limiter.js';
+import { checkRateLimit } from '../rate-limit-guard.js';
 
 export async function handleActivityImport(
   job: Job<ActivityImportJobData>,
@@ -20,13 +20,7 @@ export async function handleActivityImport(
 
   const client = new StravaClient();
 
-  const state = await rateLimiter.check();
-  if (!state.allowed) {
-    await job.moveToDelayed(Date.now() + state.delayMs, deps.token);
-    throw new DelayedError();
-  }
-
-  await rateLimiter.increment();
+  await checkRateLimit(rateLimiter, job, deps.token);
   const { data: detail, rateLimit } = await client.getActivity(token, activityId);
   await rateLimiter.updateFromHeaders(rateLimit.usage);
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Units } from '$lib/format';
 	import { smoothStream, trimLeadingZeros, formatXLabelShort } from '../shared/axes';
+	import { findClosestIndex } from '../shared/chart-utils';
 
 	interface Props {
 		data: number[];
@@ -125,26 +126,21 @@
 			? smoothData[crosshairIndex] : null,
 	);
 
-	function findClosestIndex(e: MouseEvent): number {
-		const rect = svgEl!.getBoundingClientRect();
+	function resolveIndex(e: MouseEvent): number | null {
+		if (!svgEl) return null;
+		const rect = svgEl.getBoundingClientRect();
 		const mouseX = e.clientX - rect.left;
-		let closest = 0;
-		let minDist = Infinity;
-		for (let i = 0; i < trimXData.length; i++) {
-			const d = Math.abs(toX(trimXData[i]) - mouseX);
-			if (d < minDist) { minDist = d; closest = i; }
-		}
-		return closest;
+		return findClosestIndex(mouseX, trimXData.map((x) => toX(x)));
 	}
 
 	function handleMouseMove(e: MouseEvent) {
-		if (!svgEl) return;
-		oncrosshairmove?.(findClosestIndex(e));
+		const idx = resolveIndex(e);
+		if (idx != null) oncrosshairmove?.(idx);
 	}
 
 	function handleClick(e: MouseEvent) {
-		if (!svgEl) return;
-		oncrosshairclick?.(findClosestIndex(e));
+		const idx = resolveIndex(e);
+		if (idx != null) oncrosshairclick?.(idx);
 	}
 
 	function handleMouseLeave() {

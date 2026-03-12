@@ -50,6 +50,13 @@
       "when": 1773095913876,
       "tag": "0006_sturdy_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1773329834489,
+      "tag": "0007_fine_zodiak",
+      "breakpoints": true
     }
   ]
 }
