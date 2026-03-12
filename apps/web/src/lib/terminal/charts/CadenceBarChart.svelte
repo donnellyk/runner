@@ -2,6 +2,10 @@
 	import type { Units } from '$lib/format';
 	import { smoothStream, formatXLabelShort } from '../shared/axes';
 	import { resolveMouseIndex, trimChartData, TERM_PAD_WIDE } from '../shared/chart-utils';
+	import { createChartDimensions } from '../shared/chart-dimensions.svelte';
+	import ChartShell from './ChartShell.svelte';
+	import XAxisLabels from './XAxisLabels.svelte';
+	import CrosshairLine from './CrosshairLine.svelte';
 
 	interface Props {
 		data: number[];
@@ -45,28 +49,8 @@
 		return formatValue ? formatValue(v) : `${v.toFixed(0)}${unit}`;
 	}
 
-	const PAD_TOP = TERM_PAD_WIDE.top;
-	const PAD_BOTTOM = TERM_PAD_WIDE.bottom;
-	const PAD_LEFT = TERM_PAD_WIDE.left;
-	const PAD_RIGHT = TERM_PAD_WIDE.right;
+	const dims = createChartDimensions(TERM_PAD_WIDE);
 	const BUCKET_COUNT = 60;
-
-	let svgEl = $state<SVGSVGElement | null>(null);
-	let svgWidth = $state(400);
-	let svgHeight = $state(160);
-
-	$effect(() => {
-		if (!svgEl) return;
-		const ro = new ResizeObserver(([entry]) => {
-			svgWidth = entry.contentRect.width;
-			svgHeight = entry.contentRect.height;
-		});
-		ro.observe(svgEl);
-		return () => ro.disconnect();
-	});
-
-	let chartW = $derived(svgWidth - PAD_LEFT - PAD_RIGHT);
-	let chartH = $derived(svgHeight - PAD_TOP - PAD_BOTTOM);
 
 	let xData = $derived(
 		xAxis === 'distance' && distanceData
@@ -109,16 +93,16 @@
 	let xMax = $derived(trimXData[trimXData.length - 1] ?? 1);
 
 	function toX(xVal: number): number {
-		return PAD_LEFT + ((xVal - xMin) / (xMax - xMin)) * chartW;
+		return dims.padding.left + ((xVal - xMin) / (xMax - xMin)) * dims.chartW;
 	}
 
-	let barStep = $derived(buckets.length > 0 ? chartW / buckets.length : 0);
+	let barStep = $derived(buckets.length > 0 ? dims.chartW / buckets.length : 0);
 	let barWidth = $derived(
-		buckets.length > 1 ? Math.max(2, barStep * 0.7) : chartW * 0.5,
+		buckets.length > 1 ? Math.max(2, barStep * 0.7) : dims.chartW * 0.5,
 	);
 
 	function barX(i: number): number {
-		return PAD_LEFT + barStep * (i + 0.5);
+		return dims.padding.left + barStep * (i + 0.5);
 	}
 
 	let tooltipValue = $derived(
@@ -129,17 +113,13 @@
 	let xPositions = $derived(trimXData.map((x) => toX(x)));
 
 	function handleMouseMove(e: MouseEvent) {
-		const idx = resolveMouseIndex(svgEl, e, xPositions);
+		const idx = resolveMouseIndex(dims.svgEl, e, xPositions);
 		if (idx != null) oncrosshairmove?.(idx);
 	}
 
 	function handleClick(e: MouseEvent) {
-		const idx = resolveMouseIndex(svgEl, e, xPositions);
+		const idx = resolveMouseIndex(dims.svgEl, e, xPositions);
 		if (idx != null) oncrosshairclick?.(idx);
-	}
-
-	function handleMouseLeave() {
-		oncrosshairleave?.();
 	}
 
 	let highlightPixels = $derived.by((): { x1: number; x2: number } | null => {
@@ -162,48 +142,36 @@
 			label: formatXLabelShort(buckets[bi].xMid, xAxis, units),
 		}));
 	});
+
+	let crosshairX = $derived(
+		crosshairIndex != null && trimXData[crosshairIndex] != null
+			? toX(trimXData[crosshairIndex]) : null,
+	);
 </script>
 
-<div class="relative w-full h-full flex flex-col" style="min-height: 0;">
-	<div class="flex items-baseline justify-end px-2 py-1 shrink-0">
-		<span class="text-[12px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums;">
-			{#if tooltipValue != null}
-				{fmt(tooltipValue)}
-			{:else}
-				{fmt(yBounds.yMin)}–{fmt(yMax)}
-			{/if}
-		</span>
-	</div>
+<ChartShell
+	{dims}
+	label="{label} bar chart"
+	onmousemove={handleMouseMove}
+	onclick={handleClick}
+	onmouseleave={() => oncrosshairleave?.()}
+	onkeydown={(e) => { if (e.key === 'Escape') oncrosshairleave?.(); }}
+>
+	{#snippet header()}
+		{#if tooltipValue != null}
+			{fmt(tooltipValue)}
+		{:else}
+			{fmt(yBounds.yMin)}–{fmt(yMax)}
+		{/if}
+	{/snippet}
 
-	<div
-		class="flex-1 w-full"
-		style="min-height: 0;"
-		role="toolbar"
-		aria-label="{label} bar chart"
-		tabindex="0"
-		onmousemove={handleMouseMove}
-		onclick={handleClick}
-		onmouseleave={handleMouseLeave}
-		onkeydown={(e) => {
-			if (e.key === 'Escape') {
-				oncrosshairleave?.();
-			}
-		}}
-	>
-	<svg
-		bind:this={svgEl}
-		class="w-full h-full"
-		style="display: block;"
-		preserveAspectRatio="none"
-		viewBox="0 0 {svgWidth} {svgHeight}"
-		aria-hidden="true"
-	>
+	{#snippet content()}
 		{#if highlightPixels}
 			<rect
 				x={highlightPixels.x1}
-				y={PAD_TOP}
+				y={dims.padding.top}
 				width={Math.max(2, highlightPixels.x2 - highlightPixels.x1)}
-				height={chartH}
+				height={dims.chartH}
 				fill="var(--term-text-bright)"
 				fill-opacity="0.1"
 			/>
@@ -211,11 +179,11 @@
 
 		{#each buckets as bucket, i (i)}
 			{@const bx = barX(i)}
-			{@const h = yMax > 0 ? (bucket.avg / yMax) * chartH : 0}
+			{@const h = yMax > 0 ? (bucket.avg / yMax) * dims.chartH : 0}
 			{@const intensity = yMax > 0 ? 0.3 + (bucket.avg / yMax) * 0.7 : 0.3}
 			<rect
 				x={bx - barWidth / 2}
-				y={PAD_TOP + chartH - h}
+				y={dims.padding.top + dims.chartH - h}
 				width={barWidth}
 				height={h}
 				fill={color}
@@ -224,18 +192,13 @@
 			/>
 		{/each}
 
-		{#if crosshairIndex != null && trimXData[crosshairIndex] != null}
-			{@const cx = toX(trimXData[crosshairIndex])}
-			<line x1={cx} y1={PAD_TOP} x2={cx} y2={PAD_TOP + chartH}
-				stroke="var(--term-crosshair)" stroke-width="1" stroke-dasharray={crosshairLocked ? undefined : '3,2'} />
-		{/if}
+		<CrosshairLine
+			x={crosshairX}
+			locked={crosshairLocked}
+			padTop={dims.padding.top}
+			chartH={dims.chartH}
+		/>
 
-		{#each xLabels as lbl, i (i)}
-			<text x={lbl.x} y={svgHeight - 4}
-				text-anchor={i === 0 ? 'start' : i === xLabels.length - 1 ? 'end' : 'middle'}
-				fill="var(--term-text-muted)" font-size="10" font-family="'Geist Mono', monospace"
-			>{lbl.label}</text>
-		{/each}
-	</svg>
-	</div>
-</div>
+		<XAxisLabels labels={xLabels} svgHeight={dims.svgHeight} />
+	{/snippet}
+</ChartShell>
