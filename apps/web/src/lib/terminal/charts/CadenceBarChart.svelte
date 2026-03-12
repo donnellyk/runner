@@ -175,18 +175,28 @@
 		</span>
 	</div>
 
-	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-	<svg
-		bind:this={svgEl}
+	<div
 		class="flex-1 w-full"
-		style="display: block; min-height: 0;"
-		preserveAspectRatio="none"
-		viewBox="0 0 {svgWidth} {svgHeight}"
-		role="img"
+		style="min-height: 0;"
+		role="toolbar"
 		aria-label="{label} bar chart"
+		tabindex="0"
 		onmousemove={handleMouseMove}
 		onclick={handleClick}
 		onmouseleave={handleMouseLeave}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') {
+				oncrosshairleave?.();
+			}
+		}}
+	>
+	<svg
+		bind:this={svgEl}
+		class="w-full h-full"
+		style="display: block;"
+		preserveAspectRatio="none"
+		viewBox="0 0 {svgWidth} {svgHeight}"
+		aria-hidden="true"
 	>
 		{#if highlightPixels}
 			<rect
@@ -227,4 +237,5 @@
 			>{lbl.label}</text>
 		{/each}
 	</svg>
+	</div>
 </div>

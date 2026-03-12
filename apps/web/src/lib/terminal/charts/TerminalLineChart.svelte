@@ -493,6 +493,26 @@
         }
     }
 
+    // Svelte action to attach pointer events to SVG elements inside aria-hidden SVG.
+    // Keyboard equivalents are handled at the wrapper div level.
+    function refLineDrag(node: SVGElement, idx: number) {
+        let currentIdx = idx;
+        function onMouseDown(e: MouseEvent) {
+            e.preventDefault();
+            e.stopPropagation();
+            draggingRefIdx = currentIdx;
+        }
+        node.addEventListener("mousedown", onMouseDown);
+        return {
+            update(newIdx: number) {
+                currentIdx = newIdx;
+            },
+            destroy() {
+                node.removeEventListener("mousedown", onMouseDown);
+            },
+        };
+    }
+
     // --- Selection overlay geometry ---
 
     let selectionRect = $derived.by(
@@ -578,13 +598,9 @@
     });
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
     class="relative w-full h-full flex flex-col"
     style="min-height: 0;"
-    role="group"
-    tabindex="-1"
-    onkeydown={handleKeyDown}
 >
     <div class="flex items-baseline justify-end px-2 py-1 shrink-0">
         <span
@@ -601,20 +617,26 @@
         </span>
     </div>
 
-    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-    <svg
-        bind:this={svgEl}
+    <div
         class="flex-1 w-full"
-        preserveAspectRatio="none"
-        viewBox="0 0 {svgWidth} {svgHeight}"
-        role="img"
+        style="min-height: 0;{cursorStyle ? ` cursor: ${cursorStyle};` : ''}"
+        role="toolbar"
         aria-label="{label} chart"
-        style="display: block; min-height: 0;{cursorStyle ? ` cursor: ${cursorStyle};` : ''}"
+        tabindex="0"
         onmousedown={handleMouseDown}
         onmousemove={handleMouseMove}
         onmouseup={handleMouseUp}
         onclick={handleClick}
         onmouseleave={handleMouseLeave}
+        onkeydown={handleKeyDown}
+    >
+    <svg
+        bind:this={svgEl}
+        class="w-full h-full"
+        preserveAspectRatio="none"
+        viewBox="0 0 {svgWidth} {svgHeight}"
+        aria-hidden="true"
+        style="display: block;"
     >
         <defs>
             <clipPath id={clipId}>
@@ -793,52 +815,38 @@
                     stroke-width="1"
                     stroke-opacity="0.6"
                 />
-                <!-- invisible wide hit target for dragging -->
-                <rect
-                    x={PAD_LEFT}
-                    y={ry - 5}
-                    width={chartW}
-                    height={10}
-                    fill="transparent"
-                    style="cursor: ns-resize;"
-                    onmousedown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        draggingRefIdx = ri;
-                    }}
-                />
                 {@const rlw = ref.label.length * 6 + 16}
-                <rect
-                    x={PAD_LEFT + chartW + 2}
-                    y={ry - 7}
-                    width={rlw}
-                    height={14}
-                    rx="2"
-                    fill={color}
-                    fill-opacity="0.5"
+                <g
+                    use:refLineDrag={ri}
                     style="cursor: ns-resize;"
-                    onmousedown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        draggingRefIdx = ri;
-                    }}
-                />
-                <text
-                    x={PAD_LEFT + chartW + 4}
-                    y={ry + 3}
-                    text-anchor="start"
-                    fill="var(--term-text-bright)"
-                    font-size="10"
-                    font-weight="500"
-                    font-family="'Geist Mono', monospace"
-                    style="cursor: ns-resize;"
-                    onmousedown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        draggingRefIdx = ri;
-                    }}>{ref.label}</text
                 >
-                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                    <!-- invisible wide hit target for dragging -->
+                    <rect
+                        x={PAD_LEFT}
+                        y={ry - 5}
+                        width={chartW + rlw + 2}
+                        height={14}
+                        fill="transparent"
+                    />
+                    <rect
+                        x={PAD_LEFT + chartW + 2}
+                        y={ry - 7}
+                        width={rlw}
+                        height={14}
+                        rx="2"
+                        fill={color}
+                        fill-opacity="0.5"
+                    />
+                    <text
+                        x={PAD_LEFT + chartW + 4}
+                        y={ry + 3}
+                        text-anchor="start"
+                        fill="var(--term-text-bright)"
+                        font-size="10"
+                        font-weight="500"
+                        font-family="'Geist Mono', monospace"
+                    >{ref.label}</text>
+                </g>
                 <text
                     x={PAD_LEFT + chartW + 4 + ref.label.length * 6 + 4}
                     y={ry + 3}
@@ -853,6 +861,13 @@
                     onclick={(e) => {
                         e.stopPropagation();
                         removeRefLine(ri);
+                    }}
+                    onkeydown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            removeRefLine(ri);
+                        }
                     }}>×</text
                 >
             {/if}
@@ -904,7 +919,6 @@
                         font-family="'Geist Mono', monospace">{labelText}</text
                     >
                     {#if crosshairLocked}
-                        <!-- svelte-ignore a11y_click_events_have_key_events -->
                         <text
                             x={PAD_LEFT + chartW + 4 + labelText.length * 6 + 4}
                             y={crosshairY + 3}
@@ -921,6 +935,15 @@
                                 if (isExisting)
                                     removeRefLine(crosshairRefMatch);
                                 else addRefLine();
+                            }}
+                            onkeydown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (isExisting)
+                                        removeRefLine(crosshairRefMatch);
+                                    else addRefLine();
+                                }
                             }}>{btnLabel}</text
                         >
                     {/if}
@@ -969,6 +992,7 @@
             >
         {/if}
     </svg>
+    </div>
 
     {#if selectionStats && !dragOrigin}
         <ChartOverlay left={PAD_LEFT + 2}>
