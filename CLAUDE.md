@@ -135,6 +135,11 @@ Migration files are in `packages/db/drizzle/`. Review generated SQL — drizzle-
 - `apps/web` uses `$lib` alias in vitest via `alias` config
 - Pure function tests (like format.ts) don't need SvelteKit — they run with basic vitest
 
+### Svelte Warnings & `svelte-ignore`
+
+**Do not use `svelte-ignore` without asking first.** Address the root cause instead — use the `/fix-svelte-warnings` skill for guidance on specific warning types.
+- The only approved `svelte-ignore` is `state_referenced_locally` for the documented pattern of `$state()` initialized from page `data` and resynced via `$effect`.
+
 ### ESLint Rules to Know
 
 - `svelte/require-each-key` — all `{#each}` blocks need a key expression
