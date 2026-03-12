@@ -60,13 +60,10 @@ describe("trimChartData", () => {
 
 describe("padding constants", () => {
   it("TERM_PAD has expected values", () => {
-    expect(TERM_PAD).toEqual({ top: 6, bottom: 20, left: 4, right: 42 });
+    expect(TERM_PAD).toEqual({ top: 6, bottom: 20, left: 4, right: 38 });
   });
 
-  it("TERM_PAD_WIDE has wider right padding", () => {
-    expect(TERM_PAD_WIDE.right).toBe(56);
-    expect(TERM_PAD_WIDE.top).toBe(TERM_PAD.top);
-    expect(TERM_PAD_WIDE.bottom).toBe(TERM_PAD.bottom);
-    expect(TERM_PAD_WIDE.left).toBe(TERM_PAD.left);
+  it("TERM_PAD_WIDE is the same as TERM_PAD", () => {
+    expect(TERM_PAD_WIDE).toBe(TERM_PAD);
   });
 });
