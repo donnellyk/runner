@@ -157,9 +157,7 @@
 	onkeydown={(e) => { if (e.key === 'Escape') oncrosshairleave?.(); }}
 >
 	{#snippet header()}
-		{#if tooltipCandle}
-			O:{formatPaceDisplay(tooltipCandle.open, units)} C:{formatPaceDisplay(tooltipCandle.close, units)}
-		{:else if candles.length > 0}
+		{#if candles.length > 0}
 			{candles.length} {mode}
 		{/if}
 	{/snippet}
@@ -167,7 +165,7 @@
 	{#snippet content()}
 		<YGridLines
 			labels={yLabels}
-			formatLabel={(v) => formatPaceDisplay(v, units)}
+			formatLabel={(v) => formatPaceDisplay(v, units).replace(/\s*\/\w+$/, '')}
 			padLeft={P.left}
 			chartW={dims.chartW}
 		/>
@@ -194,7 +192,7 @@
 			y={crosshairYPx}
 			padLeft={P.left}
 			chartW={dims.chartW}
-			badgeLabel={crosshairYValue != null ? formatPaceDisplay(crosshairYValue, units) : null}
+			badgeLabel={crosshairYValue != null ? formatPaceDisplay(crosshairYValue, units).replace(/\s*\/\w+$/, '') : null}
 			badgeColor="var(--term-pace)"
 		/>
 
@@ -206,11 +204,11 @@
 			{@const c = tooltipCandle}
 			{@const isGreen = c.close <= c.open}
 			<ChartOverlay left={P.left + 2}>
-				<div style="color: var(--term-text-bright); line-height: 1.6;">
-					<div><span style="color: var(--term-text-muted);">Open</span> {formatPaceDisplay(c.open, units)}</div>
-					<div><span style="color: {isGreen ? '#22c55e' : '#ef4444'};">High</span> {formatPaceDisplay(c.high, units)}</div>
-					<div><span style="color: {isGreen ? '#ef4444' : '#22c55e'};">Low</span> {formatPaceDisplay(c.low, units)}</div>
-					<div><span style="color: var(--term-text-muted);">Close</span> {formatPaceDisplay(c.close, units)}</div>
+				<div style="color: var(--term-text-bright); line-height: 1.6; display: grid; grid-template-columns: auto auto; column-gap: 6px;">
+					<span style="color: var(--term-text-muted);">Start</span><span>{formatPaceDisplay(c.open, units)}</span>
+					<span style="color: {isGreen ? '#22c55e' : '#ef4444'};">High</span><span>{formatPaceDisplay(c.high, units)}</span>
+					<span style="color: {isGreen ? '#ef4444' : '#22c55e'};">Low</span><span>{formatPaceDisplay(c.low, units)}</span>
+					<span style="color: var(--term-text-muted);">End</span><span>{formatPaceDisplay(c.close, units)}</span>
 				</div>
 			</ChartOverlay>
 		{/if}

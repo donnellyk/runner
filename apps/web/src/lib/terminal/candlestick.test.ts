@@ -120,4 +120,51 @@ describe('candlesFromLaps', () => {
 		const candles = candlesFromLaps(laps, velocity, distance, 'metric');
 		expect(candles[0].open).not.toBe(candles[0].close);
 	});
+
+	it('computes high/low from stream pace percentiles', () => {
+		// Velocity varies: slow (2.0 m/s = 500 s/km) in middle, fast (5.0 m/s = 200 s/km) at edges
+		const velocity = Array.from({ length: 100 }, (_, i) =>
+			i >= 40 && i < 60 ? 2.0 : 5.0,
+		);
+		const distance = Array.from({ length: 100 }, (_, i) => i * 10);
+		const laps = [makeLap(0, { distance: 1000 })];
+		const candles = candlesFromLaps(laps, velocity, distance, 'metric');
+		// high = fastest pace (lowest number), low = slowest pace (highest number)
+		expect(candles[0].high).toBeLessThan(candles[0].low);
+		// p5/p95 should still capture the bulk of the range
+		expect(candles[0].high).toBe(200); // 5.0 m/s = 200 s/km
+		expect(candles[0].low).toBe(500);  // 2.0 m/s = 500 s/km
+	});
+
+	it('clips outliers via percentiles', () => {
+		// 196 points at steady 4.0 m/s, 2 extreme slow, 2 extreme fast
+		const velocity = Array.from({ length: 200 }, () => 4.0);
+		velocity[0] = 0.5;  // outlier: 2000 s/km
+		velocity[1] = 0.5;
+		velocity[198] = 20; // outlier: 50 s/km
+		velocity[199] = 20;
+		const distance = Array.from({ length: 200 }, (_, i) => i * 5);
+		const laps = [makeLap(0, { distance: 1000 })];
+		const candles = candlesFromLaps(laps, velocity, distance, 'metric');
+		// p1/p99 should exclude the 2-point outliers on each side
+		expect(candles[0].high).toBe(250);  // 4.0 m/s = 250 s/km
+		expect(candles[0].low).toBe(250);
+	});
+
+	it('falls back to synthetic high/low without velocity stream', () => {
+		const laps = [makeLap(0, { averageSpeed: 4.0 })];
+		const candles = candlesFromLaps(laps, null, null, 'metric');
+		// 4.0 m/s = 250 s/km, synthetic: high = 250*0.95, low = 250*1.05
+		expect(candles[0].high).toBeCloseTo(237.5);
+		expect(candles[0].low).toBeCloseTo(262.5);
+	});
+
+	it('tracks cumulative distance for distanceStart/distanceEnd', () => {
+		const laps = [makeLap(0, { distance: 1000 }), makeLap(1, { distance: 1500 })];
+		const candles = candlesFromLaps(laps, null, null, 'metric');
+		expect(candles[0].distanceStart).toBe(0);
+		expect(candles[0].distanceEnd).toBe(1000);
+		expect(candles[1].distanceStart).toBe(1000);
+		expect(candles[1].distanceEnd).toBe(2500);
+	});
 });

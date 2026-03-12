@@ -141,6 +141,7 @@ export function createTerminalState() {
   let meshScale = $state(2);
   let lineGlow = $state(3);
   let glowOpacity = $state(0.4);
+  let wickPercentile = $state(1);
 
   return {
     get crosshairIndex() {
@@ -226,6 +227,12 @@ export function createTerminalState() {
     },
     set glowOpacity(v) {
       glowOpacity = v;
+    },
+    get wickPercentile() {
+      return wickPercentile;
+    },
+    set wickPercentile(v) {
+      wickPercentile = v;
     },
     resetPanels() {
       panels = [...DEFAULT_PANELS];

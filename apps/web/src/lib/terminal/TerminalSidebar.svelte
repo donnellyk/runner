@@ -178,6 +178,15 @@
 						oninput={(e) => updateParam('pauseThreshold', parseFloat((e.target as HTMLInputElement).value))}
 						class="w-full h-1 rounded appearance-none" style="background: var(--term-border);" />
 				</div>
+				<div>
+					<div class="flex items-center justify-between mb-1">
+						<span class="text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Wick Clip</span>
+						<span class="text-[11px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">p{termState.wickPercentile}–{100 - termState.wickPercentile}</span>
+					</div>
+					<input type="range" min="0" max="25" step="1" value={termState.wickPercentile}
+						oninput={(e) => termState.wickPercentile = parseInt((e.target as HTMLInputElement).value)}
+						class="w-full h-1 rounded appearance-none" style="background: var(--term-border);" />
+				</div>
 			</div>
 		{/if}
 	</div>

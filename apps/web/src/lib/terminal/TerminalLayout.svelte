@@ -214,8 +214,8 @@
 						{#if panel.chartType === 'candlestick' && panel.dataSource === 'pace'}
 							{@const mode = panel.candlestickMode ?? 'splits'}
 							{@const candles = mode === 'laps'
-								? candlesFromLaps(laps, streams.velocity, streams.distance, units)
-								: candlesFromSegments(segments, streams.velocity, streams.distance, units)}
+								? candlesFromLaps(laps, streams.velocity, streams.distance, units, state.wickPercentile)
+								: candlesFromSegments(segments, streams.velocity, streams.distance, units, state.wickPercentile)}
 							<CandlestickChart
 								{candles}
 								{units}

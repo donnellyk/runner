@@ -5,7 +5,9 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(curl:*)",
-      "Bash(pnpm run:*)"
+      "Bash(pnpm run:*)",
+      "Bash(node -e \"\nconst { candlesFromLaps } = require\\('./apps/web/src/lib/terminal/candlestick.ts'\\);\n\" 2>&1 | head -5)",
+      "Bash(npx vitest:*)"
     ]
   }
 }
