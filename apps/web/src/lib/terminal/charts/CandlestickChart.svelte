@@ -3,12 +3,16 @@
 	import type { Units } from '$lib/format';
 	import { formatPaceDisplay } from '$lib/format';
 	import { findClosestIndex, TERM_PAD_WIDE } from '../shared/chart-utils';
+	import ChartOverlay from './ChartOverlay.svelte';
 
 	interface Props {
 		candles: CandleData[];
 		units?: Units;
 		crosshairIndex?: number | null;
+		crosshairLocked?: boolean;
 		oncrosshairmove?: (index: number | null) => void;
+		oncrosshairclick?: (index: number | null) => void;
+		oncrosshairleave?: () => void;
 		mode?: 'splits' | 'laps';
 	}
 
@@ -16,7 +20,10 @@
 		candles,
 		units = 'metric',
 		crosshairIndex = null,
+		crosshairLocked = false,
 		oncrosshairmove,
+		oncrosshairclick,
+		oncrosshairleave,
 		mode = 'splits',
 	}: Props = $props();
 
@@ -62,6 +69,11 @@
 		return PAD_TOP + t * chartH;
 	}
 
+	function fromY(px: number): number {
+		const t = (px - PAD_TOP) / chartH;
+		return yMin + t * yRange;
+	}
+
 	let candleWidth = $derived(
 		candles.length > 0 ? Math.max(4, (chartW / candles.length) * 0.6) : 10,
 	);
@@ -75,16 +87,52 @@
 		crosshairIndex != null && candles[crosshairIndex] ? candles[crosshairIndex] : null,
 	);
 
+	// Track mouse Y for horizontal crosshair
+	let mouseY = $state<number | null>(null);
+
+	let crosshairYValue = $derived.by(() => {
+		if (mouseY == null) return null;
+		const clamped = Math.max(PAD_TOP, Math.min(PAD_TOP + chartH, mouseY));
+		return fromY(clamped);
+	});
+
+	let crosshairYPx = $derived(
+		mouseY != null ? Math.max(PAD_TOP, Math.min(PAD_TOP + chartH, mouseY)) : null,
+	);
+
 	function handleMouseMove(e: MouseEvent) {
 		if (!svgEl || candles.length === 0) return;
 		const rect = svgEl.getBoundingClientRect();
-		const mouseX = e.clientX - rect.left;
-		const idx = findClosestIndex(mouseX, candles.map((_, i) => candleX(i)));
+		const mx = e.clientX - rect.left;
+		const my = e.clientY - rect.top;
+
+		if (!crosshairLocked) {
+			mouseY = my;
+		}
+
+		const idx = findClosestIndex(mx, candles.map((_, i) => candleX(i)));
+		if (crosshairLocked) return;
 		oncrosshairmove?.(idx);
 	}
 
+	function handleClick(e: MouseEvent) {
+		if (!svgEl || candles.length === 0) return;
+		const rect = svgEl.getBoundingClientRect();
+		const mx = e.clientX - rect.left;
+		const my = e.clientY - rect.top;
+		const idx = findClosestIndex(mx, candles.map((_, i) => candleX(i)));
+
+		if (crosshairLocked) {
+			mouseY = my;
+		}
+
+		oncrosshairclick?.(idx);
+	}
+
 	function handleMouseLeave() {
-		oncrosshairmove?.(null);
+		if (crosshairLocked) return;
+		mouseY = null;
+		oncrosshairleave?.();
 	}
 
 	let yLabels = $derived.by(() => {
@@ -110,6 +158,7 @@
 		</span>
 	</div>
 
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 	<svg
 		bind:this={svgEl}
 		class="flex-1 w-full"
@@ -119,6 +168,7 @@
 		role="img"
 		aria-label="Pace candlestick chart"
 		onmousemove={handleMouseMove}
+		onclick={handleClick}
 		onmouseleave={handleMouseLeave}
 	>
 		{#each yLabels as lbl, i (i)}
@@ -145,8 +195,25 @@
 
 		{#if crosshairIndex != null && candles[crosshairIndex]}
 			{@const cx = candleX(crosshairIndex)}
+			{@const dashStyle = crosshairLocked ? undefined : '3,2'}
 			<line x1={cx} y1={PAD_TOP} x2={cx} y2={PAD_TOP + chartH}
-				stroke="var(--term-crosshair)" stroke-width="1" stroke-dasharray="3,2" />
+				stroke="var(--term-crosshair)" stroke-width="1" stroke-dasharray={dashStyle} />
+		{/if}
+
+		{#if crosshairYPx != null}
+			{@const dashStyle = crosshairLocked ? undefined : '3,2'}
+			<line x1={PAD_LEFT} y1={crosshairYPx} x2={PAD_LEFT + chartW} y2={crosshairYPx}
+				stroke="var(--term-crosshair)" stroke-width="1" stroke-dasharray={dashStyle} />
+
+			{#if crosshairYValue != null}
+				{@const labelText = formatPaceDisplay(crosshairYValue, units)}
+				{@const labelW = labelText.length * 6 + 4}
+				<rect x={PAD_LEFT + chartW + 2} y={crosshairYPx - 7} width={labelW} height={14}
+					rx="2" fill="var(--term-pace)" fill-opacity="0.85" />
+				<text x={PAD_LEFT + chartW + 4} y={crosshairYPx + 3} text-anchor="start"
+					fill="var(--term-text-bright)" font-size="10" font-weight="500"
+					font-family="'Geist Mono', monospace">{labelText}</text>
+			{/if}
 		{/if}
 
 		{#each candles as candle, i (i)}
@@ -157,4 +224,20 @@
 			{/if}
 		{/each}
 	</svg>
+
+	{#if tooltipCandle}
+		{@const c = tooltipCandle}
+		{@const isGreen = c.close <= c.open}
+		<ChartOverlay left={PAD_LEFT + 2}>
+			<div style="color: var(--term-text-muted); margin-bottom: 3px;">
+				{c.label}
+			</div>
+			<div style="color: var(--term-text-bright); line-height: 1.6;">
+				<div><span style="color: var(--term-text-muted);">Open </span>{formatPaceDisplay(c.open, units)}</div>
+				<div><span style="color: {isGreen ? '#22c55e' : '#ef4444'};">High </span>{formatPaceDisplay(c.high, units)}</div>
+				<div><span style="color: {isGreen ? '#ef4444' : '#22c55e'};">Low  </span>{formatPaceDisplay(c.low, units)}</div>
+				<div><span style="color: var(--term-text-muted);">Close</span> {formatPaceDisplay(c.close, units)}</div>
+			</div>
+		</ChartOverlay>
+	{/if}
 </div>

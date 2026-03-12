@@ -203,6 +203,11 @@
 								{candles}
 								{units}
 								{mode}
+								crosshairIndex={state.crosshairIndex}
+								crosshairLocked={state.crosshairLocked}
+								oncrosshairmove={onCrosshairMove}
+								oncrosshairclick={onCrosshairClick}
+								oncrosshairleave={onCrosshairLeave}
 							/>
 						{:else if panel.chartType === 'bar'}
 							<CadenceBarChart

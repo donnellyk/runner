@@ -20,6 +20,7 @@
         type Selection,
         type SelectionStats,
     } from "../shared/selection-stats";
+    import ChartOverlay from "./ChartOverlay.svelte";
 
     interface Props {
         data: number[];
@@ -969,25 +970,8 @@
         {/if}
     </svg>
 
-    <!-- Selection stats overlay -->
     {#if selectionStats && !dragOrigin}
-        <div
-            class="absolute pointer-events-none"
-            style="
-                left: {PAD_LEFT + 2}px;
-                top: 30px;
-                background: rgba(22, 27, 44, 0.88);
-                backdrop-filter: blur(12px);
-                border: 1px solid var(--term-border);
-                border-radius: 4px;
-                padding: 6px 10px;
-                font-family: 'Geist Mono', monospace;
-                font-size: 10px;
-                font-variant-numeric: tabular-nums;
-                z-index: 10;
-                white-space: nowrap;
-            "
-        >
+        <ChartOverlay left={PAD_LEFT + 2}>
             {#if selectionStats.mode === "horizontal"}
                 <div style="color: var(--term-text-muted); margin-bottom: 3px;">
                     {formatXLabel(selectionStats.xStart, xAxis, units)} – {formatXLabel(selectionStats.xEnd, xAxis, units)}
@@ -1024,6 +1008,6 @@
                     </div>
                 </div>
             {/if}
-        </div>
+        </ChartOverlay>
     {/if}
 </div>
