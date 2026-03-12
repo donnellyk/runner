@@ -4,12 +4,16 @@
     import {
         smoothStream,
         computeYBounds,
-        trimLeadingZeros,
         computePauseSegments,
         formatXLabel,
         formatXLabelShort,
     } from "../shared/axes";
-    import { findClosestIndex, TERM_PAD } from "../shared/chart-utils";
+    import {
+        findClosestIndex,
+        resolveMouseIndex,
+        trimChartData,
+        TERM_PAD,
+    } from "../shared/chart-utils";
     import {
         computeHorizontalStats,
         computeVerticalStats,
@@ -182,16 +186,11 @@
             : (timeData ?? data.map((_, i) => i)),
     );
 
-    let startIdx = $derived(trimLeadingZeros(data));
-    let trimData = $derived(startIdx > 0 ? data.slice(startIdx) : data);
-    let trimXData = $derived(startIdx > 0 ? xData.slice(startIdx) : xData);
-    let trimPausedMask = $derived(
-        pausedMask
-            ? startIdx > 0
-                ? pausedMask.slice(startIdx)
-                : pausedMask
-            : null,
-    );
+    let trimmed = $derived(trimChartData(data, xData, pausedMask));
+    let startIdx = $derived(trimmed.startIdx);
+    let trimData = $derived(trimmed.trimData);
+    let trimXData = $derived(trimmed.trimXData);
+    let trimPausedMask = $derived(trimmed.trimPausedMask);
 
     let xMin = $derived(trimXData[0] ?? 0);
     let xMax = $derived(trimXData[trimXData.length - 1] ?? 1);
@@ -338,14 +337,10 @@
 
     // --- Mouse event handlers ---
 
+    let xPositions = $derived(trimXData.map((x) => toX(x)));
+
     function resolveIndex(e: MouseEvent): number | null {
-        if (!svgEl) return null;
-        const rect = svgEl.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        return findClosestIndex(
-            mouseX,
-            trimXData.map((x) => toX(x)),
-        );
+        return resolveMouseIndex(svgEl, e, xPositions);
     }
 
     function resolveSvgPos(e: MouseEvent): { x: number; y: number } | null {
@@ -410,7 +405,6 @@
             if (!pos) return;
 
             if (dragMode === "horizontal") {
-                const xPositions = trimXData.map((x) => toX(x));
                 const si = findClosestIndex(dragOrigin.svgX, xPositions);
                 const ei = findClosestIndex(pos.x, xPositions);
                 if (si != null && ei != null) {

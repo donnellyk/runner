@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Units } from '$lib/format';
-	import { smoothStream, trimLeadingZeros, formatXLabelShort } from '../shared/axes';
-	import { findClosestIndex } from '../shared/chart-utils';
+	import { smoothStream, formatXLabelShort } from '../shared/axes';
+	import { resolveMouseIndex, trimChartData, TERM_PAD_WIDE } from '../shared/chart-utils';
 
 	interface Props {
 		data: number[];
@@ -45,10 +45,10 @@
 		return formatValue ? formatValue(v) : `${v.toFixed(0)}${unit}`;
 	}
 
-	const PAD_TOP = 6;
-	const PAD_BOTTOM = 20;
-	const PAD_LEFT = 4;
-	const PAD_RIGHT = 56;
+	const PAD_TOP = TERM_PAD_WIDE.top;
+	const PAD_BOTTOM = TERM_PAD_WIDE.bottom;
+	const PAD_LEFT = TERM_PAD_WIDE.left;
+	const PAD_RIGHT = TERM_PAD_WIDE.right;
 	const BUCKET_COUNT = 60;
 
 	let svgEl = $state<SVGSVGElement | null>(null);
@@ -74,9 +74,9 @@
 			: timeData ?? data.map((_, i) => i),
 	);
 
-	let startIdx = $derived(trimLeadingZeros(data));
-	let trimData = $derived(startIdx > 0 ? data.slice(startIdx) : data);
-	let trimXData = $derived(startIdx > 0 ? xData.slice(startIdx) : xData);
+	let trimmed = $derived(trimChartData(data, xData));
+	let trimData = $derived(trimmed.trimData);
+	let trimXData = $derived(trimmed.trimXData);
 
 	let smoothData = $derived(smoothStream(trimData, smoothingWindow, null));
 
@@ -126,20 +126,15 @@
 			? smoothData[crosshairIndex] : null,
 	);
 
-	function resolveIndex(e: MouseEvent): number | null {
-		if (!svgEl) return null;
-		const rect = svgEl.getBoundingClientRect();
-		const mouseX = e.clientX - rect.left;
-		return findClosestIndex(mouseX, trimXData.map((x) => toX(x)));
-	}
+	let xPositions = $derived(trimXData.map((x) => toX(x)));
 
 	function handleMouseMove(e: MouseEvent) {
-		const idx = resolveIndex(e);
+		const idx = resolveMouseIndex(svgEl, e, xPositions);
 		if (idx != null) oncrosshairmove?.(idx);
 	}
 
 	function handleClick(e: MouseEvent) {
-		const idx = resolveIndex(e);
+		const idx = resolveMouseIndex(svgEl, e, xPositions);
 		if (idx != null) oncrosshairclick?.(idx);
 	}
 

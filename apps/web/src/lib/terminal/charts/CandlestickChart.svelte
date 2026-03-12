@@ -2,7 +2,7 @@
 	import type { CandleData } from '../candlestick';
 	import type { Units } from '$lib/format';
 	import { formatPaceDisplay } from '$lib/format';
-	import { findClosestIndex } from '../shared/chart-utils';
+	import { findClosestIndex, TERM_PAD_WIDE } from '../shared/chart-utils';
 
 	interface Props {
 		candles: CandleData[];
@@ -20,10 +20,10 @@
 		mode = 'splits',
 	}: Props = $props();
 
-	const PAD_TOP = 6;
-	const PAD_BOTTOM = 20;
-	const PAD_LEFT = 4;
-	const PAD_RIGHT = 56;
+	const PAD_TOP = TERM_PAD_WIDE.top;
+	const PAD_BOTTOM = TERM_PAD_WIDE.bottom;
+	const PAD_LEFT = TERM_PAD_WIDE.left;
+	const PAD_RIGHT = TERM_PAD_WIDE.right;
 
 	let svgEl = $state<SVGSVGElement | null>(null);
 	let svgWidth = $state(400);
