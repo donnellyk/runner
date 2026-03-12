@@ -139,8 +139,6 @@ export function createTerminalState() {
   let meshSpeed = $state(1.3);
   let meshDrift = $state(2);
   let meshScale = $state(2);
-  let lineGlow = $state(3);
-  let glowOpacity = $state(0.4);
   let wickPercentile = $state(1);
 
   return {
@@ -215,18 +213,6 @@ export function createTerminalState() {
     },
     set meshScale(v) {
       meshScale = v;
-    },
-    get lineGlow() {
-      return lineGlow;
-    },
-    set lineGlow(v) {
-      lineGlow = v;
-    },
-    get glowOpacity() {
-      return glowOpacity;
-    },
-    set glowOpacity(v) {
-      glowOpacity = v;
     },
     get wickPercentile() {
       return wickPercentile;

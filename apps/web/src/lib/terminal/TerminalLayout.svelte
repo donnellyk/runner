@@ -265,8 +265,6 @@
 								zoneMetric={zoneInfo?.metric}
 								showZones={state.showZones}
 								filled={panel.chartType === 'area'}
-								lineGlow={state.lineGlow}
-								glowOpacity={state.glowOpacity}
 								crosshairIndex={state.crosshairIndex}
 								crosshairLocked={state.crosshairLocked}
 								{highlightRange}

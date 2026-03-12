@@ -54,8 +54,6 @@
         oncrosshairleave?: () => void;
         showZones?: boolean;
         filled?: boolean;
-        lineGlow?: number;
-        glowOpacity?: number;
     }
 
     let {
@@ -82,9 +80,10 @@
         oncrosshairleave,
         showZones = true,
         filled = false,
-        lineGlow = 3,
-        glowOpacity = 0.4,
     }: Props = $props();
+
+    const lineGlow = 3;
+    const glowOpacity = 0.4;
 
     const dims = createChartDimensions(TERM_PAD);
     const P = TERM_PAD;
