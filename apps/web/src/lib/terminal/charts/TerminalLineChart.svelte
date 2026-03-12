@@ -525,21 +525,6 @@
         },
     );
 
-    // Stats overlay positioning (pixel coords relative to wrapper div)
-    let statsPosition = $derived.by(
-        (): { left: string; top: string } | null => {
-            if (!selectionRect || !selectionStats) return null;
-            if (selectionStats.mode === "horizontal") {
-                const cx = selectionRect.x + selectionRect.width / 2;
-                // Account for the header bar height (~28px)
-                return { left: `${cx}px`, top: `${PAD_TOP + 28 + 8}px` };
-            }
-            const cy =
-                selectionRect.y + selectionRect.height / 2 + 28; // 28 for header
-            return { left: `${PAD_LEFT + chartW / 2}px`, top: `${cy}px` };
-        },
-    );
-
     // --- Polyline + area ---
 
     let polylinePoints = $derived(
@@ -985,14 +970,13 @@
     </svg>
 
     <!-- Selection stats overlay -->
-    {#if selectionStats && statsPosition && !dragOrigin}
+    {#if selectionStats && !dragOrigin}
         <div
             class="absolute pointer-events-none"
             style="
-                left: {statsPosition.left};
-                top: {statsPosition.top};
-                transform: translate(-50%, 0);
-                background: var(--term-surface);
+                left: {PAD_LEFT + 2}px;
+                top: 30px;
+                background: rgba(22, 27, 44, 0.88);
                 backdrop-filter: blur(12px);
                 border: 1px solid var(--term-border);
                 border-radius: 4px;
