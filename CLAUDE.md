@@ -128,6 +128,8 @@ pnpm run migrate:run # tsx src/migrate.ts
 
 Migration files are in `packages/db/drizzle/`. Review generated SQL — drizzle-kit can produce duplicate statements if prior migrations had drift.
 
+**Never create migration files manually.** Always use `drizzle-kit generate` so the migration is registered in the Drizzle journal (`drizzle/meta/_journal.json`). Manually created SQL files won't be tracked or run by the migrator.
+
 ### Testing
 
 - Tests colocated near source or in `__tests__/` directories

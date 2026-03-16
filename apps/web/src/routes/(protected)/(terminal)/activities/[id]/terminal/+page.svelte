@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, replaceState, pushState } from '$app/navigation';
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import { browser } from '$app/environment';
 	import '$lib/terminal/terminal-theme.css';
 	import TerminalLayout from '$lib/terminal/TerminalLayout.svelte';
 	import {
@@ -12,6 +14,13 @@
 	} from '$lib/terminal/terminal-state.svelte';
 	import { isLatLngArray, isNumberArray } from '$lib/terminal/types';
 	import type { Units } from '$lib/format';
+	import {
+		decodeLayout,
+		decodeSettings,
+		buildTerminalUrl,
+		DEFAULT_LAYOUT,
+		resetNextPanelId,
+	} from '$lib/terminal/layout-url';
 
 	let { data } = $props();
 
@@ -72,7 +81,147 @@
 		elevationLoss: s.elevationLoss,
 	})));
 
-	const state = createTerminalState();
+	// Initialize layout from URL params, saved default, or hardcoded default
+	const urlParams = new URLSearchParams(page.url.search);
+	const layoutParam = urlParams.get('l');
+
+	let initialLayout;
+	let initialActiveLayoutId: number | null = null;
+	let initialSettings;
+
+	if (layoutParam) {
+		// Priority 1: URL param is authoritative
+		initialLayout = decodeLayout(layoutParam).panels;
+		initialSettings = decodeSettings(urlParams);
+	} else {
+		// Priority 2: User's saved default layout
+		const savedDefault = data.layouts.find((l: { isDefault: boolean }) => l.isDefault);
+		if (savedDefault) {
+			const parts = savedDefault.encoded.split('&');
+			initialLayout = decodeLayout(parts[0]).panels;
+			initialSettings = decodeSettings(new URLSearchParams(parts.slice(1).join('&')));
+			initialActiveLayoutId = savedDefault.id;
+		} else {
+			// Priority 3: Hardcoded default
+			initialLayout = [...DEFAULT_LAYOUT.map((p) => ({ ...p, config: { ...p.config }, placement: { ...p.placement } }))];
+			initialSettings = decodeSettings(urlParams);
+		}
+	}
+
+	resetNextPanelId(initialLayout.length + 1);
+	const termState = createTerminalState(initialLayout);
+	termState.activeLayoutId = initialActiveLayoutId;
+
+	// Apply initial settings
+	termState.xAxis = initialSettings.xAxis;
+	termState.showZones = initialSettings.showZones;
+	termState.showNotes = initialSettings.showNotes;
+	termState.showPauseGaps = initialSettings.showPauseGaps;
+	termState.params = {
+		smoothingWindow: initialSettings.smoothingWindow,
+		samplePoints: initialSettings.samplePoints,
+		pauseThreshold: initialSettings.pauseThreshold,
+	};
+	termState.wickPercentile = initialSettings.wickPercentile;
+
+	// Push layout to URL if not already present
+	if (!layoutParam && browser) {
+		const url = buildTerminalUrl(termState.layoutPanels, {
+			xAxis: termState.xAxis,
+			showZones: termState.showZones,
+			showNotes: termState.showNotes,
+			showPauseGaps: termState.showPauseGaps,
+			smoothingWindow: termState.params.smoothingWindow,
+			samplePoints: termState.params.samplePoints,
+			pauseThreshold: termState.params.pauseThreshold,
+			wickPercentile: termState.wickPercentile,
+		});
+		if (url) {
+			// eslint-disable-next-line svelte/no-navigation-without-resolve -- updating query params on current page
+			replaceState(`${page.url.pathname}${url}`, {});
+		}
+	}
+
+	// URL sync: debounced replaceState for continuous changes
+	function currentUrlString() {
+		return buildTerminalUrl(termState.layoutPanels, {
+			xAxis: termState.xAxis,
+			showZones: termState.showZones,
+			showNotes: termState.showNotes,
+			showPauseGaps: termState.showPauseGaps,
+			smoothingWindow: termState.params.smoothingWindow,
+			samplePoints: termState.params.samplePoints,
+			pauseThreshold: termState.params.pauseThreshold,
+			wickPercentile: termState.wickPercentile,
+		});
+	}
+
+	let urlString = $derived(currentUrlString());
+
+	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+	$effect(() => {
+		const url = urlString;
+		if (debounceTimer) clearTimeout(debounceTimer);
+		debounceTimer = setTimeout(() => {
+			// eslint-disable-next-line svelte/no-navigation-without-resolve
+			replaceState(`${page.url.pathname}${url}`, {});
+		}, 300);
+		return () => {
+			if (debounceTimer) clearTimeout(debounceTimer);
+		};
+	});
+
+	// Push discrete layout changes (resize, swap) to history for undo
+	function pushLayoutToHistory() {
+		const url = currentUrlString();
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		pushState(`${page.url.pathname}${url}`, {});
+	}
+
+	// Re-sync layout from URL on browser back/forward
+	// SvelteKit's afterNavigate doesn't fire for shallow routing popstate,
+	// so we listen directly on the window popstate event.
+	function handlePopstate() {
+		const params = new URLSearchParams(window.location.search);
+		const l = params.get('l');
+		const { panels } = l ? decodeLayout(l) : { panels: [...DEFAULT_LAYOUT.map((p) => ({ ...p, config: { ...p.config }, placement: { ...p.placement } }))] };
+		termState.layoutPanels = panels;
+		resetNextPanelId(panels.length + 1);
+		const settings = decodeSettings(params);
+		termState.xAxis = settings.xAxis;
+		termState.showZones = settings.showZones;
+		termState.showNotes = settings.showNotes;
+		termState.showPauseGaps = settings.showPauseGaps;
+		termState.params = {
+			smoothingWindow: settings.smoothingWindow,
+			samplePoints: settings.samplePoints,
+			pauseThreshold: settings.pauseThreshold,
+		};
+		termState.wickPercentile = settings.wickPercentile;
+	}
+
+	// Saved layouts from page data
+	// svelte-ignore state_referenced_locally
+	let savedLayouts = $state(data.layouts.map((l: { id: number; name: string; encoded: string; isDefault: boolean }) => ({
+		id: l.id,
+		name: l.name,
+		encoded: l.encoded,
+		isDefault: l.isDefault,
+	})));
+
+	async function refreshLayouts() {
+		const res = await fetch('/api/terminal-layouts');
+		if (res.ok) {
+			const { layouts } = await res.json();
+			savedLayouts = layouts.map((l: { id: number; name: string; encoded: string; isDefault: boolean }) => ({
+				id: l.id,
+				name: l.name,
+				encoded: l.encoded,
+				isDefault: l.isDefault,
+			}));
+		}
+	}
 
 	const meshOrbs = [
 		{ color: '80, 250, 123', opacity: 0.26 },
@@ -88,12 +237,17 @@
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
+			// Cancel active interactions first, only exit if nothing was active
+			if (termState.isResizing || termState.isDragging) {
+				e.preventDefault();
+				return;
+			}
 			goto(resolve(`/activities/${a.id}`));
 		}
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onpopstate={handlePopstate} />
 
 <div data-terminal class="fixed inset-0 flex flex-col" style="background: var(--term-mesh);">
 	<div class="fixed inset-0 pointer-events-none" style="z-index: 0; overflow: hidden;">
@@ -105,11 +259,11 @@
 					left: {orb.x}%; top: {orb.y}%;
 					translate: -50% -50%;
 					background: radial-gradient(circle, rgba({orb.color}, {orb.opacity}) 0%, transparent 70%);
-					--mesh-drift-x: {-50 + 15 * state.meshDrift}%;
-					--mesh-drift-y: {-50 - 15 * state.meshDrift}%;
-					--mesh-scale: {1 + 0.2 * state.meshScale};
-					animation: mesh-drift {state.meshSpeed > 0 ? orb.dur / state.meshSpeed : 0}s ease-in-out infinite alternate;
-					animation-play-state: {state.meshSpeed > 0 ? 'running' : 'paused'};
+					--mesh-drift-x: {-50 + 15 * termState.meshDrift}%;
+					--mesh-drift-y: {-50 - 15 * termState.meshDrift}%;
+					--mesh-scale: {1 + 0.2 * termState.meshScale};
+					animation: mesh-drift {termState.meshSpeed > 0 ? orb.dur / termState.meshSpeed : 0}s ease-in-out infinite alternate;
+					animation-play-state: {termState.meshSpeed > 0 ? 'running' : 'paused'};
 				"
 			></div>
 		{/each}
@@ -130,14 +284,16 @@
 		<TerminalLayout
 			activity={{ distance: a.distance, movingTime: a.movingTime, averageSpeed: a.averageSpeed, averageHeartrate: a.averageHeartrate, totalElevationGain: a.totalElevationGain, averageCadence: a.averageCadence, routeGeoJson: a.routeGeoJson }}
 			{units}
-			{state}
+			{termState}
 			{streams}
 			{notes}
 			laps={lapList}
 			segments={segmentList}
 			{paceZones}
 			{hrZones}
+			{savedLayouts}
+			onlayoutschange={refreshLayouts}
+			onlayoutcommit={pushLayoutToHistory}
 		/>
 	</div>
 </div>
-

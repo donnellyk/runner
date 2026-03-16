@@ -34,6 +34,12 @@
 
 	--term-selection: rgba(255, 255, 255, 0.08);
 	--term-selection-border: rgba(255, 255, 255, 0.25);
+
+	--term-dot: rgba(55, 65, 100, 0.2);
+	--term-dot-active: rgba(55, 65, 100, 0.5);
+	--term-snap-border: rgba(80, 250, 123, 0.6);
+	--term-drop-zone: rgba(80, 250, 123, 0.08);
+	--term-drag-ghost: rgba(22, 27, 44, 0.7);
 }
 
 @keyframes mesh-drift {

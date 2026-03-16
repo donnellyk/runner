@@ -9,6 +9,17 @@
 	} from '$lib/format';
 	import type { TerminalState, ActivityNote, ActivityLap, ProcessingParams } from './terminal-state.svelte';
 	import type { ActivityData } from './types';
+	import { encodeLayout, encodeSettings, decodeLayout, decodeSettings, getNextPanelId, resetNextPanelId, type LayoutPanel } from './layout-url';
+	import { GRID_COLS, GRID_ROWS } from './grid-validation';
+	import { DATA_SOURCE_COLORS } from './terminal-state.svelte';
+	import { findSplitForNewPanel, MAX_PANELS } from './grid-validation';
+
+	interface SavedLayout {
+		id: number;
+		name: string;
+		encoded: string;
+		isDefault: boolean;
+	}
 
 	interface Props {
 		activity: ActivityData;
@@ -17,6 +28,8 @@
 		notes: ActivityNote[];
 		laps: ActivityLap[];
 		crosshairValues?: Record<string, string | null>;
+		savedLayouts?: SavedLayout[];
+		onlayoutschange?: () => void;
 	}
 
 	let {
@@ -26,13 +39,159 @@
 		notes,
 		laps,
 		crosshairValues = {},
+		savedLayouts = [],
+		onlayoutschange,
 	}: Props = $props();
 
 	let showDisplay = $state(true);
 	let showProcessing = $state(false);
+	let savingName = $state('');
+	let showSaveInput = $state(false);
 
 	function updateParam<K extends keyof ProcessingParams>(key: K, value: ProcessingParams[K]) {
 		termState.params = { ...termState.params, [key]: value };
+	}
+
+	function getCurrentEncoded(): string {
+		const layoutStr = encodeLayout(termState.layoutPanels);
+		const settingsStr = encodeSettings({
+			xAxis: termState.xAxis,
+			showZones: termState.showZones,
+			showNotes: termState.showNotes,
+			showPauseGaps: termState.showPauseGaps,
+			smoothingWindow: termState.params.smoothingWindow,
+			samplePoints: termState.params.samplePoints,
+			pauseThreshold: termState.params.pauseThreshold,
+			wickPercentile: termState.wickPercentile,
+		});
+		return settingsStr ? `${layoutStr}&${settingsStr}` : layoutStr;
+	}
+
+	async function saveLayout() {
+		if (!savingName.trim()) return;
+		const encoded = getCurrentEncoded();
+		const res = await fetch('/api/terminal-layouts', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name: savingName.trim(), encoded }),
+		});
+		if (res.ok) {
+			const { id } = await res.json();
+			termState.activeLayoutId = id;
+			showSaveInput = false;
+			savingName = '';
+			onlayoutschange?.();
+		}
+	}
+
+	async function updateLayout(layout: SavedLayout) {
+		const encoded = getCurrentEncoded();
+		await fetch(`/api/terminal-layouts/${layout.id}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ encoded }),
+		});
+		onlayoutschange?.();
+	}
+
+	let confirmDeleteId = $state<number | null>(null);
+
+	async function deleteLayout(layout: SavedLayout) {
+		if (confirmDeleteId !== layout.id) {
+			confirmDeleteId = layout.id;
+			return;
+		}
+		confirmDeleteId = null;
+		await fetch(`/api/terminal-layouts/${layout.id}`, { method: 'DELETE' });
+		if (termState.activeLayoutId === layout.id) {
+			termState.activeLayoutId = null;
+		}
+		onlayoutschange?.();
+	}
+
+	async function toggleDefault(layout: SavedLayout) {
+		if (layout.isDefault) {
+			await fetch(`/api/terminal-layouts/${layout.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ isDefault: false }),
+			});
+		} else {
+			await fetch(`/api/terminal-layouts/${layout.id}/default`, { method: 'POST' });
+		}
+		onlayoutschange?.();
+	}
+
+	function addPanel() {
+		const split = findSplitForNewPanel(termState.layoutPanels);
+		if (!split) return;
+
+		const newPanels = termState.layoutPanels.map((p, i) => {
+			if (i === split.panelIndex) {
+				return { ...p, config: { ...p.config }, placement: { ...split.shrunkPlacement } };
+			}
+			return { ...p, config: { ...p.config }, placement: { ...p.placement } };
+		});
+
+		newPanels.push({
+			id: getNextPanelId(),
+			config: { kind: 'chart', dataSource: 'pace', chartType: 'line' },
+			placement: split.placement,
+		});
+
+		termState.layoutPanels = newPanels;
+	}
+
+	function loadLayout(layout: SavedLayout) {
+		const encoded = layout.encoded;
+		const parts = encoded.split('&');
+		const layoutStr = parts[0];
+		const settingsStr = parts.slice(1).join('&');
+
+		const { panels } = decodeLayout(layoutStr);
+		termState.layoutPanels = panels;
+		termState.activeLayoutId = layout.id;
+		resetNextPanelId(panels.length + 1);
+
+		const settings = decodeSettings(new URLSearchParams(settingsStr));
+		termState.xAxis = settings.xAxis;
+		termState.showZones = settings.showZones;
+		termState.showNotes = settings.showNotes;
+		termState.showPauseGaps = settings.showPauseGaps;
+		termState.params = {
+			smoothingWindow: settings.smoothingWindow,
+			samplePoints: settings.samplePoints,
+			pauseThreshold: settings.pauseThreshold,
+		};
+		termState.wickPercentile = settings.wickPercentile;
+	}
+
+	let tooltipLayoutId = $state<number | null>(null);
+	let tooltipPanels = $state<LayoutPanel[] | null>(null);
+	let tooltipTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function getPanelColor(panel: LayoutPanel): string {
+		if (panel.config.kind === 'special') return 'var(--term-text-muted)';
+		if (panel.config.dataSource) return DATA_SOURCE_COLORS[panel.config.dataSource] ?? 'var(--term-text-muted)';
+		return 'var(--term-text-muted)';
+	}
+
+	function showTooltip(layout: SavedLayout) {
+		clearTooltip();
+		tooltipTimer = setTimeout(() => {
+			const { panels } = decodeLayout(layout.encoded.split('&')[0]);
+			tooltipLayoutId = layout.id;
+			tooltipPanels = panels;
+		}, 300);
+	}
+
+	function clearTooltip() {
+		if (tooltipTimer) {
+			clearTimeout(tooltipTimer);
+			tooltipTimer = null;
+		}
+		tooltipLayoutId = null;
+		tooltipPanels = null;
 	}
 </script>
 
@@ -175,12 +334,117 @@
 
 	<!-- Layout -->
 	<div style="border-bottom: 1px solid var(--term-border);">
-		<div class="px-3 py-2">
-			<button
-				class="w-full text-[11px] px-2 py-1 rounded"
-				style="color: var(--term-text-muted); border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
-				onclick={() => termState.resetPanels()}
-			>Reset Layout</button>
+		<div class="px-3 py-2 flex flex-col gap-2">
+			<div class="flex gap-1">
+				<button
+					class="flex-1 text-[11px] px-2 py-1 rounded"
+					style="color: var(--term-text-muted); border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
+					onclick={() => { showSaveInput = true; }}
+				>Save</button>
+				<button
+					class="flex-1 text-[11px] px-2 py-1 rounded"
+					style="color: var(--term-text-muted); border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
+					onclick={() => termState.resetLayout()}
+				>Reset</button>
+			</div>
+			<div class="flex gap-1">
+				<button
+					class="flex-1 text-[11px] px-2 py-1 rounded"
+					style="color: var(--term-text-muted); border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
+					disabled={termState.layoutPanels.length >= MAX_PANELS}
+					onclick={addPanel}
+				>+ Add Panel</button>
+			</div>
+			{#if showSaveInput}
+				<form class="flex gap-1" onsubmit={(e) => { e.preventDefault(); saveLayout(); }}>
+					<input
+						type="text"
+						bind:value={savingName}
+						placeholder="Layout name"
+						class="flex-1 text-[11px] px-2 py-1 rounded bg-transparent outline-none"
+						style="color: var(--term-text); border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
+					/>
+					<button
+						type="submit"
+						class="text-[11px] px-2 py-1 rounded"
+						style="color: var(--term-text-bright); border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
+					>OK</button>
+					<button
+						type="button"
+						class="text-[11px] px-1 py-1 rounded"
+						style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;"
+						onclick={() => { showSaveInput = false; savingName = ''; }}
+					>x</button>
+				</form>
+			{/if}
+			{#if savedLayouts.length > 0}
+				<div class="flex flex-col gap-0.5">
+					<span class="text-[10px] uppercase tracking-wide" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">
+						Saved
+					</span>
+					{#each savedLayouts as layout (layout.id)}
+						<div class="flex items-center gap-1 py-0.5 px-1 rounded" style="position: relative; background: {termState.activeLayoutId === layout.id ? 'var(--term-surface-hover)' : 'transparent'};">
+							{#if tooltipLayoutId === layout.id && tooltipPanels}
+								{@const svgW = 72}
+								{@const svgH = 36}
+								{@const cellW = svgW / GRID_COLS}
+								{@const cellH = svgH / GRID_ROWS}
+								<div
+									class="absolute pointer-events-none"
+									style="bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 4px; z-index: 50;"
+								>
+									<svg width={svgW} height={svgH} style="background: var(--term-bg); border: 1px solid var(--term-border); border-radius: 3px;">
+										{#each tooltipPanels as panel (panel.id)}
+											<rect
+												x={panel.placement.col * cellW + 0.5}
+												y={panel.placement.row * cellH + 0.5}
+												width={panel.placement.colSpan * cellW - 1}
+												height={panel.placement.rowSpan * cellH - 1}
+												fill={getPanelColor(panel)}
+												opacity="0.6"
+												rx="1"
+											/>
+										{/each}
+									</svg>
+								</div>
+							{/if}
+							<button
+								class="flex-1 text-left text-[11px] cursor-pointer truncate"
+								style="color: {termState.activeLayoutId === layout.id ? 'var(--term-text-bright)' : 'var(--term-text)'}; font-family: 'Geist Mono', monospace;"
+								onclick={() => loadLayout(layout)}
+								onmouseenter={() => showTooltip(layout)}
+								onmouseleave={() => clearTooltip()}
+							>
+								{#if termState.activeLayoutId === layout.id}
+									<span style="color: var(--term-snap-border);">&#x25cf;</span>
+								{/if}
+								{layout.name}
+							</button>
+							<button
+								class="text-[10px] cursor-pointer shrink-0"
+								style="color: {layout.isDefault ? 'var(--term-pace)' : 'var(--term-text-muted)'}; font-family: 'Geist Mono', monospace;"
+								title={layout.isDefault ? 'Unset default' : 'Set as default'}
+								onclick={() => toggleDefault(layout)}
+							>{layout.isDefault ? '★' : '☆'}</button>
+							{#if termState.activeLayoutId === layout.id}
+								<button
+									class="text-[10px] cursor-pointer shrink-0"
+									style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;"
+									title="Update with current layout"
+									onclick={() => updateLayout(layout)}
+								>↻</button>
+							{/if}
+							<button
+								class="text-[10px] cursor-pointer shrink-0"
+								style="color: {confirmDeleteId === layout.id ? 'var(--term-hr)' : 'var(--term-text-muted)'}; font-family: 'Geist Mono', monospace;"
+								title={confirmDeleteId === layout.id ? 'Click again to confirm delete' : 'Delete'}
+								onclick={() => deleteLayout(layout)}
+								onmouseleave={() => { if (confirmDeleteId === layout.id) confirmDeleteId = null; }}
+							>{confirmDeleteId === layout.id ? '✕?' : '✕'}</button>
+						</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	</div>
 

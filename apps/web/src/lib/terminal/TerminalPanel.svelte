@@ -19,9 +19,14 @@
 		onchange: (config: PanelConfig) => void;
 		children: Snippet;
 		hasLaps?: boolean;
+		swapActive?: boolean;
+		isSwapSource?: boolean;
+		onswap?: () => void;
+		onremove?: () => void;
+		canRemove?: boolean;
 	}
 
-	let { config, streams, onchange, children, hasLaps = false }: Props = $props();
+	let { config, streams, onchange, children, hasLaps = false, swapActive = false, isSwapSource = false, onswap, onremove, canRemove = false }: Props = $props();
 
 	let availableSources = $derived(getAvailableDataSources(streams));
 	let showColorPicker = $state(false);
@@ -63,8 +68,21 @@
 	);
 </script>
 
-<div class="flex flex-col h-full" style="background: var(--term-surface); backdrop-filter: blur(12px); border: 1px solid var(--term-border); border-radius: 4px; overflow: hidden;">
+<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+<div
+	class="flex flex-col h-full"
+	style="background: var(--term-surface); backdrop-filter: blur(12px); border: 1px solid {swapActive && !isSwapSource ? 'var(--term-snap-border)' : 'var(--term-border)'}; border-radius: 4px; overflow: hidden; {isSwapSource ? 'opacity: 0.6;' : ''}"
+	onclick={swapActive && !isSwapSource && onswap ? onswap : undefined}
+>
 	<div class="flex items-center gap-1 px-1.5 py-0.5 shrink-0" style="border-bottom: 1px solid var(--term-border);">
+		{#if onswap}
+			<button
+				class="text-[9px] cursor-pointer px-1 rounded"
+				style="color: {isSwapSource ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}; border: 1px solid {isSwapSource ? 'var(--term-snap-border)' : 'var(--term-border)'}; font-family: 'Geist Mono', monospace;"
+				title={isSwapSource ? 'Cancel swap' : 'Swap with another panel'}
+				onclick={(e) => { e.stopPropagation(); onswap!(); }}
+			>{isSwapSource ? '...' : '\u21C4'}</button>
+		{/if}
 		<select
 			class="bg-transparent text-[10px] uppercase tracking-wide cursor-pointer border-none outline-none"
 			style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;"
@@ -161,6 +179,14 @@
 					</div>
 				{/if}
 			</div>
+		{/if}
+		{#if canRemove && onremove}
+			<button
+				class="text-[9px] cursor-pointer px-1 rounded ml-auto"
+				style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;"
+				title="Remove panel"
+				onclick={(e) => { e.stopPropagation(); onremove!(); }}
+			>&#x2715;</button>
 		{/if}
 	</div>
 

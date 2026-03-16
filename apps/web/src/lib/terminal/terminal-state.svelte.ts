@@ -1,5 +1,6 @@
 import type { ZoneDefinition } from "@web-runner/shared";
 import { KM_TO_MI_PACE, M_TO_FT, type Units } from "$lib/format";
+import { DEFAULT_LAYOUT, DEFAULT_SETTINGS, resetNextPanelId, type LayoutPanel } from "./layout-url";
 
 export type DataSource =
   | "pace"
@@ -108,21 +109,15 @@ export const DATA_SOURCE_LABELS: Record<DataSource, string> = {
   grade: "Grade",
 };
 
-export const DEFAULT_PANELS: PanelConfig[] = [
-  { kind: "special", specialType: "map" },
-  { kind: "chart", dataSource: "pace", chartType: "line" },
-  { kind: "chart", dataSource: "heartrate", chartType: "area" },
-  { kind: "chart", dataSource: "elevation", chartType: "area" },
-  { kind: "chart", dataSource: "cadence", chartType: "bar" },
-  {
-    kind: "chart",
-    dataSource: "pace",
-    chartType: "candlestick",
-    candlestickMode: "laps",
-  },
-];
+function cloneLayout(layout: LayoutPanel[]): LayoutPanel[] {
+  return layout.map((p) => ({
+    ...p,
+    config: { ...p.config },
+    placement: { ...p.placement },
+  }));
+}
 
-export function createTerminalState() {
+export function createTerminalState(initialLayout?: LayoutPanel[]) {
   let crosshairIndex = $state<number | null>(null);
   let crosshairLocked = $state(false);
   let highlightedNoteId = $state<number | null>(null);
@@ -132,7 +127,9 @@ export function createTerminalState() {
     samplePoints: 500,
     pauseThreshold: 1.0,
   });
-  let panels = $state<PanelConfig[]>([...DEFAULT_PANELS]);
+  let layoutPanels = $state<LayoutPanel[]>(
+    cloneLayout(initialLayout ?? DEFAULT_LAYOUT),
+  );
   let showZones = $state(false);
   let showNotes = $state(true);
   let showPauseGaps = $state(true);
@@ -140,6 +137,9 @@ export function createTerminalState() {
   let meshDrift = $state(2);
   let meshScale = $state(2);
   let wickPercentile = $state(1);
+  let isResizing = $state(false);
+  let isDragging = $state(false);
+  let activeLayoutId = $state<number | null>(null);
 
   return {
     get crosshairIndex() {
@@ -172,11 +172,11 @@ export function createTerminalState() {
     set params(v) {
       params = v;
     },
-    get panels() {
-      return panels;
+    get layoutPanels() {
+      return layoutPanels;
     },
-    set panels(v) {
-      panels = v;
+    set layoutPanels(v) {
+      layoutPanels = v;
     },
     get showZones() {
       return showZones;
@@ -220,8 +220,38 @@ export function createTerminalState() {
     set wickPercentile(v) {
       wickPercentile = v;
     },
-    resetPanels() {
-      panels = [...DEFAULT_PANELS];
+    get isResizing() {
+      return isResizing;
+    },
+    set isResizing(v) {
+      isResizing = v;
+    },
+    get isDragging() {
+      return isDragging;
+    },
+    set isDragging(v) {
+      isDragging = v;
+    },
+    get activeLayoutId() {
+      return activeLayoutId;
+    },
+    set activeLayoutId(v) {
+      activeLayoutId = v;
+    },
+    resetLayout() {
+      layoutPanels = cloneLayout(DEFAULT_LAYOUT);
+      activeLayoutId = null;
+      resetNextPanelId(DEFAULT_LAYOUT.length + 1);
+      xAxis = DEFAULT_SETTINGS.xAxis;
+      showZones = DEFAULT_SETTINGS.showZones;
+      showNotes = DEFAULT_SETTINGS.showNotes;
+      showPauseGaps = DEFAULT_SETTINGS.showPauseGaps;
+      params = {
+        smoothingWindow: DEFAULT_SETTINGS.smoothingWindow,
+        samplePoints: DEFAULT_SETTINGS.samplePoints,
+        pauseThreshold: DEFAULT_SETTINGS.pauseThreshold,
+      };
+      wickPercentile = DEFAULT_SETTINGS.wickPercentile;
     },
   };
 }

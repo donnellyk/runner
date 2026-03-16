@@ -57,6 +57,13 @@
       "when": 1773329834489,
       "tag": "0007_fine_zodiak",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1773435404506,
+      "tag": "0008_lush_winter_soldier",
+      "breakpoints": true
     }
   ]
 }

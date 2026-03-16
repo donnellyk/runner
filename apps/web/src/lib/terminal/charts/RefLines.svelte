@@ -22,6 +22,9 @@
 {#each refLines as ref, ri (ri)}
 	{@const ry = toY(ref.value)}
 	{#if ry >= padTop && ry <= padTop + chartH}
+		{@const rlw = ref.label.length * 6 + 4}
+		{@const btnX = padLeft + chartW + 2}
+		{@const badgeX = btnX + 14}
 		<line
 			x1={padLeft}
 			y1={ry}
@@ -31,7 +34,6 @@
 			stroke-width="1"
 			stroke-opacity="0.6"
 		/>
-		{@const rlw = ref.label.length * 6 + 16}
 		<g
 			use:refLineDrag={ri}
 			style="cursor: ns-resize;"
@@ -39,12 +41,12 @@
 			<rect
 				x={padLeft}
 				y={ry - 5}
-				width={chartW + rlw + 2}
+				width={chartW + rlw + 16}
 				height={14}
 				fill="transparent"
 			/>
 			<rect
-				x={padLeft + chartW + 2}
+				x={badgeX}
 				y={ry - 7}
 				width={rlw}
 				height={14}
@@ -53,7 +55,7 @@
 				fill-opacity="0.5"
 			/>
 			<text
-				x={padLeft + chartW + 4}
+				x={badgeX + 2}
 				y={ry + 3}
 				text-anchor="start"
 				fill="var(--term-text-bright)"
@@ -62,16 +64,8 @@
 				font-family="'Geist Mono', monospace"
 			>{ref.label}</text>
 		</g>
-		<text
-			x={padLeft + chartW + 4 + ref.label.length * 6 + 4}
-			y={ry + 3}
-			text-anchor="start"
-			fill="var(--term-text-bright)"
-			font-size="10"
-			font-weight="bold"
-			font-family="'Geist Mono', monospace"
-			role="button"
-			tabindex="-1"
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<g
 			style="cursor: pointer; outline: none;"
 			onclick={(e) => {
 				e.stopPropagation();
@@ -83,7 +77,28 @@
 					e.stopPropagation();
 					onremove(ri);
 				}
-			}}>×</text
+			}}
 		>
+			<rect
+				x={btnX}
+				y={ry - 7}
+				width={12}
+				height={14}
+				rx="2"
+				fill={color}
+				fill-opacity="0.5"
+			/>
+			<text
+				x={btnX + 6}
+				y={ry + 3}
+				text-anchor="middle"
+				fill="var(--term-text-bright)"
+				font-size="10"
+				font-weight="bold"
+				font-family="'Geist Mono', monospace"
+				role="button"
+				tabindex="-1">×</text
+			>
+		</g>
 	{/if}
 {/each}

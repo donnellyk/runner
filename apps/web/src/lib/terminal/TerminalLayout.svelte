@@ -28,36 +28,59 @@
 	import { candlesFromSegments, candlesFromLaps, type CandleData } from './candlestick';
 	import { findIndexAtDistance } from '$lib/streams';
 	import type { ActivityData } from './types';
+	import { createGridInteraction } from './grid-interaction.svelte';
+	import { removePanel } from './grid-validation';
+	import ResizeHandle from './ResizeHandle.svelte';
+	import GridOverlay from './GridOverlay.svelte';
+
+	interface SavedLayout {
+		id: number;
+		name: string;
+		encoded: string;
+		isDefault: boolean;
+	}
 
 	interface Props {
 		activity: ActivityData;
 		units: Units;
-		state: TerminalState;
+		termState: TerminalState;
 		streams: StreamData;
 		notes: ActivityNote[];
 		laps: ActivityLap[];
 		segments: ActivitySegment[];
 		paceZones: ZoneDefinition[];
 		hrZones: ZoneDefinition[];
+		savedLayouts?: SavedLayout[];
+		onlayoutschange?: () => void;
+		onlayoutcommit?: () => void;
 	}
 
 	let {
 		activity,
 		units,
-		state,
+		termState,
 		streams,
 		notes,
 		laps,
 		segments,
 		paceZones,
 		hrZones,
+		savedLayouts = [],
+		onlayoutschange,
+		onlayoutcommit,
 	}: Props = $props();
+
+	let gridContainer = $state<HTMLElement | null>(null);
+	// svelte-ignore state_referenced_locally
+	const interaction = createGridInteraction(termState, () => gridContainer, onlayoutcommit);
+
+	let snapPanel = $derived(interaction.previewPlacement);
 
 	let chartIndices = $derived.by(() => {
 		const velocity = streams.velocity;
 		const len = velocity?.length ?? streams.distance?.length ?? 0;
-		if (len <= state.params.samplePoints) return null;
-		return bucketAvgIndices(velocity ?? Array.from({ length: len }, () => 0), state.params.samplePoints);
+		if (len <= termState.params.samplePoints) return null;
+		return bucketAvgIndices(velocity ?? Array.from({ length: len }, () => 0), termState.params.samplePoints);
 	});
 
 	function sample<T>(stream: T[] | null): T[] | null {
@@ -70,7 +93,7 @@
 
 	let pausedMask = $derived(
 		streams.velocity
-			? streams.velocity.map((ms) => ms < state.params.pauseThreshold)
+			? streams.velocity.map((ms) => ms < termState.params.pauseThreshold)
 			: null,
 	);
 	let sampledPausedMask = $derived(sample(pausedMask));
@@ -93,45 +116,50 @@
 	});
 
 	let crosshairOrigIdx = $derived.by(() => {
-		if (state.crosshairIndex == null) return null;
-		return chartIndices ? chartIndices[state.crosshairIndex] : state.crosshairIndex;
+		if (termState.crosshairIndex == null) return null;
+		return chartIndices ? chartIndices[termState.crosshairIndex] : termState.crosshairIndex;
 	});
 
 	let crosshairValues = $derived.by((): Record<string, string | null> => {
-		if (state.crosshairIndex == null) return {};
+		if (termState.crosshairIndex == null) return {};
 		const result: Record<string, string | null> = {};
 
 		const paceData = getSampledStream('pace');
-		if (paceData && paceData[state.crosshairIndex] != null && paceData[state.crosshairIndex] > 0) {
-			result['pace'] = formatPaceDisplay(paceData[state.crosshairIndex], units);
+		if (paceData && paceData[termState.crosshairIndex] != null && paceData[termState.crosshairIndex] > 0) {
+			result['pace'] = formatPaceDisplay(paceData[termState.crosshairIndex], units);
 		}
 		const hrData = getSampledStream('heartrate');
-		if (hrData && hrData[state.crosshairIndex] != null) {
-			result['heartrate'] = `${Math.round(hrData[state.crosshairIndex])} bpm`;
+		if (hrData && hrData[termState.crosshairIndex] != null) {
+			result['heartrate'] = `${Math.round(hrData[termState.crosshairIndex])} bpm`;
 		}
 		const elevData = getSampledStream('elevation');
-		if (elevData && elevData[state.crosshairIndex] != null) {
+		if (elevData && elevData[termState.crosshairIndex] != null) {
 			const u = units === 'imperial' ? ' ft' : ' m';
-			result['elevation'] = `${Math.round(elevData[state.crosshairIndex])}${u}`;
+			result['elevation'] = `${Math.round(elevData[termState.crosshairIndex])}${u}`;
 		}
 		const cadData = getSampledStream('cadence');
-		if (cadData && cadData[state.crosshairIndex] != null) {
-			result['cadence'] = `${Math.round(cadData[state.crosshairIndex])} spm`;
+		if (cadData && cadData[termState.crosshairIndex] != null) {
+			result['cadence'] = `${Math.round(cadData[termState.crosshairIndex])} spm`;
 		}
 		return result;
 	});
 
 	let highlightRange = $derived.by((): { start: number; end: number } | null => {
-		if (state.highlightedNoteId == null) return null;
-		const note = notes.find((n) => n.id === state.highlightedNoteId);
+		if (termState.highlightedNoteId == null) return null;
+		const note = notes.find((n) => n.id === termState.highlightedNoteId);
 		if (!note) return null;
 		return { start: note.distanceStart, end: note.distanceEnd ?? note.distanceStart };
 	});
 
-	function updatePanel(index: number, config: PanelConfig) {
-		const newPanels = [...state.panels];
-		newPanels[index] = config;
-		state.panels = newPanels;
+	function updatePanel(panelId: number, config: PanelConfig) {
+		termState.layoutPanels = termState.layoutPanels.map((p) =>
+			p.id === panelId ? { ...p, config } : p,
+		);
+	}
+
+	function removePanelAtIndex(idx: number) {
+		const result = removePanel(termState.layoutPanels, idx);
+		if (result) termState.layoutPanels = result;
 	}
 
 	function streamIdxToCandleIdx(streamIdx: number | null, candles: CandleData[]): number | null {
@@ -151,144 +179,188 @@
 	}
 
 	function onCrosshairMove(index: number | null) {
-		if (state.crosshairLocked) return;
-		state.crosshairIndex = index;
+		if (termState.crosshairLocked || termState.isResizing) return;
+		termState.crosshairIndex = index;
 	}
 
 	function onCrosshairClick(index: number | null) {
-		if (state.crosshairLocked) {
-			state.crosshairLocked = false;
-			state.crosshairIndex = index;
+		if (termState.crosshairLocked) {
+			termState.crosshairLocked = false;
+			termState.crosshairIndex = index;
 		} else if (index != null) {
-			state.crosshairIndex = index;
-			state.crosshairLocked = true;
+			termState.crosshairIndex = index;
+			termState.crosshairLocked = true;
 		}
 	}
 
 	function onCrosshairLeave() {
-		if (state.crosshairLocked) return;
-		state.crosshairIndex = null;
+		if (termState.crosshairLocked) return;
+		termState.crosshairIndex = null;
 	}
 </script>
 
+<svelte:window onkeydown={interaction.handleKeydown} />
+
 <div class="flex h-full w-full">
-	<div class="flex-1 grid grid-cols-3 grid-rows-2 gap-1 p-1" style="min-width: 0;">
-		{#each state.panels as panel, idx (idx)}
-			<TerminalPanel
-				config={panel}
-				{streams}
-				hasLaps={laps.length > 1}
-				onchange={(c) => updatePanel(idx, c)}
-			>
-				{#if panel.kind === 'special'}
-					{#if panel.specialType === 'map' && routeCoords}
-						<TerminalMap
-							coordinates={routeCoords}
-							latlngStream={streams.latlng}
-							distanceStream={streams.distance}
-							{crosshairOrigIdx}
-							{highlightRange}
-						/>
-					{:else if panel.specialType === 'notes'}
-						<NotesPanel
-							{notes}
-							{units}
-							highlightedNoteId={state.highlightedNoteId}
-							onnotehighlight={(id) => state.highlightedNoteId = id}
-						/>
-					{:else if panel.specialType === 'heatmap'}
-						<SplitHeatmap
-							{segments}
-							{units}
-						/>
-					{:else if panel.specialType === 'laps' && laps.length > 0}
-						<LapComparison {laps} {units} />
-					{:else}
-						<div class="flex items-center justify-center h-full">
-							<span class="text-[12px]" style="color: var(--term-text-muted);">No data</span>
-						</div>
-					{/if}
-				{:else if panel.dataSource}
-					{@const streamData = getSampledStream(panel.dataSource)}
-					{#if streamData}
-						{#if panel.chartType === 'candlestick' && panel.dataSource === 'pace'}
-							{@const mode = panel.candlestickMode ?? 'splits'}
-							{@const candles = mode === 'laps'
-								? candlesFromLaps(laps, streams.velocity, streams.distance, units, state.wickPercentile)
-								: candlesFromSegments(segments, streams.velocity, streams.distance, units, state.wickPercentile)}
-							<CandlestickChart
-								{candles}
-								{units}
-								{mode}
-								crosshairIndex={streamIdxToCandleIdx(state.crosshairIndex, candles)}
-								crosshairLocked={state.crosshairLocked}
-								oncrosshairmove={(ci) => onCrosshairMove(candleIdxToStreamIdx(ci, candles))}
-								oncrosshairclick={(ci) => onCrosshairClick(candleIdxToStreamIdx(ci, candles))}
-								oncrosshairleave={onCrosshairLeave}
-							/>
-						{:else if panel.chartType === 'bar'}
-							<CadenceBarChart
-								data={streamData}
-								distanceData={sampledDist ?? undefined}
-								timeData={sampledTime ?? undefined}
-								xAxis={state.xAxis}
-								{units}
-								label={DATA_SOURCE_LABELS[panel.dataSource]}
-								color={panel.colorOverride ?? DATA_SOURCE_COLORS[panel.dataSource]}
-								unit={getUnitForSource(panel.dataSource, units)}
-								formatValue={panel.dataSource === 'pace' ? (v: number) => formatPaceDisplay(v, units) : undefined}
-								smoothingWindow={state.params.smoothingWindow}
-								crosshairIndex={state.crosshairIndex}
-								crosshairLocked={state.crosshairLocked}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		bind:this={gridContainer}
+		class="flex-1 grid"
+		style="min-width: 0; min-height: 0; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(0, 1fr)); position: relative; user-select: none;"
+		onpointermove={interaction.onPointerMove}
+		onpointerup={interaction.endResize}
+	>
+		<GridOverlay
+			visible={termState.isResizing}
+			{snapPanel}
+			affectedPanels={interaction.affectedPlacements}
+			blocked={interaction.resizeBlocked}
+		/>
+		{#each termState.layoutPanels as panel, idx (panel.id)}
+			<div style="
+				grid-column: {panel.placement.col + 1} / span {panel.placement.colSpan};
+				grid-row: {panel.placement.row + 1} / span {panel.placement.rowSpan};
+				position: relative;
+				margin: 1px;
+				min-width: 0;
+				min-height: 0;
+				overflow: hidden;
+			">
+				<ResizeHandle
+					panelIndex={idx}
+					onresizestart={interaction.startResize}
+				/>
+				<TerminalPanel
+					config={panel.config}
+					{streams}
+					hasLaps={laps.length > 1}
+					onchange={(c) => updatePanel(panel.id, c)}
+					swapActive={interaction.swappingPanelId !== null}
+					isSwapSource={interaction.swappingPanelId === panel.id}
+					canRemove={termState.layoutPanels.length > 1}
+					onremove={() => removePanelAtIndex(idx)}
+					onswap={() => {
+						if (interaction.swappingPanelId === null) {
+							interaction.startSwap(panel.id);
+						} else if (interaction.swappingPanelId === panel.id) {
+							interaction.cancelSwap();
+						} else {
+							interaction.completeSwap(panel.id);
+						}
+					}}
+				>
+					{#if panel.config.kind === 'special'}
+						{#if panel.config.specialType === 'map' && routeCoords}
+							<TerminalMap
+								coordinates={routeCoords}
+								latlngStream={streams.latlng}
+								distanceStream={streams.distance}
+								{crosshairOrigIdx}
 								{highlightRange}
-								oncrosshairmove={onCrosshairMove}
-								oncrosshairclick={onCrosshairClick}
-								oncrosshairleave={onCrosshairLeave}
 							/>
+						{:else if panel.config.specialType === 'notes'}
+							<NotesPanel
+								{notes}
+								{units}
+								highlightedNoteId={termState.highlightedNoteId}
+								onnotehighlight={(id) => termState.highlightedNoteId = id}
+							/>
+						{:else if panel.config.specialType === 'heatmap'}
+							<SplitHeatmap
+								{segments}
+								{units}
+							/>
+						{:else if panel.config.specialType === 'laps' && laps.length > 0}
+							<LapComparison {laps} {units} />
 						{:else}
-							{@const zoneInfo = state.showZones ? getZonesForSource(panel.dataSource, paceZones, hrZones, units) : null}
-							<TerminalLineChart
-								data={streamData}
-								distanceData={sampledDist ?? undefined}
-								timeData={sampledTime ?? undefined}
-								xAxis={state.xAxis}
-								{units}
-								label={DATA_SOURCE_LABELS[panel.dataSource]}
-								color={panel.colorOverride ?? DATA_SOURCE_COLORS[panel.dataSource]}
-								unit={getUnitForSource(panel.dataSource, units)}
-								formatValue={panel.dataSource === 'pace' ? (v: number) => formatPaceDisplay(v, units) : undefined}
-								pausedMask={sampledPausedMask ?? undefined}
-								showPauseGaps={state.showPauseGaps}
-								invertY={isInvertedSource(panel.dataSource)}
-								smoothingWindow={state.params.smoothingWindow}
-								zones={zoneInfo?.zones}
-								zoneMetric={zoneInfo?.metric}
-								showZones={state.showZones}
-								filled={panel.chartType === 'area'}
-								crosshairIndex={state.crosshairIndex}
-								crosshairLocked={state.crosshairLocked}
-								{highlightRange}
-								oncrosshairmove={onCrosshairMove}
-								oncrosshairclick={onCrosshairClick}
-								oncrosshairleave={onCrosshairLeave}
-							/>
+							<div class="flex items-center justify-center h-full">
+								<span class="text-[12px]" style="color: var(--term-text-muted);">No data</span>
+							</div>
 						{/if}
-					{:else}
-						<div class="flex items-center justify-center h-full">
-							<span class="text-[12px]" style="color: var(--term-text-muted);">No data</span>
-						</div>
+					{:else if panel.config.dataSource}
+						{@const streamData = getSampledStream(panel.config.dataSource)}
+						{#if streamData}
+							{#if panel.config.chartType === 'candlestick' && panel.config.dataSource === 'pace'}
+								{@const mode = panel.config.candlestickMode ?? 'splits'}
+								{@const candles = mode === 'laps'
+									? candlesFromLaps(laps, streams.velocity, streams.distance, units, termState.wickPercentile)
+									: candlesFromSegments(segments, streams.velocity, streams.distance, units, termState.wickPercentile)}
+								<CandlestickChart
+									{candles}
+									{units}
+									{mode}
+									crosshairIndex={streamIdxToCandleIdx(termState.crosshairIndex, candles)}
+									crosshairLocked={termState.crosshairLocked}
+									oncrosshairmove={(ci) => onCrosshairMove(candleIdxToStreamIdx(ci, candles))}
+									oncrosshairclick={(ci) => onCrosshairClick(candleIdxToStreamIdx(ci, candles))}
+									oncrosshairleave={onCrosshairLeave}
+								/>
+							{:else if panel.config.chartType === 'bar'}
+								<CadenceBarChart
+									data={streamData}
+									distanceData={sampledDist ?? undefined}
+									timeData={sampledTime ?? undefined}
+									xAxis={termState.xAxis}
+									{units}
+									label={DATA_SOURCE_LABELS[panel.config.dataSource]}
+									color={panel.config.colorOverride ?? DATA_SOURCE_COLORS[panel.config.dataSource]}
+									unit={getUnitForSource(panel.config.dataSource, units)}
+									formatValue={panel.config.dataSource === 'pace' ? (v: number) => formatPaceDisplay(v, units) : undefined}
+									smoothingWindow={termState.params.smoothingWindow}
+									crosshairIndex={termState.crosshairIndex}
+									crosshairLocked={termState.crosshairLocked}
+									{highlightRange}
+									oncrosshairmove={onCrosshairMove}
+									oncrosshairclick={onCrosshairClick}
+									oncrosshairleave={onCrosshairLeave}
+								/>
+							{:else}
+								{@const zoneInfo = termState.showZones ? getZonesForSource(panel.config.dataSource, paceZones, hrZones, units) : null}
+								<TerminalLineChart
+									data={streamData}
+									distanceData={sampledDist ?? undefined}
+									timeData={sampledTime ?? undefined}
+									xAxis={termState.xAxis}
+									{units}
+									label={DATA_SOURCE_LABELS[panel.config.dataSource]}
+									color={panel.config.colorOverride ?? DATA_SOURCE_COLORS[panel.config.dataSource]}
+									unit={getUnitForSource(panel.config.dataSource, units)}
+									formatValue={panel.config.dataSource === 'pace' ? (v: number) => formatPaceDisplay(v, units) : undefined}
+									pausedMask={sampledPausedMask ?? undefined}
+									showPauseGaps={termState.showPauseGaps}
+									invertY={isInvertedSource(panel.config.dataSource)}
+									smoothingWindow={termState.params.smoothingWindow}
+									zones={zoneInfo?.zones}
+									zoneMetric={zoneInfo?.metric}
+									showZones={termState.showZones}
+									filled={panel.config.chartType === 'area'}
+									crosshairIndex={termState.crosshairIndex}
+									crosshairLocked={termState.crosshairLocked}
+									{highlightRange}
+									oncrosshairmove={onCrosshairMove}
+									oncrosshairclick={onCrosshairClick}
+									oncrosshairleave={onCrosshairLeave}
+								/>
+							{/if}
+						{:else}
+							<div class="flex items-center justify-center h-full">
+								<span class="text-[12px]" style="color: var(--term-text-muted);">No data</span>
+							</div>
+						{/if}
 					{/if}
-				{/if}
-			</TerminalPanel>
+				</TerminalPanel>
+			</div>
 		{/each}
 	</div>
 
 	<TerminalSidebar
 		{activity}
 		{units}
-		termState={state}
+		{termState}
 		{notes}
 		{laps}
 		{crosshairValues}
+		{savedLayouts}
+		{onlayoutschange}
 	/>
 </div>
