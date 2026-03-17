@@ -117,6 +117,66 @@
         refLines = refLines.filter((_, i) => i !== index);
     }
 
+    /** Prevent the browser's click event (fired after mouseup) from reaching chart-interaction */
+    function swallowNextClick() {
+        window.addEventListener("click", (e) => e.stopPropagation(), { capture: true, once: true });
+    }
+
+    // --- Badge drag (vertical adjust for ref lines) ---
+
+    let badgeDragging = $state(false);
+    let badgeDragY = $state<number | null>(null);
+
+    function handleBadgeDrag(e: MouseEvent) {
+        const startY = e.clientY;
+        let didDrag = false;
+        const wasExistingRef = crosshairRefMatch >= 0;
+        const matchIdx = crosshairRefMatch;
+
+        const handleMove = (moveE: MouseEvent) => {
+            const dy = Math.abs(moveE.clientY - startY);
+            if (!didDrag && dy < 3) return;
+            if (!didDrag) document.body.style.cursor = "ns-resize";
+            didDrag = true;
+            badgeDragging = true;
+
+            if (!dims.svgEl) return;
+            const rect = dims.svgEl.getBoundingClientRect();
+            const mouseY = moveE.clientY - rect.top;
+            badgeDragY = Math.max(P.top, Math.min(P.top + dims.chartH, mouseY));
+        };
+
+        const handleUp = () => {
+            document.body.style.cursor = "";
+            if (didDrag && badgeDragY != null) {
+                const value = fromY(badgeDragY);
+                if (wasExistingRef) {
+                    refLines = refLines.map((r, i) =>
+                        i === matchIdx
+                            ? { value, label: fmtShort(value) }
+                            : r,
+                    );
+                } else {
+                    refLines = [...refLines, { value, label: fmtShort(value) }];
+                }
+            } else {
+                if (wasExistingRef) {
+                    removeRefLine(matchIdx);
+                } else {
+                    addRefLine();
+                }
+            }
+            badgeDragging = false;
+            badgeDragY = null;
+            window.removeEventListener("mousemove", handleMove);
+            window.removeEventListener("mouseup", handleUp);
+            swallowNextClick();
+        };
+
+        window.addEventListener("mousemove", handleMove);
+        window.addEventListener("mouseup", handleUp);
+    }
+
     // --- Formatting ---
 
     function fmt(v: number): string {
@@ -373,23 +433,38 @@
     const clipId = `term-clip-${uid}`;
     const glowId = `term-glow-${uid}`;
 
-    // Svelte action for pointer-only drag inside aria-hidden SVG
-    function refLineDrag(node: SVGElement, idx: number) {
-        let currentIdx = idx;
-        function onMouseDown(e: MouseEvent) {
-            e.preventDefault();
-            e.stopPropagation();
-            draggingRefIdx = currentIdx;
-        }
-        node.addEventListener("mousedown", onMouseDown);
-        return {
-            update(newIdx: number) {
-                currentIdx = newIdx;
-            },
-            destroy() {
-                node.removeEventListener("mousedown", onMouseDown);
-            },
+    function handleRefMousedown(refIdx: number, e: MouseEvent) {
+        const startY = e.clientY;
+        let didDrag = false;
+
+        const handleMove = (moveE: MouseEvent) => {
+            const dy = Math.abs(moveE.clientY - startY);
+            if (!didDrag && dy < 3) return;
+            if (!didDrag) document.body.style.cursor = "ns-resize";
+            didDrag = true;
+
+            if (!dims.svgEl) return;
+            const rect = dims.svgEl.getBoundingClientRect();
+            const mouseY = moveE.clientY - rect.top;
+            const clamped = Math.max(P.top, Math.min(P.top + dims.chartH, mouseY));
+            const value = fromY(clamped);
+            refLines = refLines.map((r, i) =>
+                i === refIdx ? { value, label: fmtShort(value) } : r,
+            );
         };
+
+        const handleUp = () => {
+            document.body.style.cursor = "";
+            if (!didDrag) {
+                removeRefLine(refIdx);
+            }
+            window.removeEventListener("mousemove", handleMove);
+            window.removeEventListener("mouseup", handleUp);
+            swallowNextClick();
+        };
+
+        window.addEventListener("mousemove", handleMove);
+        window.addEventListener("mouseup", handleUp);
     }
 </script>
 
@@ -540,8 +615,7 @@
             chartW={dims.chartW}
             chartH={dims.chartH}
             {color}
-            onremove={removeRefLine}
-            {refLineDrag}
+            onrefmousedown={handleRefMousedown}
         />
 
         <CrosshairLine
@@ -549,22 +623,24 @@
             locked={crosshairLocked}
             padTop={P.top}
             chartH={dims.chartH}
-            y={crosshairY != null && !tooltipPaused ? crosshairY : null}
+            y={badgeDragY ?? (crosshairY != null && !tooltipPaused ? crosshairY : null)}
             padLeft={P.left}
             chartW={dims.chartW}
         />
 
         {#if crosshairX != null && crosshairY != null && !tooltipPaused && tooltipValue != null}
+            {@const effectiveY = badgeDragY ?? crosshairY}
+            {@const effectiveValue = badgeDragY != null ? fromY(badgeDragY) : tooltipValue}
             <CrosshairYBadge
-                y={crosshairY}
+                y={effectiveY}
                 padLeft={P.left}
                 chartW={dims.chartW}
                 {color}
-                label={fmtShort(tooltipValue)}
+                label={fmtShort(effectiveValue)}
                 locked={crosshairLocked}
                 isExistingRef={crosshairRefMatch >= 0}
-                onaddref={addRefLine}
-                onremoveref={() => removeRefLine(crosshairRefMatch)}
+                dragging={badgeDragging}
+                onbadgemousedown={handleBadgeDrag}
             />
         {/if}
 
