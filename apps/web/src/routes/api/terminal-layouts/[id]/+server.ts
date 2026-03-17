@@ -12,9 +12,9 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 
 	const body = await request.json();
 	const updates: Record<string, unknown> = {};
-	if (body.name !== undefined) updates.name = body.name;
-	if (body.encoded !== undefined) updates.encoded = body.encoded;
-	if (body.isDefault !== undefined) updates.isDefault = body.isDefault;
+	if (typeof body.name === 'string' && body.name.length <= 100) updates.name = body.name;
+	if (typeof body.encoded === 'string' && body.encoded.length <= 10000) updates.encoded = body.encoded;
+	if (body.isDefault === false) updates.isDefault = false;
 	updates.updatedAt = new Date();
 
 	if (Object.keys(updates).length === 1) {

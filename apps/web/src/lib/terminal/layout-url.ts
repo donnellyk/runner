@@ -19,6 +19,13 @@ export interface LayoutPanel {
 	placement: PanelPlacement;
 }
 
+export interface SavedLayout {
+	id: number;
+	name: string;
+	encoded: string;
+	isDefault: boolean;
+}
+
 // --- Source / type code mappings ---
 
 const SOURCE_TO_CODE: Record<DataSource | SpecialPanel, number> = {
@@ -213,12 +220,16 @@ export function decodeLayout(encoded: string): { panels: LayoutPanel[]; warning?
 	return { panels };
 }
 
-function cloneDefaultLayout(): LayoutPanel[] {
-	return DEFAULT_LAYOUT.map((p) => ({
+export function cloneLayout(layout: LayoutPanel[]): LayoutPanel[] {
+	return layout.map((p) => ({
 		...p,
 		config: { ...p.config },
 		placement: { ...p.placement },
 	}));
+}
+
+function cloneDefaultLayout(): LayoutPanel[] {
+	return cloneLayout(DEFAULT_LAYOUT);
 }
 
 // --- Settings ---

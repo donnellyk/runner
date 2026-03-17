@@ -1,4 +1,4 @@
-import type { LayoutPanel, PanelPlacement } from './layout-url';
+import { cloneLayout, type LayoutPanel, type PanelPlacement } from './layout-url';
 import type { TerminalState } from './terminal-state.svelte';
 import { canResize, GRID_COLS, GRID_ROWS } from './grid-validation';
 
@@ -208,11 +208,7 @@ export function createGridInteraction(
 			return;
 		}
 
-		const updated = panels.map((p) => ({
-			...p,
-			config: { ...p.config },
-			placement: { ...p.placement },
-		}));
+		const updated = cloneLayout(panels);
 
 		// Swap placements
 		const sourcePlacement = { ...updated[sourceIndex].placement };

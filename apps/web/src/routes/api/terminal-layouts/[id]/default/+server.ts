@@ -1,4 +1,4 @@
-import { json, error } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb, terminalLayouts } from '@web-runner/db';
 import { eq, and } from 'drizzle-orm';
@@ -11,6 +11,8 @@ export const POST: RequestHandler = async ({ locals, params }) => {
 	const id = requireParamId(params.id);
 
 	const db = getDb();
+
+	let found = false;
 
 	// Transaction: clear existing default, then set new one
 	await db.transaction(async (tx) => {
@@ -26,8 +28,9 @@ export const POST: RequestHandler = async ({ locals, params }) => {
 			.set({ isDefault: true, updatedAt: new Date() })
 			.where(and(eq(terminalLayouts.id, id), eq(terminalLayouts.userId, locals.user!.id)));
 
-		if (result.rowCount === 0) error(404, 'Not found');
+		found = (result.rowCount ?? 0) > 0;
 	});
 
+	if (!found) return json({ error: 'Not found' }, { status: 404 });
 	return json({ ok: true });
 };

@@ -7,6 +7,8 @@
 	import TerminalLayout from '$lib/terminal/TerminalLayout.svelte';
 	import {
 		createTerminalState,
+		applySettings,
+		getSettings,
 		type StreamData,
 		type ActivityNote,
 		type ActivityLap,
@@ -18,6 +20,7 @@
 		decodeLayout,
 		decodeSettings,
 		buildTerminalUrl,
+		cloneLayout,
 		DEFAULT_LAYOUT,
 		resetNextPanelId,
 	} from '$lib/terminal/layout-url';
@@ -103,7 +106,7 @@
 			initialActiveLayoutId = savedDefault.id;
 		} else {
 			// Priority 3: Hardcoded default
-			initialLayout = [...DEFAULT_LAYOUT.map((p) => ({ ...p, config: { ...p.config }, placement: { ...p.placement } }))];
+			initialLayout = cloneLayout(DEFAULT_LAYOUT);
 			initialSettings = decodeSettings(urlParams);
 		}
 	}
@@ -112,30 +115,11 @@
 	const termState = createTerminalState(initialLayout);
 	termState.activeLayoutId = initialActiveLayoutId;
 
-	// Apply initial settings
-	termState.xAxis = initialSettings.xAxis;
-	termState.showZones = initialSettings.showZones;
-	termState.showNotes = initialSettings.showNotes;
-	termState.showPauseGaps = initialSettings.showPauseGaps;
-	termState.params = {
-		smoothingWindow: initialSettings.smoothingWindow,
-		samplePoints: initialSettings.samplePoints,
-		pauseThreshold: initialSettings.pauseThreshold,
-	};
-	termState.wickPercentile = initialSettings.wickPercentile;
+	applySettings(termState, initialSettings);
 
 	// Push layout to URL if not already present
 	if (!layoutParam && browser) {
-		const url = buildTerminalUrl(termState.layoutPanels, {
-			xAxis: termState.xAxis,
-			showZones: termState.showZones,
-			showNotes: termState.showNotes,
-			showPauseGaps: termState.showPauseGaps,
-			smoothingWindow: termState.params.smoothingWindow,
-			samplePoints: termState.params.samplePoints,
-			pauseThreshold: termState.params.pauseThreshold,
-			wickPercentile: termState.wickPercentile,
-		});
+		const url = buildTerminalUrl(termState.layoutPanels, getSettings(termState));
 		if (url) {
 			// eslint-disable-next-line svelte/no-navigation-without-resolve -- updating query params on current page
 			replaceState(`${page.url.pathname}${url}`, {});
@@ -144,16 +128,7 @@
 
 	// URL sync: debounced replaceState for continuous changes
 	function currentUrlString() {
-		return buildTerminalUrl(termState.layoutPanels, {
-			xAxis: termState.xAxis,
-			showZones: termState.showZones,
-			showNotes: termState.showNotes,
-			showPauseGaps: termState.showPauseGaps,
-			smoothingWindow: termState.params.smoothingWindow,
-			samplePoints: termState.params.samplePoints,
-			pauseThreshold: termState.params.pauseThreshold,
-			wickPercentile: termState.wickPercentile,
-		});
+		return buildTerminalUrl(termState.layoutPanels, getSettings(termState));
 	}
 
 	let urlString = $derived(currentUrlString());
@@ -185,20 +160,10 @@
 	function handlePopstate() {
 		const params = new URLSearchParams(window.location.search);
 		const l = params.get('l');
-		const { panels } = l ? decodeLayout(l) : { panels: [...DEFAULT_LAYOUT.map((p) => ({ ...p, config: { ...p.config }, placement: { ...p.placement } }))] };
+		const { panels } = l ? decodeLayout(l) : { panels: cloneLayout(DEFAULT_LAYOUT) };
 		termState.layoutPanels = panels;
 		resetNextPanelId(panels.length + 1);
-		const settings = decodeSettings(params);
-		termState.xAxis = settings.xAxis;
-		termState.showZones = settings.showZones;
-		termState.showNotes = settings.showNotes;
-		termState.showPauseGaps = settings.showPauseGaps;
-		termState.params = {
-			smoothingWindow: settings.smoothingWindow,
-			samplePoints: settings.samplePoints,
-			pauseThreshold: settings.pauseThreshold,
-		};
-		termState.wickPercentile = settings.wickPercentile;
+		applySettings(termState, decodeSettings(params));
 	}
 
 	// Saved layouts from page data

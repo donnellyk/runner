@@ -7,19 +7,12 @@
 		formatDistancePrecise,
 		type Units,
 	} from '$lib/format';
-	import type { TerminalState, ActivityNote, ActivityLap, ProcessingParams } from './terminal-state.svelte';
+	import { type TerminalState, type ActivityNote, type ActivityLap, type ProcessingParams, applySettings, getSettings } from './terminal-state.svelte';
 	import type { ActivityData } from './types';
-	import { encodeLayout, encodeSettings, decodeLayout, decodeSettings, getNextPanelId, resetNextPanelId, type LayoutPanel } from './layout-url';
+	import { encodeLayout, encodeSettings, decodeLayout, decodeSettings, cloneLayout, getNextPanelId, resetNextPanelId, type LayoutPanel, type SavedLayout } from './layout-url';
 	import { GRID_COLS, GRID_ROWS } from './grid-validation';
 	import { DATA_SOURCE_COLORS } from './terminal-state.svelte';
 	import { findSplitForNewPanel, MAX_PANELS } from './grid-validation';
-
-	interface SavedLayout {
-		id: number;
-		name: string;
-		encoded: string;
-		isDefault: boolean;
-	}
 
 	interface Props {
 		activity: ActivityData;
@@ -54,16 +47,7 @@
 
 	function getCurrentEncoded(): string {
 		const layoutStr = encodeLayout(termState.layoutPanels);
-		const settingsStr = encodeSettings({
-			xAxis: termState.xAxis,
-			showZones: termState.showZones,
-			showNotes: termState.showNotes,
-			showPauseGaps: termState.showPauseGaps,
-			smoothingWindow: termState.params.smoothingWindow,
-			samplePoints: termState.params.samplePoints,
-			pauseThreshold: termState.params.pauseThreshold,
-			wickPercentile: termState.wickPercentile,
-		});
+		const settingsStr = encodeSettings(getSettings(termState));
 		return settingsStr ? `${layoutStr}&${settingsStr}` : layoutStr;
 	}
 
@@ -126,12 +110,8 @@
 		const split = findSplitForNewPanel(termState.layoutPanels);
 		if (!split) return;
 
-		const newPanels = termState.layoutPanels.map((p, i) => {
-			if (i === split.panelIndex) {
-				return { ...p, config: { ...p.config }, placement: { ...split.shrunkPlacement } };
-			}
-			return { ...p, config: { ...p.config }, placement: { ...p.placement } };
-		});
+		const newPanels = cloneLayout(termState.layoutPanels);
+		newPanels[split.panelIndex].placement = { ...split.shrunkPlacement };
 
 		newPanels.push({
 			id: getNextPanelId(),
@@ -153,17 +133,7 @@
 		termState.activeLayoutId = layout.id;
 		resetNextPanelId(panels.length + 1);
 
-		const settings = decodeSettings(new URLSearchParams(settingsStr));
-		termState.xAxis = settings.xAxis;
-		termState.showZones = settings.showZones;
-		termState.showNotes = settings.showNotes;
-		termState.showPauseGaps = settings.showPauseGaps;
-		termState.params = {
-			smoothingWindow: settings.smoothingWindow,
-			samplePoints: settings.samplePoints,
-			pauseThreshold: settings.pauseThreshold,
-		};
-		termState.wickPercentile = settings.wickPercentile;
+		applySettings(termState, decodeSettings(new URLSearchParams(settingsStr)));
 	}
 
 	let tooltipLayoutId = $state<number | null>(null);

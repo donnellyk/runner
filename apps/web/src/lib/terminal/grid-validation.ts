@@ -1,4 +1,4 @@
-import type { LayoutPanel, PanelPlacement } from './layout-url';
+import { cloneLayout, type LayoutPanel, type PanelPlacement } from './layout-url';
 
 export const GRID_COLS = 12;
 export const GRID_ROWS = 6;
@@ -341,7 +341,5 @@ export function removePanel(
 ): LayoutPanel[] | null {
 	if (panels.length <= 1) return null;
 
-	return panels
-		.filter((_, idx) => idx !== panelIndex)
-		.map((p) => ({ ...p, config: { ...p.config }, placement: { ...p.placement } }));
+	return cloneLayout(panels.filter((_, idx) => idx !== panelIndex));
 }

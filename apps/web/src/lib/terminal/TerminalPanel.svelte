@@ -68,11 +68,13 @@
 	);
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div
 	class="flex flex-col h-full"
 	style="background: var(--term-surface); backdrop-filter: blur(12px); border: 1px solid {swapActive && !isSwapSource ? 'var(--term-snap-border)' : 'var(--term-border)'}; border-radius: 4px; overflow: hidden; {isSwapSource ? 'opacity: 0.6;' : ''}"
+	role={swapActive && !isSwapSource && onswap ? 'button' : undefined}
+	tabindex={swapActive && !isSwapSource && onswap ? 0 : undefined}
 	onclick={swapActive && !isSwapSource && onswap ? onswap : undefined}
+	onkeydown={swapActive && !isSwapSource && onswap ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onswap!(); } } : undefined}
 >
 	<div class="flex items-center gap-1 px-1.5 py-0.5 shrink-0" style="border-bottom: 1px solid var(--term-border);">
 		{#if onswap}

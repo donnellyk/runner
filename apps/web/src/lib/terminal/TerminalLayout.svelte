@@ -30,15 +30,9 @@
 	import type { ActivityData } from './types';
 	import { createGridInteraction } from './grid-interaction.svelte';
 	import { removePanel } from './grid-validation';
+	import type { SavedLayout } from './layout-url';
 	import ResizeHandle from './ResizeHandle.svelte';
 	import GridOverlay from './GridOverlay.svelte';
-
-	interface SavedLayout {
-		id: number;
-		name: string;
-		encoded: string;
-		isDefault: boolean;
-	}
 
 	interface Props {
 		activity: ActivityData;
@@ -202,10 +196,10 @@
 <svelte:window onkeydown={interaction.handleKeydown} />
 
 <div class="flex h-full w-full">
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		bind:this={gridContainer}
 		class="flex-1 grid"
+		role="application"
 		style="min-width: 0; min-height: 0; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(0, 1fr)); position: relative; user-select: none;"
 		onpointermove={interaction.onPointerMove}
 		onpointerup={interaction.endResize}

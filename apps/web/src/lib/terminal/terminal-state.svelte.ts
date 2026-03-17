@@ -1,6 +1,6 @@
 import type { ZoneDefinition } from "@web-runner/shared";
 import { KM_TO_MI_PACE, M_TO_FT, type Units } from "$lib/format";
-import { DEFAULT_LAYOUT, DEFAULT_SETTINGS, resetNextPanelId, type LayoutPanel } from "./layout-url";
+import { DEFAULT_LAYOUT, DEFAULT_SETTINGS, resetNextPanelId, cloneLayout, type LayoutPanel, type TerminalSettings } from "./layout-url";
 
 export type DataSource =
   | "pace"
@@ -108,14 +108,6 @@ export const DATA_SOURCE_LABELS: Record<DataSource, string> = {
   power: "Power",
   grade: "Grade",
 };
-
-function cloneLayout(layout: LayoutPanel[]): LayoutPanel[] {
-  return layout.map((p) => ({
-    ...p,
-    config: { ...p.config },
-    placement: { ...p.placement },
-  }));
-}
 
 export function createTerminalState(initialLayout?: LayoutPanel[]) {
   let crosshairIndex = $state<number | null>(null);
@@ -257,6 +249,32 @@ export function createTerminalState(initialLayout?: LayoutPanel[]) {
 }
 
 export type TerminalState = ReturnType<typeof createTerminalState>;
+
+export function applySettings(state: TerminalState, settings: TerminalSettings): void {
+  state.xAxis = settings.xAxis;
+  state.showZones = settings.showZones;
+  state.showNotes = settings.showNotes;
+  state.showPauseGaps = settings.showPauseGaps;
+  state.params = {
+    smoothingWindow: settings.smoothingWindow,
+    samplePoints: settings.samplePoints,
+    pauseThreshold: settings.pauseThreshold,
+  };
+  state.wickPercentile = settings.wickPercentile;
+}
+
+export function getSettings(state: TerminalState): TerminalSettings {
+  return {
+    xAxis: state.xAxis,
+    showZones: state.showZones,
+    showNotes: state.showNotes,
+    showPauseGaps: state.showPauseGaps,
+    smoothingWindow: state.params.smoothingWindow,
+    samplePoints: state.params.samplePoints,
+    pauseThreshold: state.params.pauseThreshold,
+    wickPercentile: state.wickPercentile,
+  };
+}
 
 export function getAvailableDataSources(streams: StreamData): DataSource[] {
   const sources: DataSource[] = [];
