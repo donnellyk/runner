@@ -61,6 +61,10 @@
 		onchange({ ...config, candlestickMode: mode });
 	}
 
+	function setBarMode(mode: 'stream' | 'splits' | 'laps') {
+		onchange({ ...config, barMode: mode });
+	}
+
 	let chartTypes = $derived(
 		config.kind === 'chart' && config.dataSource
 			? CHART_TYPE_MATRIX[config.dataSource]
@@ -133,6 +137,21 @@
 				value={config.candlestickMode ?? 'splits'}
 				onchange={(e) => setCandlestickMode((e.target as HTMLSelectElement).value as 'splits' | 'laps')}
 			>
+				<option value="splits">Splits</option>
+				{#if hasLaps}
+					<option value="laps">Laps</option>
+				{/if}
+			</select>
+		{/if}
+
+		{#if config.chartType === 'bar'}
+			<select
+				class="bg-transparent text-[9px] uppercase tracking-wide cursor-pointer border-none outline-none ml-auto"
+				style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;"
+				value={config.barMode ?? 'stream'}
+				onchange={(e) => setBarMode((e.target as HTMLSelectElement).value as 'stream' | 'splits' | 'laps')}
+			>
+				<option value="stream">Stream</option>
 				<option value="splits">Splits</option>
 				{#if hasLaps}
 					<option value="laps">Laps</option>

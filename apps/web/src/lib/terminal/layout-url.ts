@@ -52,17 +52,21 @@ const CHART_TYPE_TO_CODE: Record<string, number> = {
 	bar: 2,
 	'candlestick-splits': 3,
 	'candlestick-laps': 4,
+	'bar-splits': 5,
+	'bar-laps': 6,
 };
 
 const CODE_TO_CHART_TYPE: Record<
 	number,
-	{ chartType: ChartType; candlestickMode?: 'splits' | 'laps' }
+	{ chartType: ChartType; candlestickMode?: 'splits' | 'laps'; barMode?: 'stream' | 'splits' | 'laps' }
 > = {
 	0: { chartType: 'line' },
 	1: { chartType: 'area' },
 	2: { chartType: 'bar' },
 	3: { chartType: 'candlestick', candlestickMode: 'splits' },
 	4: { chartType: 'candlestick', candlestickMode: 'laps' },
+	5: { chartType: 'bar', barMode: 'splits' },
+	6: { chartType: 'bar', barMode: 'laps' },
 };
 
 const SPECIAL_SOURCES = new Set<string>(['map', 'notes', 'heatmap', 'laps']);
@@ -125,6 +129,8 @@ function encodePanelToBytes(panel: LayoutPanel): [number, number, number] {
 		sourceCode = SOURCE_TO_CODE[panel.config.dataSource!];
 		if (panel.config.chartType === 'candlestick') {
 			typeCode = panel.config.candlestickMode === 'laps' ? 4 : 3;
+		} else if (panel.config.chartType === 'bar' && panel.config.barMode && panel.config.barMode !== 'stream') {
+			typeCode = CHART_TYPE_TO_CODE[`bar-${panel.config.barMode}`];
 		} else {
 			typeCode = CHART_TYPE_TO_CODE[panel.config.chartType!];
 		}
@@ -171,6 +177,9 @@ function decodePanelFromBytes(
 		};
 		if (chartInfo.candlestickMode) {
 			config.candlestickMode = chartInfo.candlestickMode;
+		}
+		if (chartInfo.barMode) {
+			config.barMode = chartInfo.barMode;
 		}
 	}
 

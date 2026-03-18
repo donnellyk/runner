@@ -18,6 +18,7 @@ export interface PanelConfig {
   chartType?: ChartType;
   specialType?: SpecialPanel;
   candlestickMode?: "splits" | "laps";
+  barMode?: "stream" | "splits" | "laps";
   colorOverride?: string;
 }
 

@@ -1,12 +1,12 @@
 <script lang="ts">
 	import type { ZoneDefinition } from '@web-runner/shared';
-	import { formatPaceDisplay, type Units } from '$lib/format';
+	import { formatPaceDisplay, KM_TO_MI_PACE, M_TO_FT, type Units } from '$lib/format';
 	import { bucketAvgIndices } from '$lib/sampling';
 	import TerminalPanel from './TerminalPanel.svelte';
 	import TerminalSidebar from './TerminalSidebar.svelte';
 	import TerminalLineChart from './charts/TerminalLineChart.svelte';
 	import CandlestickChart from './charts/CandlestickChart.svelte';
-	import CadenceBarChart from './charts/CadenceBarChart.svelte';
+	import CadenceBarChart, { type BarEntry } from './charts/CadenceBarChart.svelte';
 	import SplitHeatmap from './charts/SplitHeatmap.svelte';
 	import NotesPanel from './charts/NotesPanel.svelte';
 	import TerminalMap from './charts/TerminalMap.svelte';
@@ -15,6 +15,7 @@
 		type TerminalState,
 		type StreamData,
 		type PanelConfig,
+		type DataSource,
 		type ActivityNote,
 		type ActivityLap,
 		type ActivitySegment,
@@ -167,6 +168,40 @@
 		return findIndexAtDistance(sampledDist, midDist);
 	}
 
+	function barsFromSegments(source: DataSource): BarEntry[] {
+		return segments.map((s) => {
+			let avg: number;
+			switch (source) {
+				case 'cadence': avg = (s.avgCadence ?? 0) * 2; break;
+				case 'heartrate': avg = s.avgHeartrate ?? 0; break;
+				case 'pace': avg = s.avgPace != null ? (units === 'imperial' ? s.avgPace * KM_TO_MI_PACE : s.avgPace) : 0; break;
+				case 'power': avg = s.avgPower ?? 0; break;
+				case 'elevation': avg = s.elevationGain != null ? (units === 'imperial' ? s.elevationGain * M_TO_FT : s.elevationGain) : 0; break;
+				case 'grade': avg = 0; break;
+			}
+			return { avg, xMid: (s.distanceStart + s.distanceEnd) / 2, label: `${s.segmentIndex + 1}` };
+		}).filter((b) => b.avg > 0);
+	}
+
+	function barsFromLaps(source: DataSource): BarEntry[] {
+		let cumDist = 0;
+		return laps.map((l) => {
+			let avg: number;
+			switch (source) {
+				case 'cadence': avg = (l.averageCadence ?? 0) * 2; break;
+				case 'heartrate': avg = l.averageHeartrate ?? 0; break;
+				case 'pace': avg = l.averageSpeed != null && l.averageSpeed > 0 ? (units === 'imperial' ? (1000 / l.averageSpeed) * KM_TO_MI_PACE : 1000 / l.averageSpeed) : 0; break;
+				case 'power': avg = 0; break;
+				case 'elevation': avg = 0; break;
+				case 'grade': avg = 0; break;
+			}
+			const lapDist = l.distance ?? 0;
+			const xMid = cumDist + lapDist / 2;
+			cumDist += lapDist;
+			return { avg, xMid, label: `${l.lapIndex + 1}` };
+		}).filter((b) => b.avg > 0);
+	}
+
 	function onCrosshairMove(index: number | null) {
 		if (termState.crosshairLocked || termState.isResizing) return;
 		termState.crosshairIndex = index;
@@ -285,6 +320,8 @@
 									oncrosshairleave={onCrosshairLeave}
 								/>
 							{:else if panel.config.chartType === 'bar'}
+								{@const barMode = panel.config.barMode ?? 'stream'}
+								{@const precomputedBars = barMode === 'laps' ? barsFromLaps(panel.config.dataSource) : barMode === 'splits' ? barsFromSegments(panel.config.dataSource) : undefined}
 								<CadenceBarChart
 									data={streamData}
 									distanceData={sampledDist ?? undefined}
@@ -299,6 +336,7 @@
 									crosshairIndex={termState.crosshairIndex}
 									crosshairLocked={termState.crosshairLocked}
 									{highlightRange}
+									{precomputedBars}
 									oncrosshairmove={onCrosshairMove}
 									oncrosshairclick={onCrosshairClick}
 									oncrosshairleave={onCrosshairLeave}

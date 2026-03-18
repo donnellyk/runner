@@ -7,6 +7,12 @@
 	import XAxisLabels from './XAxisLabels.svelte';
 	import CrosshairLine from './CrosshairLine.svelte';
 
+	export interface BarEntry {
+		avg: number;
+		xMid: number;
+		label?: string;
+	}
+
 	interface Props {
 		data: number[];
 		distanceData?: number[];
@@ -21,6 +27,7 @@
 		crosshairIndex?: number | null;
 		crosshairLocked?: boolean;
 		highlightRange?: { start: number; end: number } | null;
+		precomputedBars?: BarEntry[];
 		oncrosshairmove?: (index: number | null) => void;
 		oncrosshairclick?: (index: number | null) => void;
 		oncrosshairleave?: () => void;
@@ -40,6 +47,7 @@
 		crosshairIndex = null,
 		crosshairLocked = false,
 		highlightRange = null,
+		precomputedBars,
 		oncrosshairmove,
 		oncrosshairclick,
 		oncrosshairleave,
@@ -64,10 +72,11 @@
 
 	let smoothData = $derived(smoothStream(trimData, smoothingWindow, null));
 
-	let buckets = $derived.by(() => {
+	let buckets = $derived.by((): BarEntry[] => {
+		if (precomputedBars) return precomputedBars;
 		if (smoothData.length === 0) return [];
 		const count = Math.min(BUCKET_COUNT, smoothData.length);
-		const result: { avg: number; xMid: number }[] = [];
+		const result: BarEntry[] = [];
 		for (let b = 0; b < count; b++) {
 			const start = Math.floor((b / count) * smoothData.length);
 			const end = Math.floor(((b + 1) / count) * smoothData.length);
@@ -105,9 +114,26 @@
 		return dims.padding.left + barStep * (i + 0.5);
 	}
 
+	let crosshairBarIdx = $derived.by((): number | null => {
+		if (crosshairIndex == null || buckets.length === 0) return null;
+		if (precomputedBars) {
+			// For precomputed bars, find closest bar by xMid distance
+			const dist = distanceData?.[crosshairIndex] ?? crosshairIndex;
+			let closest = 0;
+			let minD = Infinity;
+			for (let i = 0; i < buckets.length; i++) {
+				const d = Math.abs(buckets[i].xMid - dist);
+				if (d < minD) { minD = d; closest = i; }
+			}
+			return closest;
+		}
+		// For stream buckets, map stream index to bucket index
+		const bucketIdx = Math.floor((crosshairIndex / smoothData.length) * buckets.length);
+		return Math.max(0, Math.min(buckets.length - 1, bucketIdx));
+	});
+
 	let tooltipValue = $derived(
-		crosshairIndex != null && smoothData[crosshairIndex] != null
-			? smoothData[crosshairIndex] : null,
+		crosshairBarIdx != null ? buckets[crosshairBarIdx]?.avg ?? null : null,
 	);
 
 	let xPositions = $derived(trimXData.map((x) => toX(x)));
@@ -144,8 +170,7 @@
 	});
 
 	let crosshairX = $derived(
-		crosshairIndex != null && trimXData[crosshairIndex] != null
-			? toX(trimXData[crosshairIndex]) : null,
+		crosshairBarIdx != null ? barX(crosshairBarIdx) : null,
 	);
 </script>
 
