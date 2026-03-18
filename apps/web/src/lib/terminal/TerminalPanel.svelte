@@ -19,14 +19,13 @@
 		onchange: (config: PanelConfig) => void;
 		children: Snippet;
 		hasLaps?: boolean;
-		swapActive?: boolean;
-		isSwapSource?: boolean;
-		onswap?: () => void;
+		ondragstart?: (e: PointerEvent) => void;
 		onremove?: () => void;
 		canRemove?: boolean;
+		isDragSource?: boolean;
 	}
 
-	let { config, streams, onchange, children, hasLaps = false, swapActive = false, isSwapSource = false, onswap, onremove, canRemove = false }: Props = $props();
+	let { config, streams, onchange, children, hasLaps = false, ondragstart, onremove, canRemove = false, isDragSource = false }: Props = $props();
 
 	let availableSources = $derived(getAvailableDataSources(streams));
 	let showColorPicker = $state(false);
@@ -70,25 +69,24 @@
 			? CHART_TYPE_MATRIX[config.dataSource]
 			: [],
 	);
+
+	function handleHeaderPointerDown(e: PointerEvent) {
+		if ((e.target as HTMLElement).closest('select, button')) return;
+		ondragstart?.(e);
+	}
 </script>
 
 <div
 	class="flex flex-col h-full"
-	style="background: var(--term-surface); backdrop-filter: blur(12px); border: 1px solid {swapActive && !isSwapSource ? 'var(--term-snap-border)' : 'var(--term-border)'}; border-radius: 4px; overflow: hidden; {isSwapSource ? 'opacity: 0.6;' : ''}"
-	role={swapActive && !isSwapSource && onswap ? 'button' : undefined}
-	tabindex={swapActive && !isSwapSource && onswap ? 0 : undefined}
-	onclick={swapActive && !isSwapSource && onswap ? onswap : undefined}
-	onkeydown={swapActive && !isSwapSource && onswap ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onswap!(); } } : undefined}
+	style="background: var(--term-surface); backdrop-filter: blur(12px); border: 1px solid var(--term-border); border-radius: 4px; overflow: hidden; {isDragSource ? 'opacity: 0.4;' : ''}"
 >
-	<div class="flex items-center gap-1 px-1.5 py-0.5 shrink-0" style="border-bottom: 1px solid var(--term-border);">
-		{#if onswap}
-			<button
-				class="text-[9px] cursor-pointer px-1 rounded"
-				style="color: {isSwapSource ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}; border: 1px solid {isSwapSource ? 'var(--term-snap-border)' : 'var(--term-border)'}; font-family: 'Geist Mono', monospace;"
-				title={isSwapSource ? 'Cancel swap' : 'Swap with another panel'}
-				onclick={(e) => { e.stopPropagation(); onswap!(); }}
-			>{isSwapSource ? '...' : '\u21C4'}</button>
-		{/if}
+	<div
+		class="flex items-center gap-1 px-1.5 py-0.5 shrink-0"
+		role="toolbar"
+		tabindex="-1"
+		style="border-bottom: 1px solid var(--term-border); cursor: {isDragSource ? 'grabbing' : 'grab'};"
+		onpointerdown={handleHeaderPointerDown}
+	>
 		<select
 			class="bg-transparent text-[10px] uppercase tracking-wide cursor-pointer border-none outline-none"
 			style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;"

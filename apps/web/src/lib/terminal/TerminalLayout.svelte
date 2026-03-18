@@ -232,13 +232,14 @@
 		role="application"
 		style="min-width: 0; min-height: 0; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(0, 1fr)); position: relative; user-select: none;"
 		onpointermove={interaction.onPointerMove}
-		onpointerup={interaction.endResize}
+		onpointerup={interaction.onPointerUp}
+		style:cursor={interaction.dragPanelIndex !== null ? 'grabbing' : undefined}
 	>
 		<GridOverlay
-			visible={termState.isResizing}
-			{snapPanel}
-			affectedPanels={interaction.affectedPlacements}
-			blocked={interaction.resizeBlocked}
+			visible={termState.isResizing || interaction.dragPanelIndex !== null}
+			snapPanel={termState.isResizing ? snapPanel : interaction.dragPreviewPlacement}
+			affectedPanels={termState.isResizing ? interaction.affectedPlacements : interaction.dragAffectedPlacements}
+			blocked={termState.isResizing ? interaction.resizeBlocked : interaction.dragBlocked}
 		/>
 		{#each termState.layoutPanels as panel, idx (panel.id)}
 			<div style="
@@ -259,19 +260,10 @@
 					{streams}
 					hasLaps={laps.length > 1}
 					onchange={(c) => updatePanel(panel.id, c)}
-					swapActive={interaction.swappingPanelId !== null}
-					isSwapSource={interaction.swappingPanelId === panel.id}
 					canRemove={termState.layoutPanels.length > 1}
 					onremove={() => removePanelAtIndex(idx)}
-					onswap={() => {
-						if (interaction.swappingPanelId === null) {
-							interaction.startSwap(panel.id);
-						} else if (interaction.swappingPanelId === panel.id) {
-							interaction.cancelSwap();
-						} else {
-							interaction.completeSwap(panel.id);
-						}
-					}}
+					isDragSource={interaction.dragPanelIndex === idx}
+					ondragstart={(e) => interaction.startDrag(idx, e.pointerId, e)}
 				>
 					{#if panel.config.kind === 'special'}
 						{#if panel.config.specialType === 'map' && routeCoords}
@@ -379,6 +371,25 @@
 			</div>
 		{/each}
 	</div>
+
+	{#if interaction.dragGhostPos && interaction.dragPanelIndex !== null}
+		{@const draggedPanel = termState.layoutPanels[interaction.dragPanelIndex]}
+		{@const ghostLabel = draggedPanel?.config.kind === 'special'
+			? (draggedPanel.config.specialType ?? 'Panel')
+			: DATA_SOURCE_LABELS[draggedPanel?.config.dataSource ?? 'pace'] ?? 'Panel'}
+		<div
+			class="fixed pointer-events-none px-2 py-1 rounded text-[11px]"
+			style="
+				left: {interaction.dragGhostPos.x + 12}px;
+				top: {interaction.dragGhostPos.y + 12}px;
+				background: var(--term-drag-ghost);
+				border: 1px solid var(--term-snap-border);
+				color: var(--term-text-bright);
+				font-family: 'Geist Mono', monospace;
+				z-index: 50;
+			"
+		>{ghostLabel}</div>
+	{/if}
 
 	<TerminalSidebar
 		{activity}

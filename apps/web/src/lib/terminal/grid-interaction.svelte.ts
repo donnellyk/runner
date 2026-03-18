@@ -1,6 +1,6 @@
-import { cloneLayout, type LayoutPanel, type PanelPlacement } from './layout-url';
+import { type LayoutPanel, type PanelPlacement } from './layout-url';
 import type { TerminalState } from './terminal-state.svelte';
-import { canResize, GRID_COLS, GRID_ROWS } from './grid-validation';
+import { canResize, computeDragLayout, GRID_COLS, GRID_ROWS } from './grid-validation';
 
 export type ResizeEdge =
 	| 'top' | 'bottom' | 'left' | 'right'
@@ -17,8 +17,16 @@ export function createGridInteraction(
 	let previewPlacement = $state<PanelPlacement | null>(null);
 	let affectedPlacements = $state<PanelPlacement[]>([]);
 	let capturedPointerId = $state<number | null>(null);
-	let swapSource = $state<number | null>(null);
 	let blocked = $state(false);
+
+	// Drag-and-drop state
+	let dragPanel = $state<number | null>(null);
+	let dragGrabOffset = $state<{ col: number; row: number } | null>(null);
+	let dragGhostPos = $state<{ x: number; y: number } | null>(null);
+	let dragPendingResult = $state<LayoutPanel[] | null>(null);
+	let dragPreviewPlacement = $state<PanelPlacement | null>(null);
+	let dragAffectedPlacements = $state<PanelPlacement[]>([]);
+	let dragBlocked = $state(false);
 
 	function pixelToGrid(clientX: number, clientY: number): { col: number; row: number } {
 		const container = getContainer();
@@ -32,6 +40,21 @@ export function createGridInteraction(
 			row: Math.max(0, Math.min(GRID_ROWS, Math.round((y / rect.height) * GRID_ROWS))),
 		};
 	}
+
+	function pixelToGridCell(clientX: number, clientY: number): { col: number; row: number } {
+		const container = getContainer();
+		if (!container) return { col: 0, row: 0 };
+		const rect = container.getBoundingClientRect();
+		const x = clientX - rect.left;
+		const y = clientY - rect.top;
+
+		return {
+			col: Math.max(0, Math.min(GRID_COLS - 1, Math.floor((x / rect.width) * GRID_COLS))),
+			row: Math.max(0, Math.min(GRID_ROWS - 1, Math.floor((y / rect.height) * GRID_ROWS))),
+		};
+	}
+
+	// --- Resize ---
 
 	function startResize(
 		panelIndex: number,
@@ -51,9 +74,23 @@ export function createGridInteraction(
 	}
 
 	function onPointerMove(event: PointerEvent) {
-		if (resizePanel === null || resizeEdge === null) return;
+		if (resizePanel !== null && resizeEdge !== null) {
+			onResizeMove(event);
+		} else if (dragPanel !== null) {
+			onDragMove(event);
+		}
+	}
 
-		const panel = state.layoutPanels[resizePanel];
+	function onPointerUp() {
+		if (resizePanel !== null) {
+			endResize();
+		} else if (dragPanel !== null) {
+			endDrag();
+		}
+	}
+
+	function onResizeMove(event: PointerEvent) {
+		const panel = state.layoutPanels[resizePanel!];
 		if (!panel) return;
 
 		const grid = pixelToGrid(event.clientX, event.clientY);
@@ -67,48 +104,47 @@ export function createGridInteraction(
 		const hasTop = resizeEdge === 'top' || resizeEdge === 'top-left' || resizeEdge === 'top-right';
 
 		if (hasRight) {
-			const p = testPanels[resizePanel];
+			const p = testPanels[resizePanel!];
 			const currentRight = p.placement.col + p.placement.colSpan;
 			const delta = grid.col - currentRight;
 			if (delta !== 0) {
-				const result = canResize(testPanels, resizePanel, 'right', delta);
+				const result = canResize(testPanels, resizePanel!, 'right', delta);
 				if (result) testPanels = result;
 				else anyBlocked = true;
 			}
 		}
 
 		if (hasLeft) {
-			const p = testPanels[resizePanel];
+			const p = testPanels[resizePanel!];
 			const delta = grid.col - p.placement.col;
 			if (delta !== 0) {
-				const result = canResize(testPanels, resizePanel, 'left', delta);
+				const result = canResize(testPanels, resizePanel!, 'left', delta);
 				if (result) testPanels = result;
 				else anyBlocked = true;
 			}
 		}
 
 		if (hasBottom) {
-			const p = testPanels[resizePanel];
+			const p = testPanels[resizePanel!];
 			const currentBottom = p.placement.row + p.placement.rowSpan;
 			const delta = grid.row - currentBottom;
 			if (delta !== 0) {
-				const result = canResize(testPanels, resizePanel, 'bottom', delta);
+				const result = canResize(testPanels, resizePanel!, 'bottom', delta);
 				if (result) testPanels = result;
 				else anyBlocked = true;
 			}
 		}
 
 		if (hasTop) {
-			const p = testPanels[resizePanel];
+			const p = testPanels[resizePanel!];
 			const delta = grid.row - p.placement.row;
 			if (delta !== 0) {
-				const result = canResize(testPanels, resizePanel, 'top', delta);
+				const result = canResize(testPanels, resizePanel!, 'top', delta);
 				if (result) testPanels = result;
 				else anyBlocked = true;
 			}
 		}
 
-		// Compute the desired placement from the raw cursor position (clamped to grid)
 		const orig = panel.placement;
 		const desired = { ...orig };
 		if (hasRight) {
@@ -133,7 +169,6 @@ export function createGridInteraction(
 		pendingResult = validResult;
 		previewPlacement = desired;
 
-		// Diff to find affected neighbors
 		if (validResult && resizePanel !== null) {
 			const affected: PanelPlacement[] = [];
 			for (let i = 0; i < validResult.length; i++) {
@@ -188,86 +223,152 @@ export function createGridInteraction(
 		state.isResizing = false;
 	}
 
-	function startSwap(panelId: number) {
-		swapSource = panelId;
+	// --- Drag-and-drop ---
+
+	function startDrag(panelIndex: number, pointerId: number, event: PointerEvent) {
+		dragPanel = panelIndex;
+		dragGhostPos = null;
 		state.isDragging = true;
+
+		const cell = pixelToGridCell(event.clientX, event.clientY);
+		const panel = state.layoutPanels[panelIndex];
+		dragGrabOffset = {
+			col: cell.col - panel.placement.col,
+			row: cell.row - panel.placement.row,
+		};
+
+		const container = getContainer();
+		if (container) {
+			container.setPointerCapture(pointerId);
+			capturedPointerId = pointerId;
+		}
 	}
 
-	function completeSwap(targetId: number) {
-		if (swapSource === null || swapSource === targetId) {
-			cancelSwap();
+	function onDragMove(event: PointerEvent) {
+		dragGhostPos = { x: event.clientX, y: event.clientY };
+
+		if (dragPanel === null || dragGrabOffset === null) return;
+
+		const cell = pixelToGridCell(event.clientX, event.clientY);
+		const panel = state.layoutPanels[dragPanel];
+		const { colSpan, rowSpan } = panel.placement;
+
+		const targetCol = Math.max(0, Math.min(GRID_COLS - colSpan, cell.col - dragGrabOffset.col));
+		const targetRow = Math.max(0, Math.min(GRID_ROWS - rowSpan, cell.row - dragGrabOffset.row));
+
+		if (targetCol === panel.placement.col && targetRow === panel.placement.row) {
+			dragPendingResult = null;
+			dragPreviewPlacement = null;
+			dragAffectedPlacements = [];
+			dragBlocked = false;
 			return;
 		}
 
-		const panels = state.layoutPanels;
-		const sourceIndex = panels.findIndex((p) => p.id === swapSource);
-		const targetIndex = panels.findIndex((p) => p.id === targetId);
+		const preview: PanelPlacement = { col: targetCol, row: targetRow, colSpan, rowSpan };
+		const result = computeDragLayout(state.layoutPanels, dragPanel, targetCol, targetRow);
 
-		if (sourceIndex === -1 || targetIndex === -1) {
-			cancelSwap();
-			return;
+		if (result) {
+			dragPendingResult = result;
+			dragPreviewPlacement = preview;
+			dragBlocked = false;
+
+			const affected: PanelPlacement[] = [];
+			for (let i = 0; i < result.length; i++) {
+				if (i === dragPanel) continue;
+				const o = state.layoutPanels[i]?.placement;
+				const u = result[i]?.placement;
+				if (!o || !u) continue;
+				if (o.col !== u.col || o.row !== u.row || o.colSpan !== u.colSpan || o.rowSpan !== u.rowSpan) {
+					affected.push(u);
+				}
+			}
+			dragAffectedPlacements = affected;
+		} else {
+			dragPreviewPlacement = preview;
+			dragBlocked = true;
+			dragPendingResult = null;
+			dragAffectedPlacements = [];
+		}
+	}
+
+	function endDrag() {
+		const changed = dragPendingResult !== null;
+		if (dragPendingResult) {
+			state.layoutPanels = dragPendingResult;
 		}
 
-		const updated = cloneLayout(panels);
+		releaseCapture();
+		resetDragState();
 
-		// Swap placements
-		const sourcePlacement = { ...updated[sourceIndex].placement };
-		updated[sourceIndex].placement = { ...updated[targetIndex].placement };
-		updated[targetIndex].placement = sourcePlacement;
-
-		state.layoutPanels = updated;
-		swapSource = null;
-		state.isDragging = false;
-		onCommit?.();
+		if (changed) onCommit?.();
 	}
 
-	function cancelSwap() {
-		swapSource = null;
+	function cancelDrag() {
+		releaseCapture();
+		resetDragState();
+	}
+
+	function resetDragState() {
+		dragPanel = null;
+		dragGrabOffset = null;
+		dragGhostPos = null;
+		dragPendingResult = null;
+		dragPreviewPlacement = null;
+		dragAffectedPlacements = [];
+		dragBlocked = false;
 		state.isDragging = false;
 	}
+
+	// --- Shared ---
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key !== 'Escape') return;
 		if (resizePanel !== null) {
 			e.preventDefault();
 			cancelResize();
-		} else if (swapSource !== null) {
+		} else if (dragPanel !== null) {
 			e.preventDefault();
-			cancelSwap();
+			cancelDrag();
 		}
 	}
 
-	const isActive = $derived(resizePanel !== null || swapSource !== null);
+	const isActive = $derived(resizePanel !== null || dragPanel !== null);
 
 	return {
 		startResize,
 		onPointerMove,
-		endResize,
-		cancelResize,
+		onPointerUp,
 		handleKeydown,
-		startSwap,
-		completeSwap,
-		cancelSwap,
+		startDrag,
 		get isActive() {
 			return isActive;
 		},
 		get resizingPanelIndex() {
 			return resizePanel;
 		},
-		get pendingResult() {
-			return pendingResult;
-		},
 		get previewPlacement() {
 			return previewPlacement;
-		},
-		get swappingPanelId() {
-			return swapSource;
 		},
 		get resizeBlocked() {
 			return blocked;
 		},
 		get affectedPlacements() {
 			return affectedPlacements;
+		},
+		get dragPanelIndex() {
+			return dragPanel;
+		},
+		get dragPreviewPlacement() {
+			return dragPreviewPlacement;
+		},
+		get dragAffectedPlacements() {
+			return dragAffectedPlacements;
+		},
+		get dragBlocked() {
+			return dragBlocked;
+		},
+		get dragGhostPos() {
+			return dragGhostPos;
 		},
 	};
 }

@@ -102,6 +102,12 @@
 		// Priority 1: Hash in URL path is authoritative
 		initialLayout = decodeLayout(hashParam).panels;
 		initialSettings = decodeSettings(urlParams);
+		const matchingLayout = data.layouts.find(
+			(l: { encoded: string }) => l.encoded.split('&')[0] === hashParam,
+		);
+		if (matchingLayout) {
+			initialActiveLayoutId = matchingLayout.id;
+		}
 	} else {
 		// Priority 2: User's saved default layout
 		const savedDefault = data.layouts.find((l: { isDefault: boolean }) => l.isDefault);

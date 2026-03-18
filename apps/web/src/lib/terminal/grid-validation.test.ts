@@ -5,6 +5,7 @@ import {
 	canResize,
 	findSplitForNewPanel,
 	removePanel,
+	computeDragLayout,
 	getMinColSpan,
 	getMinRowSpan,
 	MAX_PANELS,
@@ -366,5 +367,156 @@ describe('removePanel', () => {
 		const originalLen = DEFAULT_LAYOUT.length;
 		removePanel(DEFAULT_LAYOUT, 1);
 		expect(DEFAULT_LAYOUT.length).toBe(originalLen);
+	});
+});
+
+describe('computeDragLayout', () => {
+	it('returns null when position is unchanged (no-op)', () => {
+		const panels = [
+			chartPanel(1, 0, 0, 4, 3),
+			chartPanel(2, 4, 0, 4, 3),
+			chartPanel(3, 8, 0, 4, 3),
+		];
+		expect(computeDragLayout(panels, 0, 0, 0)).toBeNull();
+	});
+
+	it('moves to empty space with no displaced panels', () => {
+		// Two panels with a gap between them
+		const panels = [
+			chartPanel(1, 0, 0, 4, 3),
+			chartPanel(2, 8, 0, 4, 3),
+		];
+		// Move panel 0 to the gap area (row 3)
+		const result = computeDragLayout(panels, 0, 0, 3);
+		expect(result).not.toBeNull();
+		expect(result![0].placement).toEqual({ col: 0, row: 3, colSpan: 4, rowSpan: 3 });
+		expect(result![1].placement).toEqual(panels[1].placement);
+	});
+
+	it('swaps equal-size panels', () => {
+		const panels = [
+			chartPanel(1, 0, 0, 4, 3),
+			chartPanel(2, 4, 0, 4, 3),
+			chartPanel(3, 8, 0, 4, 3),
+			chartPanel(4, 0, 3, 12, 3),
+		];
+		// Drag panel 0 to panel 1's position
+		const result = computeDragLayout(panels, 0, 4, 0);
+		expect(result).not.toBeNull();
+		// Panel 0 should be at (4,0)
+		expect(result![0].placement.col).toBe(4);
+		expect(result![0].placement.row).toBe(0);
+		// Panel 1 should have moved to freed space (0,0)
+		expect(result![1].placement.col).toBe(0);
+		expect(result![1].placement.row).toBe(0);
+		expect(result![1].placement.colSpan).toBe(4);
+		expect(result![1].placement.rowSpan).toBe(3);
+	});
+
+	it('large panel displaces small panel into freed space', () => {
+		// Row 0-2: [6x3] [3x3] [3x3]
+		// Row 3-5: [12x3]
+		const panels = [
+			chartPanel(1, 0, 0, 6, 3),
+			chartPanel(2, 6, 0, 3, 3),
+			chartPanel(3, 9, 0, 3, 3),
+			chartPanel(4, 0, 3, 12, 3),
+		];
+		// Drag the 6x3 panel to col 6
+		const result = computeDragLayout(panels, 0, 6, 0);
+		expect(result).not.toBeNull();
+		// Panel 0 now at (6,0)
+		expect(result![0].placement).toEqual({ col: 6, row: 0, colSpan: 6, rowSpan: 3 });
+		// Displaced panels (1 and 2) should fit somewhere in the freed 6-wide space at col 0
+		const validation = validatePlacement(result!);
+		expect(validation.valid).toBe(true);
+	});
+
+	it('displaces multiple panels, all relocate', () => {
+		// Three equal panels in a row, plus a bottom row
+		const panels = [
+			chartPanel(1, 0, 0, 4, 3),
+			chartPanel(2, 4, 0, 4, 3),
+			chartPanel(3, 8, 0, 4, 3),
+			chartPanel(4, 0, 3, 4, 3),
+			chartPanel(5, 4, 3, 4, 3),
+			chartPanel(6, 8, 3, 4, 3),
+		];
+		// Drag panel 3 (bottom-left) to overlap panel 1 and 2 (top-middle, top-right)
+		// Panel 3 is 4x3. Moving to (4, 0) displaces panel 1
+		const result = computeDragLayout(panels, 3, 4, 0);
+		expect(result).not.toBeNull();
+		expect(result![3].placement).toEqual({ col: 4, row: 0, colSpan: 4, rowSpan: 3 });
+		// Panel 1 should have moved to the freed space
+		const validation = validatePlacement(result!);
+		expect(validation.valid).toBe(true);
+	});
+
+	it('returns null when displaced panel cannot fit (blocked)', () => {
+		// Drag a 2x1 chart panel on top of a 3x2 map; the freed 2x1 space is too small for the map.
+		const blockedPanels = [
+			mapPanel(1, 0, 0, 3, 2),  // map: min 3x2
+			chartPanel(2, 3, 0, 3, 2),
+			chartPanel(3, 6, 0, 6, 2),
+			chartPanel(4, 0, 2, 12, 2),
+			chartPanel(5, 0, 4, 2, 1),
+			chartPanel(6, 2, 4, 10, 1),
+			chartPanel(7, 0, 5, 12, 1),
+		];
+		// Drag panel 5 (2x1 at 0,4) to (0,0) — displaces map panel 0 (3x2, min 3x2)
+		// Freed space is 2x1 at (0,4) — too small for the 3x2 map even at minimum size.
+		// The map needs at least 3x2 = 6 cells but freed space is only 2 cells.
+		// Other free space? Let's check: grid is mostly covered.
+		const result2 = computeDragLayout(blockedPanels, 5, 0, 0);
+		expect(result2).toBeNull();
+	});
+
+	it('respects special panel min size when displaced', () => {
+		// Map panel (min 3x2) displaced by a move
+		const panels = [
+			mapPanel(1, 0, 0, 3, 2),
+			chartPanel(2, 3, 0, 9, 2),
+			chartPanel(3, 0, 2, 12, 4),
+		];
+		// Drag panel 2 (9x2) to (0,0) — displaces map panel 0
+		// The freed space is at (3,0) with size 9x2 — map can fit there at 3x2
+		const result = computeDragLayout(panels, 2, 0, 0);
+		expect(result).not.toBeNull();
+		// Map should maintain at least 3x2
+		expect(result![0].placement.colSpan).toBeGreaterThanOrEqual(MIN_SPECIAL_COL_SPAN);
+		expect(result![0].placement.rowSpan).toBeGreaterThanOrEqual(MIN_SPECIAL_ROW_SPAN);
+	});
+
+	it('does not mutate original panels', () => {
+		const panels = [
+			chartPanel(1, 0, 0, 4, 3),
+			chartPanel(2, 4, 0, 4, 3),
+			chartPanel(3, 8, 0, 4, 3),
+			chartPanel(4, 0, 3, 12, 3),
+		];
+		const origCol = panels[0].placement.col;
+		const origRow = panels[0].placement.row;
+		computeDragLayout(panels, 0, 4, 0);
+		expect(panels[0].placement.col).toBe(origCol);
+		expect(panels[0].placement.row).toBe(origRow);
+	});
+
+	it('produces a valid layout', () => {
+		const panels = [
+			chartPanel(1, 0, 0, 6, 3),
+			chartPanel(2, 6, 0, 6, 3),
+			chartPanel(3, 0, 3, 6, 3),
+			chartPanel(4, 6, 3, 6, 3),
+		];
+		const result = computeDragLayout(panels, 0, 6, 0);
+		expect(result).not.toBeNull();
+		const validation = validatePlacement(result!);
+		expect(validation.valid).toBe(true);
+	});
+
+	it('returns null when target is out of bounds', () => {
+		const panels = [chartPanel(1, 0, 0, 4, 3)];
+		expect(computeDragLayout(panels, 0, 10, 0)).toBeNull(); // 10 + 4 > 12
+		expect(computeDragLayout(panels, 0, 0, 5)).toBeNull(); // 5 + 3 > 6
 	});
 });

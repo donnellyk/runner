@@ -1,4 +1,4 @@
-import { cloneLayout, type LayoutPanel, type PanelPlacement } from './layout-url';
+import { type LayoutPanel, type PanelPlacement } from './layout-url';
 
 export const GRID_COLS = 12;
 export const GRID_ROWS = 6;
@@ -341,5 +341,159 @@ export function removePanel(
 ): LayoutPanel[] | null {
 	if (panels.length <= 1) return null;
 
-	return cloneLayout(panels.filter((_, idx) => idx !== panelIndex));
+	return panels
+		.filter((_, idx) => idx !== panelIndex)
+		.map((p) => ({ ...p, config: { ...p.config }, placement: { ...p.placement } }));
+}
+
+function buildOccupancyGrid(panels: LayoutPanel[], excludeIndices: Set<number>): Uint8Array {
+	const grid = new Uint8Array(GRID_COLS * GRID_ROWS);
+	for (let i = 0; i < panels.length; i++) {
+		if (excludeIndices.has(i)) continue;
+		const p = panels[i].placement;
+		for (let r = p.row; r < p.row + p.rowSpan; r++) {
+			for (let c = p.col; c < p.col + p.colSpan; c++) {
+				grid[r * GRID_COLS + c] = 1;
+			}
+		}
+	}
+	return grid;
+}
+
+function markOccupancy(
+	grid: Uint8Array,
+	col: number,
+	row: number,
+	colSpan: number,
+	rowSpan: number,
+): void {
+	for (let r = row; r < row + rowSpan; r++) {
+		for (let c = col; c < col + colSpan; c++) {
+			grid[r * GRID_COLS + c] = 1;
+		}
+	}
+}
+
+function findPlacement(
+	occupancy: Uint8Array,
+	colSpan: number,
+	rowSpan: number,
+	preferCol: number,
+	preferRow: number,
+): PanelPlacement | null {
+	let best: PanelPlacement | null = null;
+	let bestDist = Infinity;
+
+	for (let row = 0; row + rowSpan <= GRID_ROWS; row++) {
+		for (let col = 0; col + colSpan <= GRID_COLS; col++) {
+			let free = true;
+			for (let r = row; r < row + rowSpan && free; r++) {
+				for (let c = col; c < col + colSpan && free; c++) {
+					if (occupancy[r * GRID_COLS + c] !== 0) {
+						free = false;
+					}
+				}
+			}
+			if (!free) continue;
+
+			const dist = Math.abs(col - preferCol) + Math.abs(row - preferRow);
+			if (dist < bestDist) {
+				bestDist = dist;
+				best = { col, row, colSpan, rowSpan };
+			}
+		}
+	}
+
+	return best;
+}
+
+export function computeDragLayout(
+	panels: LayoutPanel[],
+	dragIdx: number,
+	targetCol: number,
+	targetRow: number,
+): LayoutPanel[] | null {
+	const dragged = panels[dragIdx];
+	const origPlacement = dragged.placement;
+
+	if (targetCol === origPlacement.col && targetRow === origPlacement.row) return null;
+
+	const { colSpan, rowSpan } = origPlacement;
+	if (targetCol + colSpan > GRID_COLS || targetRow + rowSpan > GRID_ROWS) return null;
+	if (targetCol < 0 || targetRow < 0) return null;
+
+	const result = panels.map((p) => ({
+		...p,
+		config: { ...p.config },
+		placement: { ...p.placement },
+	}));
+
+	const freedRect = { ...origPlacement };
+
+	result[dragIdx].placement.col = targetCol;
+	result[dragIdx].placement.row = targetRow;
+
+	const newRect = result[dragIdx].placement;
+	const displacedIndices: number[] = [];
+	for (let i = 0; i < result.length; i++) {
+		if (i === dragIdx) continue;
+		const p = result[i].placement;
+		if (
+			p.col < newRect.col + newRect.colSpan &&
+			p.col + p.colSpan > newRect.col &&
+			p.row < newRect.row + newRect.rowSpan &&
+			p.row + p.rowSpan > newRect.row
+		) {
+			displacedIndices.push(i);
+		}
+	}
+
+	if (displacedIndices.length === 0) {
+		const validation = validatePlacement(result);
+		return validation.valid ? result : null;
+	}
+
+	const excludeSet = new Set(displacedIndices);
+	const occupancy = buildOccupancyGrid(result, excludeSet);
+
+	const displacedSorted = [...displacedIndices].sort((a, b) => {
+		const areaA = panels[a].placement.colSpan * panels[a].placement.rowSpan;
+		const areaB = panels[b].placement.colSpan * panels[b].placement.rowSpan;
+		return areaB - areaA;
+	});
+
+	const preferCol = freedRect.col;
+	const preferRow = freedRect.row;
+
+	for (const idx of displacedSorted) {
+		const panel = result[idx];
+		const origColSpan = panel.placement.colSpan;
+		const origRowSpan = panel.placement.rowSpan;
+		const minCol = getMinColSpan(panel);
+		const minRow = getMinRowSpan(panel);
+
+		const sizes: { cs: number; rs: number }[] = [];
+		for (let cs = origColSpan; cs >= minCol; cs--) {
+			for (let rs = origRowSpan; rs >= minRow; rs--) {
+				sizes.push({ cs, rs });
+			}
+		}
+		sizes.sort((a, b) => b.cs * b.rs - (a.cs * a.rs));
+
+		let placed = false;
+		for (const { cs, rs } of sizes) {
+			const placement = findPlacement(occupancy, cs, rs, preferCol, preferRow);
+			if (placement) {
+				panel.placement = placement;
+				markOccupancy(occupancy, placement.col, placement.row, placement.colSpan, placement.rowSpan);
+				placed = true;
+				break;
+			}
+		}
+
+		if (!placed) return null;
+	}
+
+	const validation = validatePlacement(result);
+	return validation.valid ? result : null;
 }
