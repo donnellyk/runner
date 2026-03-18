@@ -117,8 +117,25 @@
 	});
 
 	$effect(() => {
-		if (!ready || !mapRef || !leafletRef) return;
-		mapRef.invalidateSize();
+		if (!ready || !mapRef || !mapEl) return;
+		const map = mapRef;
+		let raf1: number;
+		let raf2: number;
+		const ro = new ResizeObserver(() => {
+			map.invalidateSize();
+			// Double-rAF: guarantees a full layout+paint cycle has completed,
+			// so nested flex/grid dimensions have settled on mapEl.
+			cancelAnimationFrame(raf1);
+			raf1 = requestAnimationFrame(() => {
+				raf2 = requestAnimationFrame(() => map.invalidateSize());
+			});
+		});
+		ro.observe(mapEl);
+		return () => {
+			cancelAnimationFrame(raf1);
+			cancelAnimationFrame(raf2);
+			ro.disconnect();
+		};
 	});
 </script>
 
