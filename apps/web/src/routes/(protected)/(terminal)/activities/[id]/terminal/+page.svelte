@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto, replaceState, pushState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { browser } from '$app/environment';
 	import '$lib/terminal/terminal-theme.css';
 	import TerminalLayout from '$lib/terminal/TerminalLayout.svelte';
+	import LayoutPopup from '$lib/terminal/LayoutPopup.svelte';
 	import {
 		createTerminalState,
 		applySettings,
@@ -19,6 +21,8 @@
 	import {
 		decodeLayout,
 		decodeSettings,
+		encodeLayout,
+		encodeSettings,
 		buildTerminalUrl,
 		cloneLayout,
 		DEFAULT_LAYOUT,
@@ -117,12 +121,17 @@
 
 	applySettings(termState, initialSettings);
 
-	// Push layout to URL if not already present
-	if (!layoutParam && browser) {
-		const url = buildTerminalUrl(termState.layoutPanels, getSettings(termState));
-		if (url) {
-			// eslint-disable-next-line svelte/no-navigation-without-resolve -- updating query params on current page
-			replaceState(`${page.url.pathname}${url}`, {});
+	// Push layout to URL if not already present (must wait for router init)
+	if (!layoutParam) {
+		const initialUrl = buildTerminalUrl(termState.layoutPanels, getSettings(termState));
+		if (initialUrl) {
+			onMount(() => {
+				// Router isn't ready synchronously in onMount; defer to next tick
+				setTimeout(() => {
+					// eslint-disable-next-line svelte/no-navigation-without-resolve -- updating query params on current page
+					replaceState(`${page.url.pathname}${initialUrl}`, {});
+				}, 0);
+			});
 		}
 	}
 
@@ -144,6 +153,29 @@
 		}, 300);
 		return () => {
 			if (debounceTimer) clearTimeout(debounceTimer);
+		};
+	});
+
+	// Auto-save active layout on changes
+	let layoutEncoded = $derived(
+		encodeLayout(termState.layoutPanels) + '&' + encodeSettings(getSettings(termState)),
+	);
+	let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+	$effect(() => {
+		const encoded = layoutEncoded;
+		const activeId = termState.activeLayoutId;
+		if (!activeId) return;
+		if (autoSaveTimer) clearTimeout(autoSaveTimer);
+		autoSaveTimer = setTimeout(() => {
+			fetch(`/api/terminal-layouts/${activeId}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ encoded }),
+			}).then(() => refreshLayouts());
+		}, 1000);
+		return () => {
+			if (autoSaveTimer) clearTimeout(autoSaveTimer);
 		};
 	});
 
@@ -187,6 +219,8 @@
 			}));
 		}
 	}
+
+	let showLayoutPopup = $state(false);
 
 	const meshOrbs = [
 		{ color: '80, 250, 123', opacity: 0.26 },
@@ -243,6 +277,11 @@
 		<span class="ml-2 text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">
 			{new Date(a.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
 		</span>
+		<button
+			class="ml-auto text-[11px] px-2 py-0.5 rounded"
+			style="color: {showLayoutPopup ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}; border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
+			onclick={() => showLayoutPopup = !showLayoutPopup}
+		>Layouts</button>
 	</div>
 
 	<div class="flex-1" style="min-height: 0; position: relative; z-index: 1;">
@@ -256,9 +295,16 @@
 			segments={segmentList}
 			{paceZones}
 			{hrZones}
-			{savedLayouts}
-			onlayoutschange={refreshLayouts}
 			onlayoutcommit={pushLayoutToHistory}
 		/>
 	</div>
 </div>
+
+{#if showLayoutPopup}
+	<LayoutPopup
+		{termState}
+		{savedLayouts}
+		onlayoutschange={refreshLayouts}
+		onclose={() => showLayoutPopup = false}
+	/>
+{/if}

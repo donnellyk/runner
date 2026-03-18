@@ -30,7 +30,6 @@
 	import type { ActivityData } from './types';
 	import { createGridInteraction } from './grid-interaction.svelte';
 	import { removePanel } from './grid-validation';
-	import type { SavedLayout } from './layout-url';
 	import ResizeHandle from './ResizeHandle.svelte';
 	import GridOverlay from './GridOverlay.svelte';
 
@@ -44,8 +43,6 @@
 		segments: ActivitySegment[];
 		paceZones: ZoneDefinition[];
 		hrZones: ZoneDefinition[];
-		savedLayouts?: SavedLayout[];
-		onlayoutschange?: () => void;
 		onlayoutcommit?: () => void;
 	}
 
@@ -59,8 +56,6 @@
 		segments,
 		paceZones,
 		hrZones,
-		savedLayouts = [],
-		onlayoutschange,
 		onlayoutcommit,
 	}: Props = $props();
 
@@ -354,7 +349,5 @@
 		{notes}
 		{laps}
 		{crosshairValues}
-		{savedLayouts}
-		{onlayoutschange}
 	/>
 </div>
