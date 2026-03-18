@@ -22,7 +22,7 @@
 </script>
 
 <a
-    href={resolve(`/activities/${activityId}/terminal`)}
+    href={resolve(`/activities/${activityId}/terminal/layout`)}
     class="flex items-center rounded-lg px-4 py-3 no-underline transition-all hover:scale-[1.01]"
     style="
 		background: #0b0f1a;

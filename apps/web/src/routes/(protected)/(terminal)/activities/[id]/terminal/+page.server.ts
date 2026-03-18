@@ -1,24 +1,6 @@
-import { error } from '@sveltejs/kit';
-import { getActivity } from '$lib/server/queries/activities';
-import { requireParamId } from '$lib/server/validation';
-import { getDb, terminalLayouts } from '@web-runner/db';
-import { eq, asc } from 'drizzle-orm';
+import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params, locals }) => {
-	const userId = locals.user!.id;
-	const id = requireParamId(params.id);
-
-	const [result, layouts] = await Promise.all([
-		getActivity(id, userId),
-		getDb()
-			.select()
-			.from(terminalLayouts)
-			.where(eq(terminalLayouts.userId, userId))
-			.orderBy(asc(terminalLayouts.updatedAt)),
-	]);
-
-	if (!result) error(404, 'Activity not found');
-
-	return { ...result, layouts };
+export const load: PageServerLoad = async ({ params }) => {
+	redirect(301, `/activities/${params.id}/terminal/layout`);
 };

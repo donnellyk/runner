@@ -360,42 +360,9 @@ export function resetNextPanelId(startFrom: number): void {
 	_nextPanelId = startFrom;
 }
 
-// --- Build full URL ---
-
-function layoutsEqual(a: LayoutPanel[], b: LayoutPanel[]): boolean {
-	if (a.length !== b.length) return false;
-	for (let i = 0; i < a.length; i++) {
-		const pa = a[i],
-			pb = b[i];
-		if (pa.config.kind !== pb.config.kind) return false;
-		if (pa.config.dataSource !== pb.config.dataSource) return false;
-		if (pa.config.chartType !== pb.config.chartType) return false;
-		if (pa.config.specialType !== pb.config.specialType) return false;
-		if (pa.config.candlestickMode !== pb.config.candlestickMode) return false;
-		const pla = pa.placement,
-			plb = pb.placement;
-		if (
-			pla.col !== plb.col ||
-			pla.row !== plb.row ||
-			pla.colSpan !== plb.colSpan ||
-			pla.rowSpan !== plb.rowSpan
-		)
-			return false;
-	}
-	return true;
-}
-
-export function buildTerminalUrl(panels: LayoutPanel[], settings: TerminalSettings): string {
-	const parts: string[] = [];
-
-	if (!layoutsEqual(panels, DEFAULT_LAYOUT)) {
-		parts.push(`l=${encodeLayout(panels)}`);
-	}
-
+/** Build the path suffix for the layout route: `/<hash>?settings` */
+export function buildLayoutPath(panels: LayoutPanel[], settings: TerminalSettings): string {
+	const hash = encodeLayout(panels);
 	const settingsStr = encodeSettings(settings);
-	if (settingsStr) {
-		parts.push(settingsStr);
-	}
-
-	return parts.length > 0 ? `?${parts.join('&')}` : '';
+	return `/${hash}${settingsStr ? `?${settingsStr}` : ''}`;
 }

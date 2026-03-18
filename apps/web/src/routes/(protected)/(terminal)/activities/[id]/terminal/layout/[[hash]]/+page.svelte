@@ -3,7 +3,6 @@
 	import { goto, replaceState, pushState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { browser } from '$app/environment';
 	import '$lib/terminal/terminal-theme.css';
 	import TerminalLayout from '$lib/terminal/TerminalLayout.svelte';
 	import LayoutPopup from '$lib/terminal/LayoutPopup.svelte';
@@ -23,7 +22,7 @@
 		decodeSettings,
 		encodeLayout,
 		encodeSettings,
-		buildTerminalUrl,
+		buildLayoutPath,
 		cloneLayout,
 		DEFAULT_LAYOUT,
 		resetNextPanelId,
@@ -88,17 +87,20 @@
 		elevationLoss: s.elevationLoss,
 	})));
 
-	// Initialize layout from URL params, saved default, or hardcoded default
+	// Base path for this activity's layout URLs
+	const basePath = resolve(`/activities/${data.activity.id}/terminal/layout`);
+
+	// Initialize layout from path hash, saved default, or hardcoded default
 	const urlParams = new URLSearchParams(page.url.search);
-	const layoutParam = urlParams.get('l');
+	const hashParam = page.params.hash ?? null;
 
 	let initialLayout;
 	let initialActiveLayoutId: number | null = null;
 	let initialSettings;
 
-	if (layoutParam) {
-		// Priority 1: URL param is authoritative
-		initialLayout = decodeLayout(layoutParam).panels;
+	if (hashParam) {
+		// Priority 1: Hash in URL path is authoritative
+		initialLayout = decodeLayout(hashParam).panels;
 		initialSettings = decodeSettings(urlParams);
 	} else {
 		// Priority 2: User's saved default layout
@@ -121,26 +123,22 @@
 
 	applySettings(termState, initialSettings);
 
-	// Push layout to URL if not already present (must wait for router init)
-	if (!layoutParam) {
-		const initialUrl = buildTerminalUrl(termState.layoutPanels, getSettings(termState));
-		if (initialUrl) {
-			onMount(() => {
-				// Router isn't ready synchronously in onMount; defer to next tick
-				setTimeout(() => {
-					// eslint-disable-next-line svelte/no-navigation-without-resolve -- updating query params on current page
-					replaceState(`${page.url.pathname}${initialUrl}`, {});
-				}, 0);
-			});
-		}
+	// Push layout hash to URL if not already present (must wait for router init)
+	if (!hashParam) {
+		onMount(() => {
+			setTimeout(() => {
+				// eslint-disable-next-line svelte/no-navigation-without-resolve
+				replaceState(`${basePath}${buildLayoutPath(termState.layoutPanels, getSettings(termState))}`, {});
+			}, 0);
+		});
 	}
 
 	// URL sync: debounced replaceState for continuous changes
-	function currentUrlString() {
-		return buildTerminalUrl(termState.layoutPanels, getSettings(termState));
+	function currentUrl() {
+		return `${basePath}${buildLayoutPath(termState.layoutPanels, getSettings(termState))}`;
 	}
 
-	let urlString = $derived(currentUrlString());
+	let urlString = $derived(currentUrl());
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -149,7 +147,7 @@
 		if (debounceTimer) clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(() => {
 			// eslint-disable-next-line svelte/no-navigation-without-resolve
-			replaceState(`${page.url.pathname}${url}`, {});
+			replaceState(url, {});
 		}, 300);
 		return () => {
 			if (debounceTimer) clearTimeout(debounceTimer);
@@ -181,18 +179,17 @@
 
 	// Push discrete layout changes (resize, swap) to history for undo
 	function pushLayoutToHistory() {
-		const url = currentUrlString();
 		// eslint-disable-next-line svelte/no-navigation-without-resolve
-		pushState(`${page.url.pathname}${url}`, {});
+		pushState(currentUrl(), {});
 	}
 
 	// Re-sync layout from URL on browser back/forward
-	// SvelteKit's afterNavigate doesn't fire for shallow routing popstate,
-	// so we listen directly on the window popstate event.
 	function handlePopstate() {
+		const path = window.location.pathname;
+		const hashMatch = path.match(/\/layout\/([^/]+)$/);
+		const hash = hashMatch?.[1] ?? null;
 		const params = new URLSearchParams(window.location.search);
-		const l = params.get('l');
-		const { panels } = l ? decodeLayout(l) : { panels: cloneLayout(DEFAULT_LAYOUT) };
+		const { panels } = hash ? decodeLayout(hash) : { panels: cloneLayout(DEFAULT_LAYOUT) };
 		termState.layoutPanels = panels;
 		resetNextPanelId(panels.length + 1);
 		applySettings(termState, decodeSettings(params));
@@ -236,7 +233,6 @@
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
-			// Cancel active interactions first, only exit if nothing was active
 			if (termState.isResizing || termState.isDragging) {
 				e.preventDefault();
 				return;

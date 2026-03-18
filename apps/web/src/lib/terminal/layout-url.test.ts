@@ -4,7 +4,7 @@ import {
   decodeLayout,
   encodeSettings,
   decodeSettings,
-  buildTerminalUrl,
+  buildLayoutPath,
   DEFAULT_LAYOUT,
   DEFAULT_SETTINGS,
   type LayoutPanel,
@@ -85,6 +85,8 @@ describe('layout encoding', () => {
       { kind: 'chart', dataSource: 'pace', chartType: 'bar' },
       { kind: 'chart', dataSource: 'pace', chartType: 'candlestick', candlestickMode: 'splits' },
       { kind: 'chart', dataSource: 'pace', chartType: 'candlestick', candlestickMode: 'laps' },
+      { kind: 'chart', dataSource: 'cadence', chartType: 'bar', barMode: 'splits' },
+      { kind: 'chart', dataSource: 'cadence', chartType: 'bar', barMode: 'laps' },
     ];
     for (const config of chartConfigs) {
       const panel: LayoutPanel[] = [
@@ -154,33 +156,34 @@ describe('settings encoding', () => {
   });
 });
 
-describe('buildTerminalUrl', () => {
-  it('returns empty string for default layout and settings', () => {
-    const result = buildTerminalUrl(DEFAULT_LAYOUT, DEFAULT_SETTINGS);
-    expect(result).toBe('');
+describe('buildLayoutPath', () => {
+  it('returns path with hash for default layout and settings', () => {
+    const result = buildLayoutPath(DEFAULT_LAYOUT, DEFAULT_SETTINGS);
+    const hash = encodeLayout(DEFAULT_LAYOUT);
+    expect(result).toBe(`/${hash}`);
   });
 
-  it('includes l param for custom layout', () => {
+  it('includes hash for custom layout', () => {
     const custom: LayoutPanel[] = [
       { id: 1, config: { kind: 'special', specialType: 'map' }, placement: { col: 0, row: 0, colSpan: 12, rowSpan: 6 } },
     ];
-    const result = buildTerminalUrl(custom, DEFAULT_SETTINGS);
-    expect(result).toMatch(/^\?l=.+/);
-    expect(result).not.toContain('z=');
+    const result = buildLayoutPath(custom, DEFAULT_SETTINGS);
+    expect(result).toMatch(/^\/[A-Za-z0-9_-]+$/);
+    expect(result).not.toContain('?');
   });
 
-  it('includes settings params without l for default layout', () => {
+  it('appends settings as query params', () => {
     const settings: TerminalSettings = { ...DEFAULT_SETTINGS, showZones: true };
-    const result = buildTerminalUrl(DEFAULT_LAYOUT, settings);
-    expect(result).toBe('?z=1');
+    const result = buildLayoutPath(DEFAULT_LAYOUT, settings);
+    expect(result).toContain('?z=1');
   });
 
-  it('includes both l and settings for custom layout and settings', () => {
+  it('includes both hash and settings', () => {
     const custom: LayoutPanel[] = [
       { id: 1, config: { kind: 'special', specialType: 'map' }, placement: { col: 0, row: 0, colSpan: 12, rowSpan: 6 } },
     ];
     const settings: TerminalSettings = { ...DEFAULT_SETTINGS, smoothingWindow: 4 };
-    const result = buildTerminalUrl(custom, settings);
-    expect(result).toMatch(/^\?l=.+&sm=4/);
+    const result = buildLayoutPath(custom, settings);
+    expect(result).toMatch(/^\/[A-Za-z0-9_-]+\?.*sm=4/);
   });
 });
