@@ -6,6 +6,8 @@
 	import '$lib/terminal/terminal-theme.css';
 	import TerminalLayout from '$lib/terminal/TerminalLayout.svelte';
 	import LayoutPopup from '$lib/terminal/LayoutPopup.svelte';
+	import DisplayPopup from '$lib/terminal/DisplayPopup.svelte';
+	import ProcessingPopup from '$lib/terminal/ProcessingPopup.svelte';
 	import {
 		createTerminalState,
 		applySettings,
@@ -223,7 +225,18 @@
 		}
 	}
 
-	let showLayoutPopup = $state(false);
+	type PopupType = 'display' | 'processing' | 'layout';
+	let activePopup = $state<PopupType | null>(null);
+	let popupAnchorRect = $state<DOMRect | null>(null);
+
+	function togglePopup(which: PopupType, e: MouseEvent) {
+		if (activePopup === which) {
+			activePopup = null;
+		} else {
+			activePopup = which;
+			popupAnchorRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		}
+	}
 
 	const meshOrbs = [
 		{ color: '80, 250, 123', opacity: 0.26 },
@@ -279,11 +292,35 @@
 		<span class="ml-2 text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">
 			{new Date(a.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
 		</span>
-		<button
-			class="ml-auto text-[11px] px-2 py-0.5 rounded"
-			style="color: {showLayoutPopup ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}; border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
-			onclick={() => showLayoutPopup = !showLayoutPopup}
-		>Layouts</button>
+		<div class="ml-4 flex" style="border: 1px solid var(--term-border); border-radius: 4px; overflow: hidden;">
+			<button
+				class="text-[10px] px-2 py-0.5"
+				style="font-family: 'Geist Mono', monospace; {termState.xAxis === 'distance' ? 'background: var(--term-surface-hover); color: var(--term-text-bright);' : 'color: var(--term-text-muted);'}"
+				onclick={() => termState.xAxis = 'distance'}
+			>Dist</button>
+			<button
+				class="text-[10px] px-2 py-0.5"
+				style="font-family: 'Geist Mono', monospace; {termState.xAxis === 'time' ? 'background: var(--term-surface-hover); color: var(--term-text-bright);' : 'color: var(--term-text-muted);'}"
+				onclick={() => termState.xAxis = 'time'}
+			>Time</button>
+		</div>
+		<div class="ml-auto flex gap-1">
+			<button
+				class="text-[11px] px-2 py-0.5 rounded"
+				style="color: {activePopup === 'display' ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}; border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
+				onclick={(e) => togglePopup('display', e)}
+			>Display</button>
+			<button
+				class="text-[11px] px-2 py-0.5 rounded"
+				style="color: {activePopup === 'processing' ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}; border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
+				onclick={(e) => togglePopup('processing', e)}
+			>Processing</button>
+			<button
+				class="text-[11px] px-2 py-0.5 rounded"
+				style="color: {activePopup === 'layout' ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}; border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
+				onclick={(e) => togglePopup('layout', e)}
+			>Layouts</button>
+		</div>
 	</div>
 
 	<div class="flex-1" style="min-height: 0; position: relative; z-index: 1;">
@@ -302,11 +339,23 @@
 	</div>
 </div>
 
-{#if showLayoutPopup}
+{#if activePopup === 'layout'}
 	<LayoutPopup
 		{termState}
 		{savedLayouts}
 		onlayoutschange={refreshLayouts}
-		onclose={() => showLayoutPopup = false}
+		onclose={() => activePopup = null}
+	/>
+{:else if activePopup === 'display' && popupAnchorRect}
+	<DisplayPopup
+		{termState}
+		anchorRect={popupAnchorRect}
+		onclose={() => activePopup = null}
+	/>
+{:else if activePopup === 'processing' && popupAnchorRect}
+	<ProcessingPopup
+		{termState}
+		anchorRect={popupAnchorRect}
+		onclose={() => activePopup = null}
 	/>
 {/if}

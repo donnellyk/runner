@@ -247,7 +247,7 @@
 
 <svelte:window onkeydown={interaction.handleKeydown} />
 
-<div class="flex h-full w-full">
+<div class="flex h-full w-full gap-0.5 p-0.5">
 	<div
 		bind:this={gridContainer}
 		class="flex-1 grid"
