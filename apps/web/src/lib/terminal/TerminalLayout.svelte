@@ -23,6 +23,7 @@
 		getUnitForSource,
 		isInvertedSource,
 		getZonesForSource,
+		getPanelLabel,
 		DATA_SOURCE_LABELS,
 		DATA_SOURCE_COLORS,
 	} from './terminal-state.svelte';
@@ -33,6 +34,7 @@
 	import { removePanel } from './grid-validation';
 	import ResizeHandle from './ResizeHandle.svelte';
 	import GridOverlay from './GridOverlay.svelte';
+	import PanelConfigPopup from './PanelConfigPopup.svelte';
 
 	interface Props {
 		activity: ActivityData;
@@ -65,6 +67,26 @@
 	const interaction = createGridInteraction(termState, () => gridContainer, onlayoutcommit);
 
 	let snapPanel = $derived(interaction.previewPlacement);
+
+	// Config popup state
+	let configPanelIdx = $state<number | null>(null);
+	let configAnchorRect = $state<DOMRect | null>(null);
+
+	// Close config popup when drag/resize starts
+	$effect(() => {
+		if (interaction.isActive) configPanelIdx = null;
+	});
+
+	function openConfigPopup(idx: number, rect: DOMRect) {
+		configPanelIdx = configPanelIdx === idx ? null : idx;
+		configAnchorRect = rect;
+	}
+
+	let processingDefaults = $derived({
+		smoothingWindow: termState.params.smoothingWindow,
+		showPauseGaps: termState.showPauseGaps,
+		showZones: termState.showZones,
+	});
 
 	let chartIndices = $derived.by(() => {
 		const velocity = streams.velocity;
@@ -257,13 +279,9 @@
 				/>
 				<TerminalPanel
 					config={panel.config}
-					{streams}
-					hasLaps={laps.length > 1}
-					onchange={(c) => updatePanel(panel.id, c)}
-					canRemove={termState.layoutPanels.length > 1}
-					onremove={() => removePanelAtIndex(idx)}
 					isDragSource={interaction.dragPanelIndex === idx}
 					ondragstart={(e) => interaction.startDrag(idx, e.pointerId, e)}
+					onconfigopen={(rect) => openConfigPopup(idx, rect)}
 				>
 					{#if panel.config.kind === 'special'}
 						{#if panel.config.specialType === 'map' && routeCoords}
@@ -324,7 +342,7 @@
 									color={panel.config.colorOverride ?? DATA_SOURCE_COLORS[panel.config.dataSource]}
 									unit={getUnitForSource(panel.config.dataSource, units)}
 									formatValue={panel.config.dataSource === 'pace' ? (v: number) => formatPaceDisplay(v, units) : undefined}
-									smoothingWindow={termState.params.smoothingWindow}
+									smoothingWindow={panel.config.smoothingOverride ?? termState.params.smoothingWindow}
 									crosshairIndex={termState.crosshairIndex}
 									crosshairLocked={termState.crosshairLocked}
 									{highlightRange}
@@ -334,7 +352,8 @@
 									oncrosshairleave={onCrosshairLeave}
 								/>
 							{:else}
-								{@const zoneInfo = termState.showZones ? getZonesForSource(panel.config.dataSource, paceZones, hrZones, units) : null}
+								{@const panelShowZones = panel.config.zonesOverride ?? termState.showZones}
+								{@const zoneInfo = panelShowZones ? getZonesForSource(panel.config.dataSource, paceZones, hrZones, units) : null}
 								<TerminalLineChart
 									data={streamData}
 									distanceData={sampledDist ?? undefined}
@@ -346,12 +365,12 @@
 									unit={getUnitForSource(panel.config.dataSource, units)}
 									formatValue={panel.config.dataSource === 'pace' ? (v: number) => formatPaceDisplay(v, units) : undefined}
 									pausedMask={sampledPausedMask ?? undefined}
-									showPauseGaps={termState.showPauseGaps}
+									showPauseGaps={panel.config.pauseGapsOverride ?? termState.showPauseGaps}
 									invertY={isInvertedSource(panel.config.dataSource)}
-									smoothingWindow={termState.params.smoothingWindow}
+									smoothingWindow={panel.config.smoothingOverride ?? termState.params.smoothingWindow}
 									zones={zoneInfo?.zones}
 									zoneMetric={zoneInfo?.metric}
-									showZones={termState.showZones}
+									showZones={panelShowZones}
 									filled={panel.config.chartType === 'area'}
 									crosshairIndex={termState.crosshairIndex}
 									crosshairLocked={termState.crosshairLocked}
@@ -372,11 +391,26 @@
 		{/each}
 	</div>
 
+	{#if configPanelIdx !== null && configAnchorRect && !interaction.isActive}
+		{@const cfgPanel = termState.layoutPanels[configPanelIdx]}
+		{#if cfgPanel}
+			<PanelConfigPopup
+				config={cfgPanel.config}
+				{streams}
+				hasLaps={laps.length > 1}
+				canRemove={termState.layoutPanels.length > 1}
+				defaults={processingDefaults}
+				anchorRect={configAnchorRect}
+				onchange={(c) => { updatePanel(cfgPanel.id, c); }}
+				onremove={() => { removePanelAtIndex(configPanelIdx!); configPanelIdx = null; }}
+				onclose={() => configPanelIdx = null}
+			/>
+		{/if}
+	{/if}
+
 	{#if interaction.dragGhostPos && interaction.dragPanelIndex !== null}
 		{@const draggedPanel = termState.layoutPanels[interaction.dragPanelIndex]}
-		{@const ghostLabel = draggedPanel?.config.kind === 'special'
-			? (draggedPanel.config.specialType ?? 'Panel')
-			: DATA_SOURCE_LABELS[draggedPanel?.config.dataSource ?? 'pace'] ?? 'Panel'}
+		{@const ghostLabel = draggedPanel ? getPanelLabel(draggedPanel.config) : 'Panel'}
 		<div
 			class="fixed pointer-events-none px-2 py-1 rounded text-[11px]"
 			style="

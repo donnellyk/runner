@@ -20,6 +20,9 @@ export interface PanelConfig {
   candlestickMode?: "splits" | "laps";
   barMode?: "stream" | "splits" | "laps";
   colorOverride?: string;
+  smoothingOverride?: number;
+  pauseGapsOverride?: boolean;
+  zonesOverride?: boolean;
 }
 
 export const COLOR_PALETTE: { label: string; value: string }[] = [
@@ -109,6 +112,23 @@ export const DATA_SOURCE_LABELS: Record<DataSource, string> = {
   power: "Power",
   grade: "Grade",
 };
+
+export const SPECIAL_PANEL_LABELS: Record<SpecialPanel, string> = {
+  map: "Map",
+  notes: "Notes",
+  heatmap: "Heatmap",
+  laps: "Laps",
+};
+
+export function getPanelLabel(config: PanelConfig): string {
+  if (config.kind === "special" && config.specialType) {
+    return SPECIAL_PANEL_LABELS[config.specialType];
+  }
+  if (config.kind === "chart" && config.dataSource) {
+    return DATA_SOURCE_LABELS[config.dataSource];
+  }
+  return "Panel";
+}
 
 export function createTerminalState(initialLayout?: LayoutPanel[]) {
   let crosshairIndex = $state<number | null>(null);
