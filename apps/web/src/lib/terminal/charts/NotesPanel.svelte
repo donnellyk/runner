@@ -23,7 +23,7 @@
 
 <div class="relative w-full h-full flex flex-col" style="min-height: 0;">
 	<div class="flex items-baseline justify-end px-2 py-1 shrink-0">
-		<span class="text-[12px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">
+		<span class="text-[13px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">
 			{notes.length}
 		</span>
 	</div>
@@ -31,7 +31,7 @@
 	<div class="flex-1 overflow-auto px-2 pb-1" style="min-height: 0;">
 		{#if notes.length === 0}
 			<div class="flex items-center justify-center h-full">
-				<span class="text-[12px]" style="color: var(--term-text-muted);">No notes</span>
+				<span class="text-[13px]" style="color: var(--term-text-muted);">No notes</span>
 			</div>
 		{:else}
 			{#each notes as note (note.id)}
@@ -40,13 +40,13 @@
 					style="background: {highlightedNoteId === note.id ? 'var(--term-surface-hover)' : 'transparent'};"
 					onclick={() => toggleNote(note.id)}
 				>
-					<div class="text-[10px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums;">
+					<div class="text-[13px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums;">
 						{formatDistance(note.distanceStart, units)}
 						{#if note.distanceEnd}
 							– {formatDistance(note.distanceEnd, units)}
 						{/if}
 					</div>
-					<div class="text-[12px] mt-0.5" style="color: var(--term-text);">{note.content}</div>
+					<div class="text-[13px] mt-0.5" style="color: var(--term-text);">{note.content}</div>
 				</button>
 			{/each}
 		{/if}

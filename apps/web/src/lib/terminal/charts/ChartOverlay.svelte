@@ -21,7 +21,7 @@
 		border-radius: 4px;
 		padding: 6px 10px;
 		font-family: 'Geist Mono', monospace;
-		font-size: 10px;
+		font-size: 11px;
 		font-variant-numeric: tabular-nums;
 		z-index: 10;
 		white-space: nowrap;

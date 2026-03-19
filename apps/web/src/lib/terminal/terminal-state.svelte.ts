@@ -153,6 +153,7 @@ export function createTerminalState(initialLayout?: LayoutPanel[]) {
   let isResizing = $state(false);
   let isDragging = $state(false);
   let activeLayoutId = $state<number | null>(null);
+  let uiScale = $state(1);
 
   return {
     get crosshairIndex() {
@@ -250,6 +251,12 @@ export function createTerminalState(initialLayout?: LayoutPanel[]) {
     },
     set activeLayoutId(v) {
       activeLayoutId = v;
+    },
+    get uiScale() {
+      return uiScale;
+    },
+    set uiScale(v) {
+      uiScale = v;
     },
     resetLayout() {
       layoutPanels = cloneLayout(DEFAULT_LAYOUT);

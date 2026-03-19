@@ -263,7 +263,7 @@
 
 <svelte:window onkeydown={handleKeydown} onpopstate={handlePopstate} />
 
-<div data-terminal class="fixed inset-0 flex flex-col" style="background: var(--term-mesh);">
+<div data-terminal class="fixed inset-0 flex flex-col" style="background: var(--term-mesh); zoom: {termState.uiScale};">
 	<div class="fixed inset-0 pointer-events-none" style="z-index: 0; overflow: hidden;">
 		{#each meshOrbs as orb, i (i)}
 			<div
@@ -282,41 +282,41 @@
 			></div>
 		{/each}
 	</div>
-	<div class="flex items-center h-8 px-3 shrink-0" style="border-bottom: 1px solid var(--term-border); position: relative; z-index: 1;">
+	<div class="flex items-center h-9 px-3 shrink-0" style="border-bottom: 1px solid var(--term-border); position: relative; z-index: 1;">
 		<a
 			href={resolve(`/activities/${a.id}`)}
-			class="text-[11px] px-2 py-0.5 rounded no-underline"
+			class="text-[12px] px-2 py-0.5 rounded no-underline"
 			style="color: var(--term-text-muted); border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
 		>ESC Exit</a>
-		<span class="ml-3 text-[12px] font-medium truncate" style="color: var(--term-text); font-family: 'Geist Mono', monospace;">{a.name}</span>
-		<span class="ml-2 text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">
+		<span class="ml-3 text-[13px] font-medium truncate" style="color: var(--term-text); font-family: 'Geist Mono', monospace;">{a.name}</span>
+		<span class="ml-2 text-[12px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">
 			{new Date(a.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
 		</span>
-		<div class="ml-4 flex" style="border: 1px solid var(--term-border); border-radius: 4px; overflow: hidden;">
-			<button
-				class="text-[10px] px-2 py-0.5"
-				style="font-family: 'Geist Mono', monospace; {termState.xAxis === 'distance' ? 'background: var(--term-surface-hover); color: var(--term-text-bright);' : 'color: var(--term-text-muted);'}"
-				onclick={() => termState.xAxis = 'distance'}
-			>Dist</button>
-			<button
-				class="text-[10px] px-2 py-0.5"
-				style="font-family: 'Geist Mono', monospace; {termState.xAxis === 'time' ? 'background: var(--term-surface-hover); color: var(--term-text-bright);' : 'color: var(--term-text-muted);'}"
-				onclick={() => termState.xAxis = 'time'}
-			>Time</button>
-		</div>
 		<div class="ml-auto flex gap-1">
+			<div class="flex" style="border: 1px solid var(--term-border); border-radius: 4px; overflow: hidden;">
+				<button
+					class="text-[11px] px-2 py-0.5"
+					style="font-family: 'Geist Mono', monospace; {termState.xAxis === 'distance' ? 'background: var(--term-surface-hover); color: var(--term-text-bright);' : 'color: var(--term-text-muted);'}"
+					onclick={() => termState.xAxis = 'distance'}
+				>Dist</button>
+				<button
+					class="text-[11px] px-2 py-0.5"
+					style="font-family: 'Geist Mono', monospace; {termState.xAxis === 'time' ? 'background: var(--term-surface-hover); color: var(--term-text-bright);' : 'color: var(--term-text-muted);'}"
+					onclick={() => termState.xAxis = 'time'}
+				>Time</button>
+			</div>
 			<button
-				class="text-[11px] px-2 py-0.5 rounded"
+				class="text-[12px] px-2 py-0.5 rounded"
 				style="color: {activePopup === 'display' ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}; border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
 				onclick={(e) => togglePopup('display', e)}
 			>Display</button>
 			<button
-				class="text-[11px] px-2 py-0.5 rounded"
+				class="text-[12px] px-2 py-0.5 rounded"
 				style="color: {activePopup === 'processing' ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}; border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
 				onclick={(e) => togglePopup('processing', e)}
 			>Processing</button>
 			<button
-				class="text-[11px] px-2 py-0.5 rounded"
+				class="text-[12px] px-2 py-0.5 rounded"
 				style="color: {activePopup === 'layout' ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}; border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
 				onclick={(e) => togglePopup('layout', e)}
 			>Layouts</button>

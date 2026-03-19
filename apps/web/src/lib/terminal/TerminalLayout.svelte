@@ -308,7 +308,7 @@
 							<LapComparison {laps} {units} />
 						{:else}
 							<div class="flex items-center justify-center h-full">
-								<span class="text-[12px]" style="color: var(--term-text-muted);">No data</span>
+								<span class="text-[13px]" style="color: var(--term-text-muted);">No data</span>
 							</div>
 						{/if}
 					{:else if panel.config.dataSource}
@@ -382,7 +382,7 @@
 							{/if}
 						{:else}
 							<div class="flex items-center justify-center h-full">
-								<span class="text-[12px]" style="color: var(--term-text-muted);">No data</span>
+								<span class="text-[13px]" style="color: var(--term-text-muted);">No data</span>
 							</div>
 						{/if}
 					{/if}
@@ -412,7 +412,7 @@
 		{@const draggedPanel = termState.layoutPanels[interaction.dragPanelIndex]}
 		{@const ghostLabel = draggedPanel ? getPanelLabel(draggedPanel.config) : 'Panel'}
 		<div
-			class="fixed pointer-events-none px-2 py-1 rounded text-[11px]"
+			class="fixed pointer-events-none px-2 py-1 rounded text-[12px]"
 			style="
 				left: {interaction.dragGhostPos.x + 12}px;
 				top: {interaction.dragGhostPos.y + 12}px;

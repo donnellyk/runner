@@ -77,13 +77,13 @@
 
 <div class="relative w-full h-full flex flex-col overflow-auto" style="min-height: 0;">
 	<div class="flex items-baseline justify-end px-2 py-1 shrink-0">
-		<span class="text-[12px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">
+		<span class="text-[13px]" style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;">
 			{segments.length} splits
 		</span>
 	</div>
 
 	<div class="flex-1 overflow-auto px-1 pb-1" style="min-height: 0;">
-		<table class="w-full border-collapse" style="font-family: 'Geist Mono', monospace; font-size: 10px;">
+		<table class="w-full border-collapse" style="font-family: 'Geist Mono', monospace; font-size: 11px;">
 			<thead>
 				<tr>
 					<th class="px-1 py-0.5 text-left" style="color: var(--term-text-muted); font-weight: normal;">#</th>

@@ -10,7 +10,7 @@
 
 	let { termState, anchorRect, onclose }: Props = $props();
 
-	const POPUP_W = 200;
+	const POPUP_W = 220;
 	let popupTop = $state(0);
 	let popupLeft = $state(0);
 
@@ -79,7 +79,7 @@
 	}
 
 	.toggle-label {
-		font-size: 10px;
+		font-size: 11px;
 		color: var(--term-text-muted);
 	}
 </style>

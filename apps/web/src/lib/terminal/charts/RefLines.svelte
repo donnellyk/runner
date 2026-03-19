@@ -77,7 +77,7 @@
 				y={ry + 3}
 				text-anchor={isHovered ? 'middle' : 'start'}
 				fill="var(--term-text-bright)"
-				font-size="10"
+				font-size="11"
 				font-weight={isHovered ? 'bold' : '500'}
 				font-family="'Geist Mono', monospace"
 			>{isHovered ? '×' : ref.label}</text>

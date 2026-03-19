@@ -10,7 +10,7 @@
 
 	let { termState, anchorRect, onclose }: Props = $props();
 
-	const POPUP_W = 260;
+	const POPUP_W = 290;
 	let popupTop = $state(0);
 	let popupLeft = $state(0);
 
@@ -78,6 +78,17 @@
 		/>
 		<span class="slider-val">p{termState.wickPercentile}</span>
 	</div>
+
+	<div style="border-top: 1px solid var(--term-border); padding-top: 8px;">
+		<div class="slider-row">
+			<span class="slider-label">UI Scale</span>
+			<input type="range" class="slider" min="0.6" max="1.5" step="0.05"
+				value={termState.uiScale}
+				oninput={(e) => termState.uiScale = parseFloat((e.target as HTMLInputElement).value)}
+			/>
+			<span class="slider-val">{termState.uiScale.toFixed(2)}</span>
+		</div>
+	</div>
 </div>
 
 <style>
@@ -102,7 +113,7 @@
 	}
 
 	.slider-label {
-		font-size: 10px;
+		font-size: 11px;
 		color: var(--term-text-muted);
 		flex-shrink: 0;
 		width: 72px;
@@ -116,7 +127,7 @@
 	}
 
 	.slider-val {
-		font-size: 10px;
+		font-size: 11px;
 		width: 36px;
 		text-align: right;
 		color: var(--term-text);

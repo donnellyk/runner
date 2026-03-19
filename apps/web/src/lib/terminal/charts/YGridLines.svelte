@@ -23,7 +23,7 @@
 		y={lbl.y + 3}
 		text-anchor="start"
 		fill="var(--term-text-muted)"
-		font-size="10"
+		font-size="11"
 		font-family="'Geist Mono', monospace"
 	>{formatLabel(lbl.value)}</text>
 {/each}

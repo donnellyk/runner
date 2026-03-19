@@ -162,7 +162,7 @@
 		class="fixed flex flex-col gap-3 p-3"
 		style="
 			top: 34px; right: 8px;
-			width: 320px;
+			width: 350px;
 			max-height: calc(100vh - 40px);
 			overflow-y: auto;
 			background: var(--term-bg);
@@ -186,17 +186,17 @@
 					type="text"
 					bind:value={newName}
 					placeholder="Layout name"
-					class="flex-1 text-[11px] px-2 py-1 rounded bg-transparent outline-none"
+					class="flex-1 text-[12px] px-2 py-1 rounded bg-transparent outline-none"
 					style="color: var(--term-text); border: 1px solid var(--term-border); min-width: 0;"
 				/>
 				<button
 					type="submit"
-					class="text-[10px] px-1.5 py-1 rounded"
+					class="text-[11px] px-1.5 py-1 rounded"
 					style="color: var(--term-text-bright); border: 1px solid var(--term-border);"
 				>Create</button>
 				<button
 					type="button"
-					class="text-[10px] px-1 py-1 rounded"
+					class="text-[11px] px-1 py-1 rounded"
 					style="color: var(--term-text-muted);"
 					onclick={() => { showNewInput = false; newName = ''; }}
 				>x</button>
@@ -204,12 +204,12 @@
 		{:else}
 			<div class="flex gap-1">
 				<button
-					class="flex-1 text-[11px] px-2 py-1 rounded"
+					class="flex-1 text-[12px] px-2 py-1 rounded"
 					style="color: var(--term-text-muted); border: 1px solid var(--term-border);"
 					onclick={() => { showNewInput = true; }}
 				>New Layout</button>
 				<button
-					class="flex-1 text-[11px] px-2 py-1 rounded"
+					class="flex-1 text-[12px] px-2 py-1 rounded"
 					style="color: var(--term-text-muted); border: 1px solid var(--term-border);"
 					disabled={termState.layoutPanels.length >= MAX_PANELS}
 					onclick={addPanel}
@@ -261,7 +261,7 @@
 										type="text"
 										bind:value={renamingValue}
 										autofocus
-										class="text-[11px] w-full px-1 py-0 rounded bg-transparent outline-none"
+										class="text-[12px] w-full px-1 py-0 rounded bg-transparent outline-none"
 										style="color: var(--term-text-bright); border: 1px solid var(--term-border); min-width: 0;"
 										onclick={(e) => e.stopPropagation()}
 										onkeydown={(e) => { if (e.key === 'Escape') { renamingId = null; } }}
@@ -269,34 +269,34 @@
 								</form>
 								<div class="flex items-center gap-1">
 									<button
-										class="text-[10px] cursor-pointer px-1 py-0.5 rounded"
+										class="text-[11px] cursor-pointer px-1 py-0.5 rounded"
 										style="color: var(--term-text-bright); border: 1px solid var(--term-border);"
 										onclick={() => renameLayout(layout)}
 									>Save</button>
 									<button
-										class="text-[10px] cursor-pointer px-1 py-0.5 rounded"
+										class="text-[11px] cursor-pointer px-1 py-0.5 rounded"
 										style="color: var(--term-text-muted); border: 1px solid var(--term-border);"
 										onclick={() => { renamingId = null; }}
 									>Cancel</button>
 								</div>
 							{:else}
 								<span
-									class="text-[11px] truncate"
+									class="text-[12px] truncate"
 									style="color: {isActive ? 'var(--term-text-bright)' : 'var(--term-text)'};"
 								>{layout.name}</span>
 								<div class="flex items-center gap-1">
 									<button
-										class="text-[10px] cursor-pointer px-1 py-0.5 rounded"
+										class="text-[11px] cursor-pointer px-1 py-0.5 rounded"
 										style="color: var(--term-text-muted); border: 1px solid var(--term-border);"
 										onclick={() => { renamingId = layout.id; renamingValue = layout.name; }}
 									>Rename</button>
 									<button
-										class="text-[10px] cursor-pointer px-1 py-0.5 rounded"
+										class="text-[11px] cursor-pointer px-1 py-0.5 rounded"
 										style="color: var(--term-text-muted); border: 1px solid var(--term-border);"
 										onclick={() => copyLayout(layout)}
 									>Copy</button>
 									<button
-										class="text-[10px] cursor-pointer px-1 py-0.5 rounded"
+										class="text-[11px] cursor-pointer px-1 py-0.5 rounded"
 										style="color: {confirmDeleteId === layout.id ? 'var(--term-hr)' : 'var(--term-text-muted)'}; border: 1px solid {confirmDeleteId === layout.id ? 'var(--term-hr)' : 'var(--term-border)'};"
 										onclick={() => deleteLayout(layout)}
 										onmouseleave={() => { if (confirmDeleteId === layout.id) confirmDeleteId = null; }}
@@ -307,7 +307,7 @@
 
 						<!-- Star (right side) -->
 						<button
-							class="text-[18px] cursor-pointer leading-none shrink-0 self-center"
+							class="text-[20px] cursor-pointer leading-none shrink-0 self-center"
 							style="color: {layout.isDefault ? 'var(--term-pace)' : 'var(--term-text-muted)'};"
 							title={layout.isDefault ? 'Unset default' : 'Set as default'}
 							onclick={() => toggleDefault(layout)}

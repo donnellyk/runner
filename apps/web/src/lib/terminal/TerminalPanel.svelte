@@ -46,12 +46,12 @@
 		onpointerdown={handleHeaderPointerDown}
 	>
 		<span
-			class="text-[10px] uppercase tracking-wide flex-1 truncate"
+			class="text-[11px] uppercase tracking-wide flex-1 truncate"
 			style="color: {titleColor}; font-family: 'Geist Mono', monospace;"
 		>{getPanelLabel(config)}</span>
 		<button
 			bind:this={menuBtn}
-			class="text-[11px] cursor-pointer px-1 rounded leading-none"
+			class="text-[12px] cursor-pointer px-1 rounded leading-none"
 			style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;"
 			title="Panel settings"
 			onclick={openConfig}

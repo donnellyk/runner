@@ -30,7 +30,7 @@
 
 	let availableSources = $derived(getAvailableDataSources(streams));
 
-	const POPUP_W = 220;
+	const POPUP_W = 240;
 	let popupTop = $state(0);
 	let popupLeft = $state(0);
 
@@ -302,7 +302,7 @@
 	}
 
 	.section-label {
-		font-size: 9px;
+		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: var(--term-text-muted);
@@ -311,7 +311,7 @@
 
 	.source-select {
 		width: 100%;
-		font-size: 11px;
+		font-size: 12px;
 		padding: 3px 4px;
 		border-radius: 3px;
 		cursor: pointer;
@@ -323,7 +323,7 @@
 	}
 
 	.opt-btn {
-		font-size: 10px;
+		font-size: 11px;
 		padding: 2px 6px;
 		border-radius: 3px;
 		cursor: pointer;
@@ -331,8 +331,8 @@
 	}
 
 	.color-swatch {
-		width: 18px;
-		height: 18px;
+		width: 20px;
+		height: 20px;
 		border-radius: 3px;
 		cursor: pointer;
 		border: 2px solid transparent;
@@ -350,7 +350,7 @@
 	}
 
 	.proc-label {
-		font-size: 10px;
+		font-size: 11px;
 		flex: 1;
 	}
 
@@ -362,7 +362,7 @@
 	}
 
 	.proc-val {
-		font-size: 10px;
+		font-size: 11px;
 		width: 16px;
 		text-align: right;
 		color: var(--term-text);

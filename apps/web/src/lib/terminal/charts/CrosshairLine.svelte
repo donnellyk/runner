@@ -25,6 +25,18 @@
 		badgeColor = '',
 	}: Props = $props();
 
+	const PAD_X = 4;
+	const PAD_Y = 3;
+
+	let textEl = $state<SVGTextElement | null>(null);
+	let textW = $state(0);
+
+	$effect(() => {
+		void badgeLabel;
+		if (textEl) textW = textEl.getComputedTextLength();
+	});
+
+	let labelW = $derived(textW + PAD_X * 2);
 	let dashStyle = $derived(locked ? undefined : '3,2');
 </script>
 
@@ -51,22 +63,22 @@
 		/>
 
 		{#if badgeLabel != null}
-			{@const labelW = badgeLabel.length * 6 + 4}
 			<rect
 				x={padLeft + chartW + 2}
-				y={y - 7}
+				y={y - PAD_Y - 7}
 				width={labelW}
-				height={14}
+				height={14 + PAD_Y * 2}
 				rx="2"
 				fill={badgeColor}
 				fill-opacity="0.85"
 			/>
 			<text
-				x={padLeft + chartW + 4}
+				bind:this={textEl}
+				x={padLeft + chartW + 2 + PAD_X}
 				y={y + 3}
 				text-anchor="start"
 				fill="var(--term-text-bright)"
-				font-size="10"
+				font-size="11"
 				font-weight="500"
 				font-family="'Geist Mono', monospace"
 			>{badgeLabel}</text>

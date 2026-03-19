@@ -138,7 +138,7 @@
 
 <style>
 	.sidebar-collapsed {
-		width: 24px;
+		width: 26px;
 		flex-shrink: 0;
 		display: flex;
 		align-items: center;
@@ -155,13 +155,13 @@
 	}
 
 	.collapse-icon {
-		font-size: 14px;
+		font-size: 15px;
 		color: var(--term-text-muted);
 		font-family: 'Geist Mono', monospace;
 	}
 
 	.sidebar {
-		width: 280px;
+		width: 310px;
 		flex-shrink: 0;
 		overflow-y: auto;
 		background: var(--term-surface);
@@ -178,7 +178,7 @@
 	}
 
 	.collapse-btn {
-		font-size: 14px;
+		font-size: 15px;
 		color: var(--term-text-muted);
 		cursor: pointer;
 		padding: 0 4px;
@@ -208,20 +208,20 @@
 	}
 
 	.stat-label {
-		font-size: 10px;
+		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: var(--term-text-muted);
 	}
 
 	.stat-value {
-		font-size: 14px;
+		font-size: 15px;
 		font-weight: 500;
 		color: var(--term-text-bright);
 	}
 
 	.section-header {
-		font-size: 10px;
+		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: var(--term-text-muted);
@@ -239,7 +239,7 @@
 		text-align: left;
 		padding: 4px 6px;
 		border-radius: 3px;
-		font-size: 11px;
+		font-size: 12px;
 		cursor: pointer;
 	}
 
@@ -255,7 +255,7 @@
 
 	.laps-table {
 		width: 100%;
-		font-size: 11px;
+		font-size: 12px;
 		color: var(--term-text);
 	}
 
