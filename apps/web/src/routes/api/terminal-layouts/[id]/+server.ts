@@ -2,12 +2,11 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb, terminalLayouts } from '@web-runner/db';
 import { eq, and } from 'drizzle-orm';
-import { requireParamId } from '$lib/server/validation';
+import { requireParamId, requireApiUser } from '$lib/server/validation';
 
 // PUT: Update layout
 export const PUT: RequestHandler = async ({ request, locals, params }) => {
-	if (!locals.user) return json({ error: 'Unauthorized' }, { status: 401 });
-
+	const user = requireApiUser(locals);
 	const id = requireParamId(params.id);
 
 	const body = await request.json();
@@ -25,7 +24,7 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 	const result = await db
 		.update(terminalLayouts)
 		.set(updates)
-		.where(and(eq(terminalLayouts.id, id), eq(terminalLayouts.userId, locals.user.id)))
+		.where(and(eq(terminalLayouts.id, id), eq(terminalLayouts.userId, user.id)))
 		.returning({ id: terminalLayouts.id });
 
 	if (result.length === 0) return json({ error: 'Not found' }, { status: 404 });
@@ -34,14 +33,13 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 
 // DELETE: Delete layout
 export const DELETE: RequestHandler = async ({ locals, params }) => {
-	if (!locals.user) return json({ error: 'Unauthorized' }, { status: 401 });
-
+	const user = requireApiUser(locals);
 	const id = requireParamId(params.id);
 
 	const db = getDb();
 	const result = await db
 		.delete(terminalLayouts)
-		.where(and(eq(terminalLayouts.id, id), eq(terminalLayouts.userId, locals.user.id)))
+		.where(and(eq(terminalLayouts.id, id), eq(terminalLayouts.userId, user.id)))
 		.returning({ id: terminalLayouts.id });
 
 	if (result.length === 0) return json({ error: 'Not found' }, { status: 404 });
