@@ -12,12 +12,8 @@
 		createTerminalState,
 		applySettings,
 		getSettings,
-		type StreamData,
-		type ActivityNote,
-		type ActivityLap,
-		type ActivitySegment,
 	} from '$lib/terminal/terminal-state.svelte';
-	import { isLatLngArray, isNumberArray } from '$lib/terminal/types';
+	import { prepareStreams, prepareNotes, prepareLaps, prepareSegments } from '$lib/terminal/prepare-page-data';
 	import type { Units } from '$lib/format';
 	import {
 		decodeLayout,
@@ -37,57 +33,10 @@
 	const paceZones = $derived(data.paceZones);
 	const hrZones = $derived(data.hrZones);
 
-	function getStream(type: string): number[] | null {
-		const s = data.streamMap[type];
-		return isNumberArray(s) && s.length > 0 ? s : null;
-	}
-
-	let streams = $derived<StreamData>({
-		velocity: getStream('velocity_smooth'),
-		heartrate: getStream('heartrate'),
-		altitude: getStream('altitude'),
-		cadence: getStream('cadence'),
-		power: getStream('watts'),
-		grade: getStream('grade_smooth'),
-		distance: getStream('distance'),
-		time: getStream('time'),
-		latlng: (() => {
-			const s = data.streamMap['latlng'];
-			return isLatLngArray(s) ? s : null;
-		})(),
-	});
-
-	let notes = $derived<ActivityNote[]>(data.notes.map((n) => ({
-		id: n.id,
-		distanceStart: n.distanceStart,
-		distanceEnd: n.distanceEnd,
-		content: n.content,
-	})));
-
-	let lapList = $derived<ActivityLap[]>(data.laps.map((l) => ({
-		id: l.id,
-		lapIndex: l.lapIndex,
-		distance: l.distance,
-		movingTime: l.movingTime,
-		averageSpeed: l.averageSpeed,
-		averageHeartrate: l.averageHeartrate,
-		averageCadence: l.averageCadence,
-	})));
-
-	let segmentList = $derived<ActivitySegment[]>(data.segments.map((s) => ({
-		id: s.id,
-		segmentIndex: s.segmentIndex,
-		distanceStart: s.distanceStart,
-		distanceEnd: s.distanceEnd,
-		avgPace: s.avgPace,
-		minPace: s.minPace,
-		maxPace: s.maxPace,
-		avgHeartrate: s.avgHeartrate,
-		avgCadence: s.avgCadence,
-		avgPower: s.avgPower,
-		elevationGain: s.elevationGain,
-		elevationLoss: s.elevationLoss,
-	})));
+	let streams = $derived(prepareStreams(data.streamMap));
+	let notes = $derived(prepareNotes(data.notes));
+	let lapList = $derived(prepareLaps(data.laps));
+	let segmentList = $derived(prepareSegments(data.segments));
 
 	// Base path for this activity's layout URLs
 	const basePath = resolve(`/activities/${data.activity.id}/terminal/layout`);

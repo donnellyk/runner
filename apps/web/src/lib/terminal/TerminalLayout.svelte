@@ -1,40 +1,32 @@
 <script lang="ts">
 	import type { ZoneDefinition } from '@web-runner/shared';
-	import { formatPaceDisplay, KM_TO_MI_PACE, M_TO_FT, type Units } from '$lib/format';
-	import { bucketAvgIndices } from '$lib/sampling';
+	import { type Units } from '$lib/format';
 	import TerminalPanel from './TerminalPanel.svelte';
 	import TerminalSidebar from './TerminalSidebar.svelte';
-	import TerminalLineChart from './charts/TerminalLineChart.svelte';
-	import CandlestickChart from './charts/CandlestickChart.svelte';
-	import CadenceBarChart, { type BarEntry } from './charts/CadenceBarChart.svelte';
-	import SplitHeatmap from './charts/SplitHeatmap.svelte';
-	import NotesPanel from './charts/NotesPanel.svelte';
-	import TerminalMap from './charts/TerminalMap.svelte';
-	import LapComparison from './charts/LapComparison.svelte';
+	import PanelContent from './PanelContent.svelte';
 	import {
 		type TerminalState,
 		type StreamData,
 		type PanelConfig,
-		type DataSource,
 		type ActivityNote,
 		type ActivityLap,
 		type ActivitySegment,
 		getStreamForSource,
-		getUnitForSource,
-		isInvertedSource,
-		getZonesForSource,
 		getPanelLabel,
-		DATA_SOURCE_LABELS,
-		DATA_SOURCE_COLORS,
 	} from './terminal-state.svelte';
-	import { candlesFromSegments, candlesFromLaps, type CandleData } from './candlestick';
-	import { findIndexAtDistance } from '$lib/streams';
 	import type { ActivityData } from './types';
 	import { createGridInteraction } from './grid-interaction.svelte';
 	import { removePanel } from './grid-validation';
 	import ResizeHandle from './ResizeHandle.svelte';
 	import GridOverlay from './GridOverlay.svelte';
 	import PanelConfigPopup from './PanelConfigPopup.svelte';
+	import {
+		prepareSamplingIndices,
+		sampleStream,
+		createPausedMask,
+		extractRouteCoordinates,
+		computeCrosshairValues,
+	} from './prepare-chart-data';
 
 	interface Props {
 		activity: ActivityData;
@@ -91,70 +83,28 @@
 	let chartIndices = $derived.by(() => {
 		const velocity = streams.velocity;
 		const len = velocity?.length ?? streams.distance?.length ?? 0;
-		if (len <= termState.params.samplePoints) return null;
-		return bucketAvgIndices(velocity ?? Array.from({ length: len }, () => 0), termState.params.samplePoints);
+		return prepareSamplingIndices(velocity, len, termState.params.samplePoints);
 	});
 
-	function sample<T>(stream: T[] | null): T[] | null {
-		if (!stream || !chartIndices) return stream;
-		return chartIndices.map((i) => stream[i]);
-	}
+	let sampledDist = $derived(sampleStream(streams.distance, chartIndices));
+	let sampledTime = $derived(sampleStream(streams.time, chartIndices));
 
-	let sampledDist = $derived(sample(streams.distance));
-	let sampledTime = $derived(sample(streams.time));
-
-	let pausedMask = $derived(
-		streams.velocity
-			? streams.velocity.map((ms) => ms < termState.params.pauseThreshold)
-			: null,
-	);
-	let sampledPausedMask = $derived(sample(pausedMask));
+	let pausedMask = $derived(createPausedMask(streams.velocity, termState.params.pauseThreshold));
+	let sampledPausedMask = $derived(sampleStream(pausedMask, chartIndices));
 
 	function getSampledStream(source: string): number[] | null {
 		const raw = getStreamForSource(streams, source as Parameters<typeof getStreamForSource>[1], units);
-		return sample(raw);
+		return sampleStream(raw, chartIndices);
 	}
 
-	let routeCoords = $derived.by((): [number, number][] | null => {
-		if (activity.routeGeoJson) {
-			try {
-				return JSON.parse(activity.routeGeoJson).coordinates;
-			} catch { return null; }
-		}
-		if (streams.latlng) {
-			return streams.latlng.map(([lat, lng]) => [lng, lat]);
-		}
-		return null;
-	});
+	let routeCoords = $derived(extractRouteCoordinates(activity.routeGeoJson, streams.latlng));
 
 	let crosshairOrigIdx = $derived.by(() => {
 		if (termState.crosshairIndex == null) return null;
 		return chartIndices ? chartIndices[termState.crosshairIndex] : termState.crosshairIndex;
 	});
 
-	let crosshairValues = $derived.by((): Record<string, string | null> => {
-		if (termState.crosshairIndex == null) return {};
-		const result: Record<string, string | null> = {};
-
-		const paceData = getSampledStream('pace');
-		if (paceData && paceData[termState.crosshairIndex] != null && paceData[termState.crosshairIndex] > 0) {
-			result['pace'] = formatPaceDisplay(paceData[termState.crosshairIndex], units);
-		}
-		const hrData = getSampledStream('heartrate');
-		if (hrData && hrData[termState.crosshairIndex] != null) {
-			result['heartrate'] = `${Math.round(hrData[termState.crosshairIndex])} bpm`;
-		}
-		const elevData = getSampledStream('elevation');
-		if (elevData && elevData[termState.crosshairIndex] != null) {
-			const u = units === 'imperial' ? ' ft' : ' m';
-			result['elevation'] = `${Math.round(elevData[termState.crosshairIndex])}${u}`;
-		}
-		const cadData = getSampledStream('cadence');
-		if (cadData && cadData[termState.crosshairIndex] != null) {
-			result['cadence'] = `${Math.round(cadData[termState.crosshairIndex])} spm`;
-		}
-		return result;
-	});
+	let crosshairValues = $derived(computeCrosshairValues(termState.crosshairIndex, getSampledStream, units));
 
 	let highlightRange = $derived.by((): { start: number; end: number } | null => {
 		if (termState.highlightedNoteId == null) return null;
@@ -172,56 +122,6 @@
 	function removePanelAtIndex(idx: number) {
 		const result = removePanel(termState.layoutPanels, idx);
 		if (result) termState.layoutPanels = result;
-	}
-
-	function streamIdxToCandleIdx(streamIdx: number | null, candles: CandleData[]): number | null {
-		if (streamIdx == null || candles.length === 0 || !sampledDist) return null;
-		const dist = sampledDist[streamIdx];
-		if (dist == null) return null;
-		for (let i = candles.length - 1; i >= 0; i--) {
-			if (dist >= candles[i].distanceStart) return i;
-		}
-		return 0;
-	}
-
-	function candleIdxToStreamIdx(candleIdx: number | null, candles: CandleData[]): number | null {
-		if (candleIdx == null || !candles[candleIdx] || !sampledDist) return null;
-		const midDist = (candles[candleIdx].distanceStart + candles[candleIdx].distanceEnd) / 2;
-		return findIndexAtDistance(sampledDist, midDist);
-	}
-
-	function barsFromSegments(source: DataSource): BarEntry[] {
-		return segments.map((s) => {
-			let avg: number;
-			switch (source) {
-				case 'cadence': avg = (s.avgCadence ?? 0) * 2; break;
-				case 'heartrate': avg = s.avgHeartrate ?? 0; break;
-				case 'pace': avg = s.avgPace != null ? (units === 'imperial' ? s.avgPace * KM_TO_MI_PACE : s.avgPace) : 0; break;
-				case 'power': avg = s.avgPower ?? 0; break;
-				case 'elevation': avg = s.elevationGain != null ? (units === 'imperial' ? s.elevationGain * M_TO_FT : s.elevationGain) : 0; break;
-				case 'grade': avg = 0; break;
-			}
-			return { avg, xMid: (s.distanceStart + s.distanceEnd) / 2, label: `${s.segmentIndex + 1}` };
-		}).filter((b) => b.avg > 0);
-	}
-
-	function barsFromLaps(source: DataSource): BarEntry[] {
-		let cumDist = 0;
-		return laps.map((l) => {
-			let avg: number;
-			switch (source) {
-				case 'cadence': avg = (l.averageCadence ?? 0) * 2; break;
-				case 'heartrate': avg = l.averageHeartrate ?? 0; break;
-				case 'pace': avg = l.averageSpeed != null && l.averageSpeed > 0 ? (units === 'imperial' ? (1000 / l.averageSpeed) * KM_TO_MI_PACE : 1000 / l.averageSpeed) : 0; break;
-				case 'power': avg = 0; break;
-				case 'elevation': avg = 0; break;
-				case 'grade': avg = 0; break;
-			}
-			const lapDist = l.distance ?? 0;
-			const xMid = cumDist + lapDist / 2;
-			cumDist += lapDist;
-			return { avg, xMid, label: `${l.lapIndex + 1}` };
-		}).filter((b) => b.avg > 0);
 	}
 
 	function onCrosshairMove(index: number | null) {
@@ -283,109 +183,35 @@
 					ondragstart={(e) => interaction.startDrag(idx, e.pointerId, e)}
 					onconfigopen={(rect) => openConfigPopup(idx, rect)}
 				>
-					{#if panel.config.kind === 'special'}
-						{#if panel.config.specialType === 'map' && routeCoords}
-							<TerminalMap
-								coordinates={routeCoords}
-								latlngStream={streams.latlng}
-								distanceStream={streams.distance}
-								{crosshairOrigIdx}
-								{highlightRange}
-							/>
-						{:else if panel.config.specialType === 'notes'}
-							<NotesPanel
-								{notes}
-								{units}
-								highlightedNoteId={termState.highlightedNoteId}
-								onnotehighlight={(id) => termState.highlightedNoteId = id}
-							/>
-						{:else if panel.config.specialType === 'heatmap'}
-							<SplitHeatmap
-								{segments}
-								{units}
-							/>
-						{:else if panel.config.specialType === 'laps' && laps.length > 0}
-							<LapComparison {laps} {units} />
-						{:else}
-							<div class="flex items-center justify-center h-full">
-								<span class="text-[13px]" style="color: var(--term-text-muted);">No data</span>
-							</div>
-						{/if}
-					{:else if panel.config.dataSource}
-						{@const streamData = getSampledStream(panel.config.dataSource)}
-						{#if streamData}
-							{#if panel.config.chartType === 'candlestick' && panel.config.dataSource === 'pace'}
-								{@const mode = panel.config.candlestickMode ?? 'splits'}
-								{@const candles = mode === 'laps'
-									? candlesFromLaps(laps, streams.velocity, streams.distance, units, termState.wickPercentile)
-									: candlesFromSegments(segments, streams.velocity, streams.distance, units, termState.wickPercentile)}
-								<CandlestickChart
-									{candles}
-									{units}
-									{mode}
-									crosshairIndex={streamIdxToCandleIdx(termState.crosshairIndex, candles)}
-									crosshairLocked={termState.crosshairLocked}
-									oncrosshairmove={(ci) => onCrosshairMove(candleIdxToStreamIdx(ci, candles))}
-									oncrosshairclick={(ci) => onCrosshairClick(candleIdxToStreamIdx(ci, candles))}
-									oncrosshairleave={onCrosshairLeave}
-								/>
-							{:else if panel.config.chartType === 'bar'}
-								{@const barMode = panel.config.barMode ?? 'stream'}
-								{@const precomputedBars = barMode === 'laps' ? barsFromLaps(panel.config.dataSource) : barMode === 'splits' ? barsFromSegments(panel.config.dataSource) : undefined}
-								<CadenceBarChart
-									data={streamData}
-									distanceData={sampledDist ?? undefined}
-									timeData={sampledTime ?? undefined}
-									xAxis={termState.xAxis}
-									{units}
-									label={DATA_SOURCE_LABELS[panel.config.dataSource]}
-									color={panel.config.colorOverride ?? DATA_SOURCE_COLORS[panel.config.dataSource]}
-									unit={getUnitForSource(panel.config.dataSource, units)}
-									formatValue={panel.config.dataSource === 'pace' ? (v: number) => formatPaceDisplay(v, units) : undefined}
-									smoothingWindow={panel.config.smoothingOverride ?? termState.params.smoothingWindow}
-									crosshairIndex={termState.crosshairIndex}
-									crosshairLocked={termState.crosshairLocked}
-									{highlightRange}
-									{precomputedBars}
-									oncrosshairmove={onCrosshairMove}
-									oncrosshairclick={onCrosshairClick}
-									oncrosshairleave={onCrosshairLeave}
-								/>
-							{:else}
-								{@const panelShowZones = panel.config.zonesOverride ?? termState.showZones}
-								{@const zoneInfo = panelShowZones ? getZonesForSource(panel.config.dataSource, paceZones, hrZones, units) : null}
-								<TerminalLineChart
-									data={streamData}
-									distanceData={sampledDist ?? undefined}
-									timeData={sampledTime ?? undefined}
-									xAxis={termState.xAxis}
-									{units}
-									label={DATA_SOURCE_LABELS[panel.config.dataSource]}
-									color={panel.config.colorOverride ?? DATA_SOURCE_COLORS[panel.config.dataSource]}
-									unit={getUnitForSource(panel.config.dataSource, units)}
-									formatValue={panel.config.dataSource === 'pace' ? (v: number) => formatPaceDisplay(v, units) : undefined}
-									pausedMask={sampledPausedMask ?? undefined}
-									showPauseGaps={panel.config.pauseGapsOverride ?? termState.showPauseGaps}
-									invertY={isInvertedSource(panel.config.dataSource)}
-									smoothingWindow={panel.config.smoothingOverride ?? termState.params.smoothingWindow}
-									zones={zoneInfo?.zones}
-									zoneMetric={zoneInfo?.metric}
-									showZones={panelShowZones}
-									filled={panel.config.chartType === 'area'}
-									crosshairIndex={termState.crosshairIndex}
-									crosshairLocked={termState.crosshairLocked}
-									{highlightRange}
-									oncrosshairmove={onCrosshairMove}
-									oncrosshairclick={onCrosshairClick}
-									oncrosshairleave={onCrosshairLeave}
-								/>
-							{/if}
-						{:else}
-							<div class="flex items-center justify-center h-full">
-								<span class="text-[13px]" style="color: var(--term-text-muted);">No data</span>
-							</div>
-						{/if}
-					{/if}
+					<PanelContent
+						config={panel.config}
+						{units}
+						{streams}
+						{notes}
+						{laps}
+						{segments}
+						{paceZones}
+						{hrZones}
+						{routeCoords}
+						{crosshairOrigIdx}
+						{highlightRange}
+						crosshairIndex={termState.crosshairIndex}
+						crosshairLocked={termState.crosshairLocked}
+						highlightedNoteId={termState.highlightedNoteId}
+						xAxis={termState.xAxis}
+						showZones={termState.showZones}
+						showPauseGaps={termState.showPauseGaps}
+						smoothingWindow={termState.params.smoothingWindow}
+						wickPercentile={termState.wickPercentile}
+						{sampledDist}
+						{sampledTime}
+						{sampledPausedMask}
+						{getSampledStream}
+						oncrosshairmove={onCrosshairMove}
+						oncrosshairclick={onCrosshairClick}
+						oncrosshairleave={onCrosshairLeave}
+						onnotehighlight={(id) => termState.highlightedNoteId = id}
+					/>
 				</TerminalPanel>
 			</div>
 		{/each}
