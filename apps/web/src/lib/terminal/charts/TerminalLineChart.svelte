@@ -1,6 +1,5 @@
 <script lang="ts">
     import type { ZoneDefinition } from "@web-runner/shared";
-    import type { Units } from "$lib/format";
     import {
         smoothStream,
         computeYBounds,
@@ -20,6 +19,9 @@
     import { createChartDimensions } from "../shared/chart-dimensions.svelte";
     import { createChartInteraction } from "../shared/chart-interaction.svelte";
     import { computeZoneDotGrid } from "../shared/zone-dots";
+    import { formatYValue, formatYValueShort } from "../shared/chart-formatting";
+    import { createYAxisScaling } from "../shared/chart-scaling";
+    import type { CrosshairCallbacks, ChartDataProps, ChartLabelProps } from "../shared/chart-props";
     import ChartShell from "./ChartShell.svelte";
     import YGridLines from "./YGridLines.svelte";
     import XAxisLabels from "./XAxisLabels.svelte";
@@ -30,28 +32,14 @@
     import RefLines from "./RefLines.svelte";
     import ChartOverlay from "./ChartOverlay.svelte";
 
-    interface Props {
+    interface Props extends ChartDataProps, ChartLabelProps, CrosshairCallbacks {
         data: number[];
-        distanceData?: number[];
-        timeData?: number[];
-        xAxis?: "distance" | "time";
-        units?: Units;
-        label: string;
-        color: string;
-        unit: string;
-        formatValue?: (v: number) => string;
         pausedMask?: boolean[];
         showPauseGaps?: boolean;
         invertY?: boolean;
         smoothingWindow?: number;
         zones?: ZoneDefinition[];
         zoneMetric?: "pace" | "heartrate";
-        crosshairIndex?: number | null;
-        crosshairLocked?: boolean;
-        highlightRange?: { start: number; end: number } | null;
-        oncrosshairmove?: (index: number | null) => void;
-        oncrosshairclick?: (index: number | null) => void;
-        oncrosshairleave?: () => void;
         showZones?: boolean;
         filled?: boolean;
     }
@@ -180,14 +168,11 @@
     // --- Formatting ---
 
     function fmt(v: number): string {
-        return formatValue ? formatValue(v) : `${v.toFixed(0)}${unit}`;
+        return formatYValue(v, unit, formatValue);
     }
 
     function fmtShort(v: number): string {
-        if (formatValue) {
-            return formatValue(v).replace(/\s*\/\w+$/, "");
-        }
-        return v.toFixed(0);
+        return formatYValueShort(v, formatValue);
     }
 
     // --- Chart data ---
@@ -221,16 +206,14 @@
     let yMax = $derived(yBounds.yMax);
     let yRange = $derived(yMax - yMin || 1);
 
+    let yScaling = $derived(createYAxisScaling(yMin, yMax, P.top, dims.chartH, invertY));
+
     function toY(yVal: number): number {
-        const t = (yVal - yMin) / yRange;
-        return invertY ? P.top + t * dims.chartH : P.top + dims.chartH - t * dims.chartH;
+        return yScaling.toY(yVal);
     }
 
     function fromY(px: number): number {
-        const t = invertY
-            ? (px - P.top) / dims.chartH
-            : (P.top + dims.chartH - px) / dims.chartH;
-        return yMin + t * yRange;
+        return yScaling.fromY(px);
     }
 
     // --- Pause segments ---

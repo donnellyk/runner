@@ -1,8 +1,9 @@
 <script lang="ts">
-	import type { Units } from '$lib/format';
 	import { smoothStream, formatXLabelShort } from '../shared/axes';
 	import { resolveMouseIndex, trimChartData, TERM_PAD } from '../shared/chart-utils';
 	import { createChartDimensions } from '../shared/chart-dimensions.svelte';
+	import { formatYValue } from '../shared/chart-formatting';
+	import type { CrosshairCallbacks, ChartDataProps, ChartLabelProps } from '../shared/chart-props';
 	import ChartShell from './ChartShell.svelte';
 	import XAxisLabels from './XAxisLabels.svelte';
 	import CrosshairLine from './CrosshairLine.svelte';
@@ -13,24 +14,10 @@
 		label?: string;
 	}
 
-	interface Props {
+	interface Props extends ChartDataProps, ChartLabelProps, CrosshairCallbacks {
 		data: number[];
-		distanceData?: number[];
-		timeData?: number[];
-		xAxis?: 'distance' | 'time';
-		units?: Units;
-		label: string;
-		color: string;
-		unit: string;
-		formatValue?: (v: number) => string;
 		smoothingWindow?: number;
-		crosshairIndex?: number | null;
-		crosshairLocked?: boolean;
-		highlightRange?: { start: number; end: number } | null;
 		precomputedBars?: BarEntry[];
-		oncrosshairmove?: (index: number | null) => void;
-		oncrosshairclick?: (index: number | null) => void;
-		oncrosshairleave?: () => void;
 	}
 
 	let {
@@ -54,7 +41,7 @@
 	}: Props = $props();
 
 	function fmt(v: number): string {
-		return formatValue ? formatValue(v) : `${v.toFixed(0)}${unit}`;
+		return formatYValue(v, unit, formatValue);
 	}
 
 	const dims = createChartDimensions(TERM_PAD);

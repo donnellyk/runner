@@ -4,20 +4,19 @@
 	import { formatPaceDisplay } from '$lib/format';
 	import { findClosestIndex, TERM_PAD } from '../shared/chart-utils';
 	import { createChartDimensions } from '../shared/chart-dimensions.svelte';
+	import { createYAxisScaling } from '../shared/chart-scaling';
+	import type { CrosshairCallbacks } from '../shared/chart-props';
 	import ChartShell from './ChartShell.svelte';
 	import YGridLines from './YGridLines.svelte';
 	import XAxisLabels from './XAxisLabels.svelte';
 	import CrosshairLine from './CrosshairLine.svelte';
 	import ChartOverlay from './ChartOverlay.svelte';
 
-	interface Props {
+	interface Props extends CrosshairCallbacks {
 		candles: CandleData[];
 		units?: Units;
 		crosshairIndex?: number | null;
 		crosshairLocked?: boolean;
-		oncrosshairmove?: (index: number | null) => void;
-		oncrosshairclick?: (index: number | null) => void;
-		oncrosshairleave?: () => void;
 		mode?: 'splits' | 'laps';
 	}
 
@@ -48,16 +47,15 @@
 
 	let yMin = $derived(yBounds.yMin);
 	let yMax = $derived(yBounds.yMax);
-	let yRange = $derived(yMax - yMin || 1);
+
+	let yScaling = $derived(createYAxisScaling(yMin, yMax, P.top, dims.chartH, true));
 
 	function toY(v: number): number {
-		const t = (v - yMin) / yRange;
-		return P.top + t * dims.chartH;
+		return yScaling.toY(v);
 	}
 
 	function fromY(px: number): number {
-		const t = (px - P.top) / dims.chartH;
-		return yMin + t * yRange;
+		return yScaling.fromY(px);
 	}
 
 	let candleWidth = $derived(
