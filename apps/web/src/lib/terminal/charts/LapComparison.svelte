@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Units } from '$lib/format';
 	import type { ActivityLap } from '../terminal-state.svelte';
-	import { KM_TO_MI_PACE, formatPaceDisplay } from '$lib/format';
+	import { speedToPace, formatPaceDisplay } from '$lib/format';
 	import { createChartDimensions } from '../shared/chart-dimensions.svelte';
 
 	interface Props {
@@ -12,12 +12,7 @@
 	let { laps, units = 'metric' }: Props = $props();
 
 	let lapPaces = $derived(
-		laps.map((lap) => {
-			const speed = lap.averageSpeed ?? 0;
-			if (speed <= 0) return 0;
-			const secPerKm = 1000 / speed;
-			return units === 'imperial' ? secPerKm * KM_TO_MI_PACE : secPerKm;
-		}),
+		laps.map((lap) => speedToPace(lap.averageSpeed, units) ?? 0),
 	);
 
 	let paceRange = $derived.by(() => {

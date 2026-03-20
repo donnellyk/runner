@@ -29,15 +29,18 @@ export function formatElevation(meters: number | null, units: Units): string {
 	return meters.toFixed(0) + ' m';
 }
 
+/** Convert speed (m/s) to pace (sec/km or sec/mi). Returns null for zero/null speed. */
+export function speedToPace(speed: number | null, units: Units): number | null {
+	if (!speed || speed <= 0) return null;
+	const secPerKm = 1000 / speed;
+	return units === 'imperial' ? secPerKm * KM_TO_MI_PACE : secPerKm;
+}
+
 /** Convert average speed (m/s) to a pace string like "5:30 min/km" or "8:51 min/mi" */
 export function formatPace(averageSpeed: number | null, units: Units): string {
-	if (!averageSpeed) return '-';
-	let secPerUnit = 1000 / averageSpeed;
-	let label = 'min/km';
-	if (units === 'imperial') {
-		secPerUnit *= KM_TO_MI_PACE;
-		label = 'min/mi';
-	}
+	const secPerUnit = speedToPace(averageSpeed, units);
+	if (secPerUnit == null) return '-';
+	const label = units === 'imperial' ? 'min/mi' : 'min/km';
 	const total = Math.round(secPerUnit);
 	const mins = Math.floor(total / 60);
 	const secs = total % 60;

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { KM_TO_MI_PACE, type Units } from '$lib/format';
+	import { speedToPace, type Units } from '$lib/format';
 
 	interface Lap {
 		lapIndex: number;
@@ -38,13 +38,7 @@
 	let chartW = $derived(svgWidth - PAD_LEFT - PAD_RIGHT);
 	let chartH = $derived(CHART_H - PAD_TOP - PAD_BOTTOM);
 
-	function speedToPace(speed: number | null): number | null {
-		if (!speed || speed <= 0) return null;
-		const secPerKm = 1000 / speed;
-		return units === 'imperial' ? secPerKm * KM_TO_MI_PACE : secPerKm;
-	}
-
-	let paces = $derived(laps.map((l) => speedToPace(l.averageSpeed)));
+	let paces = $derived(laps.map((l) => speedToPace(l.averageSpeed, units)));
 	let validPaces = $derived(paces.filter((p): p is number => p != null));
 
 	let yMin = $derived(validPaces.length > 0 ? Math.min(...validPaces) : 0);

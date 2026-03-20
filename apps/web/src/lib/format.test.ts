@@ -8,6 +8,7 @@ import {
 	formatPaceValue,
 	formatSegmentDistance,
 	segmentDistanceLabel,
+	speedToPace,
 } from './format';
 
 describe('formatDistance', () => {
@@ -64,6 +65,24 @@ describe('formatElevation', () => {
 	test('formats imperial feet', () => {
 		// 120m * 3.28084 = 393.7008
 		expect(formatElevation(120, 'imperial')).toBe('394 ft');
+	});
+});
+
+describe('speedToPace', () => {
+	test('returns null for null, zero, or negative speed', () => {
+		expect(speedToPace(null, 'metric')).toBeNull();
+		expect(speedToPace(0, 'metric')).toBeNull();
+		expect(speedToPace(-1, 'metric')).toBeNull();
+	});
+
+	test('converts m/s to sec/km for metric', () => {
+		// 1000/330 m/s => 330 sec/km
+		expect(speedToPace(1000 / 330, 'metric')).toBeCloseTo(330, 5);
+	});
+
+	test('converts m/s to sec/mi for imperial', () => {
+		// 1000/330 m/s => 330 sec/km * 1.60934 = 531.08 sec/mi
+		expect(speedToPace(1000 / 330, 'imperial')).toBeCloseTo(330 * 1.60934, 2);
 	});
 });
 
