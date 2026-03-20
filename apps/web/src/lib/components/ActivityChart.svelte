@@ -5,7 +5,7 @@
 	import { smoothStream, computeYBounds, computePauseSegments, formatXLabel, formatXLabelShort } from '$lib/terminal/shared/axes';
 	import { resolveMouseIndex, trimChartData } from '$lib/terminal/shared/chart-utils';
 
-	interface ActivityNoteRef {
+	export interface ActivityNoteRef {
 		id: number;
 		distanceStart: number;
 		distanceEnd: number | null;

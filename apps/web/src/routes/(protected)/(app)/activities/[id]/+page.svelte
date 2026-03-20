@@ -1,11 +1,8 @@
 <script lang="ts">
     import { resolve } from "$app/paths";
     import { invalidateAll } from "$app/navigation";
-    import { enhance } from "$app/forms";
     import RouteMap from "$lib/components/RouteMap.svelte";
     import type { NoteMarker } from "$lib/components/RouteMap.svelte";
-    import ActivityChart from "$lib/components/ActivityChart.svelte";
-    import LapsChart from "$lib/components/LapsChart.svelte";
     import StatCard from "$lib/components/StatCard.svelte";
     import TerminalEntryCard from "$lib/terminal/TerminalEntryCard.svelte";
     import { sportColor, workoutBadge } from "$lib/activity-colors";
@@ -16,12 +13,14 @@
         formatPace,
         formatElevation,
         formatDurationClock,
-        formatPaceValue,
-        formatDistancePrecise,
         toMeters,
         type Units,
     } from "$lib/format";
     import { isLatLngArray, isNumberArray } from "$lib/terminal/types";
+    import ChartSection from "./ChartSection.svelte";
+    import NotesSection from "./NotesSection.svelte";
+    import LapsSection from "./LapsSection.svelte";
+    import SegmentsSection from "./SegmentsSection.svelte";
 
     let { data } = $props();
     const units = $derived(data.user.distanceUnit as Units);
@@ -348,334 +347,46 @@
     </div>
 {/if}
 
-{#if chartPace || chartHr || chartAlt}
-    <div class="mb-8">
-        <div class="flex items-center justify-between mb-4">
-            <h2
-                class="text-xs font-semibold uppercase tracking-wide text-zinc-400"
-            >
-                Charts
-            </h2>
-            <div class="flex items-center gap-3">
-                {#if notes.length > 0}
-                    <label class="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none">
-                        <input type="checkbox" bind:checked={showNotes} class="rounded border-zinc-300" />
-                        Notes
-                    </label>
-                    <div class="w-px h-3 bg-zinc-200"></div>
-                {/if}
-                {#if chartPace && data.user.isAdmin}
-                    <button
-                        onclick={exportPaceJson}
-                        class="px-2 py-1 text-xs rounded text-zinc-400 hover:bg-zinc-100 font-mono"
-                        title="Download pace chart data as JSON"
-                        >JSON ↓</button
-                    >
-                    <div class="w-px h-3 bg-zinc-200"></div>
-                {/if}
-                <div class="flex gap-1">
-                    <button
-                        onclick={() => (xAxis = "distance")}
-                        class="px-2.5 py-1 text-xs rounded {xAxis === 'distance'
-                            ? 'bg-zinc-900 text-white'
-                            : 'text-zinc-500 hover:bg-zinc-100'}"
-                    >
-                        Distance
-                    </button>
-                    <button
-                        onclick={() => (xAxis = "time")}
-                        class="px-2.5 py-1 text-xs rounded {xAxis === 'time'
-                            ? 'bg-zinc-900 text-white'
-                            : 'text-zinc-500 hover:bg-zinc-100'}"
-                    >
-                        Time
-                    </button>
-                </div>
-            </div>
-        </div>
+<ChartSection
+    {chartPace}
+    {chartHr}
+    {chartAlt}
+    {chartCad}
+    {chartDist}
+    {chartTime}
+    {chartPausedMask}
+    {xAxis}
+    {units}
+    {crosshairIndex}
+    {notes}
+    {showNotes}
+    bind:highlightedNoteId
+    {paceZonesDisplay}
+    {hrZones}
+    isAdmin={data.user.isAdmin}
+    smoothingWindow={SMOOTHING_WINDOW}
+    {formatPaceSec}
+    {exportPaceJson}
+    oncrosshairindexchange={(i) => (crosshairIndex = i)}
+    onxaxischange={(axis) => (xAxis = axis)}
+    onshownoteschange={(show) => (showNotes = show)}
+/>
 
-        {#if chartPace}
-            <ActivityChart
-                data={chartPace}
-                distanceData={chartDist ?? undefined}
-                timeData={chartTime ?? undefined}
-                {xAxis}
-                {units}
-                label="Pace"
-                color="var(--color-stream-pace)"
-                unit=""
-                formatValue={formatPaceSec}
-                pausedMask={chartPausedMask ?? undefined}
-                showPauseGaps={true}
-                smoothingWindow={SMOOTHING_WINDOW}
-                invertY={true}
-                zones={paceZonesDisplay}
-                zoneMetric="pace"
-                {crosshairIndex}
-                oncrosshairmove={(i) => (crosshairIndex = i)}
-                {notes} {showNotes} {highlightedNoteId}
-            />
-        {/if}
+<NotesSection
+    {notes}
+    {units}
+    bind:highlightedNoteId
+    {handleNoteSubmit}
+/>
 
-        {#if chartHr}
-            <ActivityChart
-                data={chartHr}
-                distanceData={chartDist ?? undefined}
-                timeData={chartTime ?? undefined}
-                {xAxis}
-                {units}
-                label="Heart Rate"
-                color="var(--color-stream-heartrate)"
-                unit=" bpm"
-                zones={hrZones}
-                zoneMetric="heartrate"
-                {crosshairIndex}
-                oncrosshairmove={(i) => (crosshairIndex = i)}
-                {notes} {showNotes} {highlightedNoteId}
-            />
-        {/if}
+<LapsSection
+    laps={data.laps}
+    {units}
+    {accentColor}
+    {lapHeatColor}
+/>
 
-        {#if chartAlt}
-            <ActivityChart
-                data={chartAlt}
-                distanceData={chartDist ?? undefined}
-                timeData={chartTime ?? undefined}
-                {xAxis}
-                {units}
-                label="Elevation"
-                color="var(--color-stream-elevation)"
-                unit={units === "imperial" ? " ft" : " m"}
-                {crosshairIndex}
-                oncrosshairmove={(i) => (crosshairIndex = i)}
-                {notes} {showNotes} {highlightedNoteId}
-            />
-        {/if}
-
-        {#if chartCad}
-            <ActivityChart
-                data={chartCad}
-                distanceData={chartDist ?? undefined}
-                timeData={chartTime ?? undefined}
-                {xAxis}
-                {units}
-                label="Cadence"
-                color="var(--color-stream-cadence)"
-                unit=" rpm"
-                {crosshairIndex}
-                oncrosshairmove={(i) => (crosshairIndex = i)}
-                {notes} {showNotes} {highlightedNoteId}
-            />
-        {/if}
-    </div>
-{/if}
-
-<div class="mb-8">
-    <h2 class="text-xs font-semibold uppercase tracking-wide text-zinc-400 mb-3">
-        Notes ({notes.length})
-    </h2>
-    {#if notes.length > 0}
-        {#each notes as note (note.id)}
-            <div
-                class="flex items-start gap-3 py-2 border-b border-zinc-50 cursor-pointer {highlightedNoteId === note.id ? 'bg-amber-50' : 'hover:bg-zinc-50'}"
-                onclick={() => highlightedNoteId = highlightedNoteId === note.id ? null : note.id}
-                role="button"
-                tabindex="0"
-                onkeydown={(e) => { if (e.key === 'Enter') highlightedNoteId = highlightedNoteId === note.id ? null : note.id; }}
-            >
-                <div class="text-xs text-zinc-400 font-mono whitespace-nowrap" style="font-variant-numeric: tabular-nums;">
-                    {formatDistance(note.distanceStart, units)}
-                    {#if note.distanceEnd}
-                        – {formatDistance(note.distanceEnd, units)}
-                    {/if}
-                </div>
-                <div class="flex-1 text-sm text-zinc-700">{note.content}</div>
-                <form method="POST" action="?/deleteNote" use:enhance>
-                    <input type="hidden" name="noteId" value={note.id} />
-                    <button
-                        class="text-xs text-zinc-300 hover:text-red-500"
-                        onclick={(e) => e.stopPropagation()}
-                    >Delete</button>
-                </form>
-            </div>
-        {/each}
-    {:else}
-        <p class="text-sm text-zinc-400">No notes</p>
-    {/if}
-
-    <form method="POST" action="?/createNote" use:enhance={handleNoteSubmit} class="flex gap-2 items-end mt-3">
-        <div>
-            <label for="note-start" class="text-xs text-zinc-400">Start ({units === 'imperial' ? 'mi' : 'km'})</label>
-            <input id="note-start" type="text" name="distanceStart" placeholder="1.0"
-                class="w-20 text-sm border border-zinc-200 rounded px-2 py-1 font-mono" />
-        </div>
-        <div>
-            <label for="note-end" class="text-xs text-zinc-400">End</label>
-            <input id="note-end" type="text" name="distanceEnd" placeholder=""
-                class="w-20 text-sm border border-zinc-200 rounded px-2 py-1 font-mono" />
-        </div>
-        <div>
-            <label for="note-repeat" class="text-xs text-zinc-400">Every</label>
-            <input id="note-repeat" type="text" name="repeatEvery" placeholder=""
-                class="w-20 text-sm border border-zinc-200 rounded px-2 py-1 font-mono" />
-        </div>
-        <div class="flex-1">
-            <label for="note-content" class="text-xs text-zinc-400">Note</label>
-            <input id="note-content" type="text" name="content" placeholder="What happened here?"
-                class="w-full text-sm border border-zinc-200 rounded px-2 py-1" />
-        </div>
-        <button type="submit" class="px-3 py-1 text-sm bg-zinc-900 text-white rounded hover:bg-zinc-800">Add</button>
-    </form>
-</div>
-
-{#if data.laps.length > 0}
-    <div class="mb-8">
-        <h2
-            class="text-xs font-semibold uppercase tracking-wide text-zinc-400 mb-3"
-        >
-            Laps ({data.laps.length})
-        </h2>
-        <LapsChart laps={data.laps} {units} color={accentColor} />
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="border-b border-zinc-200 text-left">
-                        <th class="py-2 pr-6 text-xs font-medium text-zinc-400"
-                            >#</th
-                        >
-                        <th class="py-2 pr-6 text-xs font-medium text-zinc-400"
-                            >Distance</th
-                        >
-                        <th class="py-2 pr-6 text-xs font-medium text-zinc-400"
-                            >Time</th
-                        >
-                        <th class="py-2 pr-6 text-xs font-medium text-zinc-400"
-                            >Pace</th
-                        >
-                        <th class="py-2 pr-6 text-xs font-medium text-zinc-400"
-                            >HR</th
-                        >
-                        <th class="py-2 pr-6 text-xs font-medium text-zinc-400"
-                            >Cadence</th
-                        >
-                    </tr>
-                </thead>
-                <tbody>
-                    {#each data.laps as lap (lap.id)}
-                        <tr class="border-b border-zinc-50">
-                            <td
-                                class="py-2 pr-6 font-mono text-zinc-500"
-                                style="font-variant-numeric: tabular-nums;"
-                                >{lap.lapIndex + 1}</td
-                            >
-                            <td
-                                class="py-2 pr-6 font-mono text-zinc-700"
-                                style="font-variant-numeric: tabular-nums;"
-                                >{formatDistancePrecise(
-                                    lap.distance,
-                                    units,
-                                )}</td
-                            >
-                            <td
-                                class="py-2 pr-6 font-mono text-zinc-700"
-                                style="font-variant-numeric: tabular-nums;"
-                                >{formatDurationClock(lap.movingTime)}</td
-                            >
-                            <td
-                                class="py-2 pr-6 font-mono text-zinc-700 rounded px-2"
-                                style="font-variant-numeric: tabular-nums; background: {lapHeatColor(
-                                    lap.averageSpeed,
-                                )};">{formatPace(lap.averageSpeed, units)}</td
-                            >
-                            <td
-                                class="py-2 pr-6 font-mono text-zinc-500"
-                                style="font-variant-numeric: tabular-nums;"
-                                >{lap.averageHeartrate
-                                    ? Math.round(lap.averageHeartrate)
-                                    : "—"}</td
-                            >
-                            <td
-                                class="py-2 pr-6 font-mono text-zinc-500"
-                                style="font-variant-numeric: tabular-nums;"
-                                >{lap.averageCadence
-                                    ? Math.round(lap.averageCadence * 2)
-                                    : "—"}</td
-                            >
-                        </tr>
-                    {/each}
-                </tbody>
-            </table>
-        </div>
-    </div>
-{/if}
-
-{#if data.segments.length > 0}
-    <div class="mb-8">
-        <h2
-            class="text-xs font-semibold uppercase tracking-wide text-zinc-400 mb-3"
-        >
-            Splits ({data.segments.length})
-        </h2>
-        <div class="overflow-x-auto">
-            <table class="text-sm whitespace-nowrap">
-                <thead>
-                    <tr class="border-b border-zinc-200 text-left">
-                        <th class="py-2 pr-5 text-xs font-medium text-zinc-400"
-                            >#</th
-                        >
-                        <th class="py-2 pr-5 text-xs font-medium text-zinc-400"
-                            >Pace</th
-                        >
-                        <th class="py-2 pr-5 text-xs font-medium text-zinc-400"
-                            >HR</th
-                        >
-                        <th class="py-2 pr-5 text-xs font-medium text-zinc-400"
-                            >Cadence</th
-                        >
-                        <th class="py-2 pr-5 text-xs font-medium text-zinc-400"
-                            >Elev</th
-                        >
-                    </tr>
-                </thead>
-                <tbody>
-                    {#each data.segments as seg (seg.id)}
-                        <tr class="border-b border-zinc-50">
-                            <td
-                                class="py-1.5 pr-5 font-mono text-zinc-500"
-                                style="font-variant-numeric: tabular-nums;"
-                                >{seg.segmentIndex + 1}</td
-                            >
-                            <td
-                                class="py-1.5 pr-5 font-mono text-zinc-700"
-                                style="font-variant-numeric: tabular-nums;"
-                                >{formatPaceValue(seg.avgPace, units)}</td
-                            >
-                            <td
-                                class="py-1.5 pr-5 font-mono text-zinc-500"
-                                style="font-variant-numeric: tabular-nums;"
-                                >{seg.avgHeartrate
-                                    ? Math.round(seg.avgHeartrate)
-                                    : "—"}</td
-                            >
-                            <td
-                                class="py-1.5 pr-5 font-mono text-zinc-500"
-                                style="font-variant-numeric: tabular-nums;"
-                                >{seg.avgCadence
-                                    ? Math.round(seg.avgCadence * 2)
-                                    : "—"}</td
-                            >
-                            <td
-                                class="py-1.5 pr-5 font-mono text-zinc-500"
-                                style="font-variant-numeric: tabular-nums;"
-                            >
-                                {#if seg.elevationGain && seg.elevationGain > 0}+{formatElevation(
-                                        seg.elevationGain,
-                                        units,
-                                    )}{:else}—{/if}
-                            </td>
-                        </tr>
-                    {/each}
-                </tbody>
-            </table>
-        </div>
-    </div>
-{/if}
+<SegmentsSection
+    segments={data.segments}
+    {units}
+/>
