@@ -11,7 +11,7 @@ export {
 	zonesFromLTHR,
 	estimateLTHR,
 } from './zones.js';
-export { SportType, WorkoutType } from './activity-types.js';
+export { SportType, WorkoutType, WORKOUT_TYPE_LABELS } from './activity-types.js';
 export {
 	QUEUE_NAME,
 	JobPriority,

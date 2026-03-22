@@ -14,7 +14,7 @@
 		getStreamForSource,
 		getPanelLabel,
 	} from './terminal-state.svelte';
-	import type { ActivityData } from './types';
+	import type { ActivityData, OverlaySeries, OverlayRoute } from './types';
 	import { createGridInteraction } from './grid-interaction.svelte';
 	import { removePanel } from './grid-validation';
 	import ResizeHandle from './ResizeHandle.svelte';
@@ -27,6 +27,12 @@
 		extractRouteCoordinates,
 		computeCrosshairValues,
 	} from './prepare-chart-data';
+	import {
+		type CompareStateType,
+		type CompareActivity,
+		isPanelDisabledInCompare,
+	} from './compare-state.svelte';
+	import type { DataSource } from './terminal-state.svelte';
 
 	interface Props {
 		activity: ActivityData;
@@ -39,6 +45,7 @@
 		paceZones: ZoneDefinition[];
 		hrZones: ZoneDefinition[];
 		onlayoutcommit?: () => void;
+		compareState?: CompareStateType;
 	}
 
 	let {
@@ -52,6 +59,7 @@
 		paceZones,
 		hrZones,
 		onlayoutcommit,
+		compareState,
 	}: Props = $props();
 
 	let gridContainer = $state<HTMLElement | null>(null);
@@ -105,6 +113,37 @@
 	});
 
 	let crosshairValues = $derived(computeCrosshairValues(termState.crosshairIndex, getSampledStream, units));
+
+	// Compare mode overlay data
+	let isCompareActive = $derived(compareState?.compareMode ?? false);
+	let primaryCompareColor = $derived(compareState?.activities[0]?.color ?? null);
+
+	function getOverlaySeriesForSource(source: DataSource): OverlaySeries[] {
+		if (!isCompareActive || !compareState) return [];
+		const selected = compareState.selectedActivities;
+		// Skip primary (index 0)
+		return selected.slice(1).flatMap((ca: CompareActivity) => {
+			const raw = getStreamForSource(ca.streams, source, units);
+			if (!raw) return [];
+			const velocity = ca.streams.velocity;
+			const len = velocity?.length ?? ca.streams.distance?.length ?? 0;
+			const indices = prepareSamplingIndices(velocity, len, termState.params.samplePoints);
+			const sampled = sampleStream(raw, indices) ?? raw;
+			const rawXStream = termState.xAxis === 'distance' ? ca.streams.distance : ca.streams.time;
+			const sampledX = (sampleStream(rawXStream, indices) ?? rawXStream ?? sampled.map((_, i) => i));
+			return [{ data: sampled, xData: sampledX, color: ca.color, label: ca.name }];
+		});
+	}
+
+	let overlayRoutes = $derived.by((): OverlayRoute[] => {
+		if (!isCompareActive || !compareState) return [];
+		const selected = compareState.selectedActivities;
+		return selected.slice(1).flatMap((ca: CompareActivity) => {
+			const coords = extractRouteCoordinates(ca.activity.routeGeoJson, ca.streams.latlng);
+			if (!coords) return [];
+			return [{ coordinates: coords, color: ca.color, label: ca.name }];
+		});
+	});
 
 	let highlightRange = $derived.by((): { start: number; end: number } | null => {
 		if (termState.highlightedNoteId == null) return null;
@@ -182,6 +221,7 @@
 					isDragSource={interaction.dragPanelIndex === idx}
 					ondragstart={(e) => interaction.startDrag(idx, e.pointerId, e)}
 					onconfigopen={(rect) => openConfigPopup(idx, rect)}
+					compareDisabled={isCompareActive && isPanelDisabledInCompare(panel.config)}
 				>
 					<PanelContent
 						config={panel.config}
@@ -211,6 +251,10 @@
 						oncrosshairclick={onCrosshairClick}
 						oncrosshairleave={onCrosshairLeave}
 						onnotehighlight={(id) => termState.highlightedNoteId = id}
+						compareMode={isCompareActive}
+						primaryColor={isCompareActive ? primaryCompareColor ?? undefined : undefined}
+						{getOverlaySeriesForSource}
+						{overlayRoutes}
 					/>
 				</TerminalPanel>
 			</div>
@@ -258,5 +302,6 @@
 		{notes}
 		{laps}
 		{crosshairValues}
+		compareMode={isCompareActive}
 	/>
 </div>

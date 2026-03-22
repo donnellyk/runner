@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { ZoneDefinition } from "@web-runner/shared";
+    import { findOverlayCrosshairIndex } from "../compare-state.svelte";
     import {
         smoothStream,
         computeYBounds,
@@ -22,6 +23,7 @@
     import { formatYValue, formatYValueShort } from "../shared/chart-formatting";
     import { createYAxisScaling } from "../shared/chart-scaling";
     import type { CrosshairCallbacks, ChartDataProps, ChartLabelProps } from "../shared/chart-props";
+    import type { OverlaySeries } from "../types";
     import ChartShell from "./ChartShell.svelte";
     import YGridLines from "./YGridLines.svelte";
     import XAxisLabels from "./XAxisLabels.svelte";
@@ -42,6 +44,7 @@
         zoneMetric?: "pace" | "heartrate";
         showZones?: boolean;
         filled?: boolean;
+        overlayData?: OverlaySeries[];
     }
 
     let {
@@ -68,6 +71,7 @@
         oncrosshairleave,
         showZones = true,
         filled = false,
+        overlayData,
     }: Props = $props();
 
     const lineGlow = 3;
@@ -189,8 +193,23 @@
     let trimXData = $derived(trimmed.trimXData);
     let trimPausedMask = $derived(trimmed.trimPausedMask);
 
-    let xMin = $derived(trimXData[0] ?? 0);
-    let xMax = $derived(trimXData[trimXData.length - 1] ?? 1);
+    let xBounds = $derived.by(() => {
+        let min = trimXData[0] ?? 0;
+        let max = trimXData[trimXData.length - 1] ?? 1;
+        if (overlayData) {
+            for (const o of overlayData) {
+                if (o.xData.length > 0) {
+                    const oMin = o.xData[0];
+                    const oMax = o.xData[o.xData.length - 1];
+                    if (oMin < min) min = oMin;
+                    if (oMax > max) max = oMax;
+                }
+            }
+        }
+        return { min, max };
+    });
+    let xMin = $derived(xBounds.min);
+    let xMax = $derived(xBounds.max);
     let xRange = $derived(xMax - xMin || 1);
 
     function toX(xVal: number): number {
@@ -201,7 +220,27 @@
         smoothStream(trimData, smoothingWindow, trimPausedMask),
     );
 
-    let yBounds = $derived(computeYBounds(smoothData, trimPausedMask));
+    // Smooth overlay series
+    let smoothedOverlays = $derived.by(() => {
+        if (!overlayData || overlayData.length === 0) return [];
+        return overlayData.map((o) => ({
+            ...o,
+            smoothed: smoothStream(o.data, smoothingWindow, null),
+        }));
+    });
+
+
+    let yBounds = $derived.by(() => {
+        const primary = computeYBounds(smoothData, trimPausedMask);
+        if (smoothedOverlays.length === 0) return primary;
+        let { yMin, yMax } = primary;
+        for (const o of smoothedOverlays) {
+            const ob = computeYBounds(o.smoothed, null);
+            if (ob.yMin < yMin) yMin = ob.yMin;
+            if (ob.yMax > yMax) yMax = ob.yMax;
+        }
+        return { yMin, yMax };
+    });
     let yMin = $derived(yBounds.yMin);
     let yMax = $derived(yBounds.yMax);
     let yRange = $derived(yMax - yMin || 1);
@@ -272,6 +311,49 @@
         crosshairIndex != null && (trimPausedMask?.[crosshairIndex] ?? false),
     );
 
+    // --- Overlay crosshairs & stacked badges ---
+
+    let overlayCrosshairs = $derived.by(() => {
+        if (crosshairIndex == null || smoothedOverlays.length === 0) return [];
+        return smoothedOverlays.flatMap((overlay) => {
+            const oIdx = findOverlayCrosshairIndex(trimXData, overlay.xData, crosshairIndex);
+            if (oIdx == null) return [];
+            const oVal = overlay.smoothed[oIdx];
+            if (oVal == null) return [];
+            return [{ y: toY(oVal), value: oVal, color: overlay.color, label: fmtShort(oVal) }];
+        });
+    });
+
+    const BADGE_H = 20;
+    const BADGE_MIN_GAP = 2;
+
+    let stackedBadges = $derived.by(() => {
+        if (crosshairX == null) return [];
+        const badges: { y: number; stackedY: number; color: string; label: string; isPrimary: boolean }[] = [];
+
+        if (crosshairY != null && !tooltipPaused && tooltipValue != null) {
+            const effectiveY = badgeDragY ?? crosshairY;
+            const effectiveValue = badgeDragY != null ? fromY(badgeDragY) : tooltipValue;
+            badges.push({ y: effectiveY, stackedY: effectiveY, color, label: fmtShort(effectiveValue), isPrimary: true });
+        }
+
+        for (const oc of overlayCrosshairs) {
+            badges.push({ y: oc.y, stackedY: oc.y, color: oc.color, label: oc.label, isPrimary: false });
+        }
+
+        if (badges.length < 2) return badges;
+
+        // Sort by natural Y position, then nudge apart
+        badges.sort((a, b) => a.y - b.y);
+        for (let i = 1; i < badges.length; i++) {
+            const minY = badges[i - 1].stackedY + BADGE_H + BADGE_MIN_GAP;
+            if (badges[i].stackedY < minY) {
+                badges[i].stackedY = minY;
+            }
+        }
+        return badges;
+    });
+
     // --- Axis labels ---
 
     let xLabels = $derived.by(() => {
@@ -339,6 +421,32 @@
             sel.highValue,
             trimPausedMask,
         );
+    });
+
+    let overlaySelectionStats = $derived.by((): { color: string; label: string; stats: SelectionStats }[] => {
+        const sel = interaction.selection;
+        if (!sel || smoothedOverlays.length === 0) return [];
+        return smoothedOverlays.flatMap((overlay) => {
+            let stats: SelectionStats | null = null;
+            if (sel.mode === "horizontal") {
+                const xStart = trimXData[Math.min(sel.startIdx, sel.endIdx)];
+                const xEnd = trimXData[Math.max(sel.startIdx, sel.endIdx)];
+                if (xStart == null || xEnd == null) return [];
+                let oStartIdx = 0;
+                let oEndIdx = overlay.xData.length - 1;
+                for (let i = 0; i < overlay.xData.length; i++) {
+                    if (overlay.xData[i] >= xStart) { oStartIdx = i; break; }
+                }
+                for (let i = overlay.xData.length - 1; i >= 0; i--) {
+                    if (overlay.xData[i] <= xEnd) { oEndIdx = i; break; }
+                }
+                stats = computeHorizontalStats(overlay.smoothed, overlay.xData, oStartIdx, oEndIdx, null);
+            } else {
+                stats = computeVerticalStats(overlay.smoothed, sel.lowValue, sel.highValue, null);
+            }
+            if (!stats) return [];
+            return [{ color: overlay.color, label: overlay.label, stats }];
+        });
     });
 
     // --- Selection overlay geometry ---
@@ -578,6 +686,22 @@
             />
         {/if}
 
+        {#each smoothedOverlays as overlay, oi (oi)}
+            <polyline
+                points={overlay.smoothed.map((v, i) => {
+                    const xVal = overlay.xData[i] ?? overlay.xData[overlay.xData.length - 1];
+                    return `${toX(xVal)},${toY(v)}`;
+                }).join(" ")}
+                fill="none"
+                stroke={overlay.color}
+                stroke-width="1.5"
+                stroke-linejoin="round"
+                stroke-linecap="round"
+                clip-path="url(#{clipId})"
+                filter={lineGlow > 0 ? `url(#${glowId})` : undefined}
+            />
+        {/each}
+
         {#if selectionRect && interaction.selection}
             <SelectionOverlay
                 rect={selectionRect}
@@ -597,7 +721,7 @@
             padLeft={P.left}
             chartW={dims.chartW}
             chartH={dims.chartH}
-            {color}
+            color={color}
             onrefmousedown={handleRefMousedown}
         />
 
@@ -611,21 +735,46 @@
             chartW={dims.chartW}
         />
 
-        {#if crosshairX != null && crosshairY != null && !tooltipPaused && tooltipValue != null}
-            {@const effectiveY = badgeDragY ?? crosshairY}
-            {@const effectiveValue = badgeDragY != null ? fromY(badgeDragY) : tooltipValue}
-            <CrosshairYBadge
-                y={effectiveY}
-                padLeft={P.left}
-                chartW={dims.chartW}
-                {color}
-                label={fmtShort(effectiveValue)}
-                locked={crosshairLocked}
-                isExistingRef={crosshairRefMatch >= 0}
-                dragging={badgeDragging}
-                onbadgemousedown={handleBadgeDrag}
-            />
-        {/if}
+        {#each overlayCrosshairs as oc (oc.color)}
+            {#if crosshairX != null}
+                <line
+                    x1={P.left}
+                    y1={oc.y}
+                    x2={P.left + dims.chartW}
+                    y2={oc.y}
+                    stroke="var(--term-crosshair)"
+                    stroke-width="1"
+                    stroke-dasharray="3,2"
+                />
+            {/if}
+        {/each}
+
+        {#each stackedBadges as badge, bi (bi)}
+            {#if badge.isPrimary}
+                <CrosshairYBadge
+                    y={badge.stackedY}
+                    padLeft={P.left}
+                    chartW={dims.chartW}
+                    color={badge.color}
+                    label={badge.label}
+                    locked={crosshairLocked}
+                    isExistingRef={crosshairRefMatch >= 0}
+                    dragging={badgeDragging}
+                    onbadgemousedown={handleBadgeDrag}
+                />
+            {:else}
+                <CrosshairYBadge
+                    y={badge.stackedY}
+                    padLeft={P.left}
+                    chartW={dims.chartW}
+                    color={badge.color}
+                    label={badge.label}
+                    locked={false}
+                    isExistingRef={false}
+                    dragging={false}
+                />
+            {/if}
+        {/each}
 
         <XAxisLabels labels={xLabels} svgHeight={dims.svgHeight} />
 
@@ -633,7 +782,7 @@
             <CrosshairXBadge
                 x={crosshairX}
                 label={crosshairXLabel}
-                {color}
+                color={color}
                 padLeft={P.left}
                 chartW={dims.chartW}
                 svgHeight={dims.svgHeight}
@@ -648,37 +797,72 @@
                     <div style="color: var(--term-text-muted); margin-bottom: 3px;">
                         {formatXLabel(selectionStats.xStart, xAxis, units)} – {formatXLabel(selectionStats.xEnd, xAxis, units)}
                     </div>
-                    <div class="flex gap-4">
+                    <div class="flex gap-4" style={overlaySelectionStats.length > 0 ? `color: ${color};` : ''}>
                         <div>
                             <span style="color: var(--term-text-muted);">Avg</span>
-                            <span style="color: var(--term-text-bright);">{fmt(selectionStats.avg)}</span>
+                            <span style={overlaySelectionStats.length > 0 ? '' : 'color: var(--term-text-bright);'}>{fmt(selectionStats.avg)}</span>
                         </div>
                         <div>
                             <span style="color: var(--term-text-muted);">Hi</span>
-                            <span style="color: var(--term-text-bright);">{fmt(invertY ? selectionStats.min : selectionStats.max)}</span>
+                            <span style={overlaySelectionStats.length > 0 ? '' : 'color: var(--term-text-bright);'}>{fmt(invertY ? selectionStats.min : selectionStats.max)}</span>
                         </div>
                         <div>
                             <span style="color: var(--term-text-muted);">Lo</span>
-                            <span style="color: var(--term-text-bright);">{fmt(invertY ? selectionStats.max : selectionStats.min)}</span>
+                            <span style={overlaySelectionStats.length > 0 ? '' : 'color: var(--term-text-bright);'}>{fmt(invertY ? selectionStats.max : selectionStats.min)}</span>
                         </div>
                     </div>
+                    {#each overlaySelectionStats as os (os.color)}
+                        {#if os.stats.mode === "horizontal"}
+                            <div class="flex gap-4" style="color: {os.color}; margin-top: 2px;">
+                                <div>
+                                    <span style="color: var(--term-text-muted);">Avg</span>
+                                    <span>{fmt(os.stats.avg)}</span>
+                                </div>
+                                <div>
+                                    <span style="color: var(--term-text-muted);">Hi</span>
+                                    <span>{fmt(invertY ? os.stats.min : os.stats.max)}</span>
+                                </div>
+                                <div>
+                                    <span style="color: var(--term-text-muted);">Lo</span>
+                                    <span>{fmt(invertY ? os.stats.max : os.stats.min)}</span>
+                                </div>
+                            </div>
+                        {/if}
+                    {/each}
                 {:else}
                     <div style="color: var(--term-text-muted); margin-bottom: 3px;">
                         {fmt(selectionStats.lowValue)} – {fmt(selectionStats.highValue)}
                     </div>
-                    <div class="flex gap-4">
+                    <div class="flex gap-4" style={overlaySelectionStats.length > 0 ? `color: ${color};` : ''}>
                         <div>
                             <span style="color: var(--term-text-muted);">Pts</span>
-                            <span style="color: var(--term-text-bright);">{selectionStats.points}</span>
+                            <span style={overlaySelectionStats.length > 0 ? '' : 'color: var(--term-text-bright);'}>{selectionStats.points}</span>
                         </div>
                         <div>
                             <span style="color: var(--term-text-muted);">of</span>
-                            <span style="color: var(--term-text-bright);">{selectionStats.totalPoints}</span>
+                            <span style={overlaySelectionStats.length > 0 ? '' : 'color: var(--term-text-bright);'}>{selectionStats.totalPoints}</span>
                         </div>
                         <div>
-                            <span style="color: var(--term-text-bright);">{selectionStats.pct.toFixed(1)}%</span>
+                            <span style={overlaySelectionStats.length > 0 ? '' : 'color: var(--term-text-bright);'}>{selectionStats.pct.toFixed(1)}%</span>
                         </div>
                     </div>
+                    {#each overlaySelectionStats as os (os.color)}
+                        {#if os.stats.mode === "vertical"}
+                            <div class="flex gap-4" style="color: {os.color}; margin-top: 2px;">
+                                <div>
+                                    <span style="color: var(--term-text-muted);">Pts</span>
+                                    <span>{os.stats.points}</span>
+                                </div>
+                                <div>
+                                    <span style="color: var(--term-text-muted);">of</span>
+                                    <span>{os.stats.totalPoints}</span>
+                                </div>
+                                <div>
+                                    <span>{os.stats.pct.toFixed(1)}%</span>
+                                </div>
+                            </div>
+                        {/if}
+                    {/each}
                 {/if}
             </ChartOverlay>
         {/if}

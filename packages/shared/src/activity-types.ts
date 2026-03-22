@@ -18,3 +18,9 @@ export const WorkoutType = {
 } as const;
 
 export type WorkoutType = (typeof WorkoutType)[keyof typeof WorkoutType];
+
+export const WORKOUT_TYPE_LABELS: { value: WorkoutType; label: string }[] = [
+  { value: WorkoutType.RACE, label: 'Race' },
+  { value: WorkoutType.WORKOUT, label: 'Workout' },
+  { value: WorkoutType.LONG_RUN, label: 'Long run' },
+];

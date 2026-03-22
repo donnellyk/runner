@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type L from 'leaflet';
+	import type { OverlayRoute } from '../types';
 
 	interface Props {
 		coordinates: [number, number][];
@@ -8,6 +9,7 @@
 		distanceStream?: number[] | null;
 		crosshairOrigIdx?: number | null;
 		highlightRange?: { start: number; end: number } | null;
+		overlayRoutes?: OverlayRoute[];
 	}
 
 	let {
@@ -16,6 +18,7 @@
 		distanceStream = null,
 		crosshairOrigIdx = null,
 		highlightRange = null,
+		overlayRoutes = [],
 	}: Props = $props();
 
 	let mapEl: HTMLDivElement;
@@ -24,6 +27,7 @@
 	let markerCircle: L.CircleMarker | null = null;
 	let coveredPolyline: L.Polyline | null = null;
 	let highlightPolyline: L.Polyline | null = null;
+	let overlayPolylines: L.Polyline[] = [];
 	let ready = $state(false);
 
 	onMount(() => {
@@ -47,6 +51,34 @@
 		});
 
 		return () => mapRef?.remove();
+	});
+
+	// Overlay routes
+	$effect(() => {
+		if (!ready || !leafletRef || !mapRef) return;
+		for (const p of overlayPolylines) p.remove();
+		overlayPolylines = [];
+
+		for (const route of overlayRoutes) {
+			const pts: L.LatLngTuple[] = route.coordinates.map(([lng, lat]) => [lat, lng]);
+			const polyline = leafletRef.polyline(pts, {
+				color: route.color,
+				weight: 2,
+				opacity: 0.7,
+			}).addTo(mapRef);
+			overlayPolylines.push(polyline);
+		}
+
+		// Fit bounds to include all routes
+		if (overlayRoutes.length > 0) {
+			const allLatLngs: L.LatLngTuple[] = coordinates.map(([lng, lat]) => [lat, lng]);
+			for (const route of overlayRoutes) {
+				for (const [lng, lat] of route.coordinates) {
+					allLatLngs.push([lat, lng]);
+				}
+			}
+			mapRef.fitBounds(leafletRef.latLngBounds(allLatLngs), { padding: [15, 15] });
+		}
 	});
 
 	$effect(() => {

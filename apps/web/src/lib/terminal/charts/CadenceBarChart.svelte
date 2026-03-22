@@ -4,6 +4,7 @@
 	import { createChartDimensions } from '../shared/chart-dimensions.svelte';
 	import { formatYValue } from '../shared/chart-formatting';
 	import type { CrosshairCallbacks, ChartDataProps, ChartLabelProps } from '../shared/chart-props';
+	import type { OverlaySeries } from '../types';
 	import ChartShell from './ChartShell.svelte';
 	import XAxisLabels from './XAxisLabels.svelte';
 	import CrosshairLine from './CrosshairLine.svelte';
@@ -18,6 +19,7 @@
 		data: number[];
 		smoothingWindow?: number;
 		precomputedBars?: BarEntry[];
+		overlayData?: OverlaySeries[];
 	}
 
 	let {
@@ -38,6 +40,7 @@
 		oncrosshairmove,
 		oncrosshairclick,
 		oncrosshairleave,
+		overlayData,
 	}: Props = $props();
 
 	function fmt(v: number): string {
@@ -77,10 +80,36 @@
 		return result;
 	});
 
+	// Compute overlay buckets for each overlay series
+	let overlayBuckets = $derived.by((): { buckets: BarEntry[]; color: string; label: string }[] => {
+		if (!overlayData || overlayData.length === 0 || buckets.length === 0) return [];
+		return overlayData.map((o) => {
+			const smoothed = smoothStream(o.data, smoothingWindow, null);
+			const count = Math.min(BUCKET_COUNT, smoothed.length);
+			const result: BarEntry[] = [];
+			for (let b = 0; b < count; b++) {
+				const start = Math.floor((b / count) * smoothed.length);
+				const end = Math.floor(((b + 1) / count) * smoothed.length);
+				let sum = 0, n = 0;
+				for (let i = start; i < end; i++) {
+					if (smoothed[i] > 0) { sum += smoothed[i]; n++; }
+				}
+				result.push({ avg: n > 0 ? sum / n : 0, xMid: 0 });
+			}
+			return { buckets: result, color: o.color, label: o.label };
+		});
+	});
+
 	let yBounds = $derived.by(() => {
 		const vals = buckets.map((b) => b.avg).filter((v) => v > 0);
-		if (vals.length === 0) return { yMin: 0, yMax: 1 };
-		return { yMin: 0, yMax: Math.max(...vals) * 1.1 };
+		const allVals = [...vals];
+		for (const ob of overlayBuckets) {
+			for (const b of ob.buckets) {
+				if (b.avg > 0) allVals.push(b.avg);
+			}
+		}
+		if (allVals.length === 0) return { yMin: 0, yMax: 1 };
+		return { yMin: 0, yMax: Math.max(...allVals) * 1.1 };
 	});
 
 	let yMax = $derived(yBounds.yMax);
@@ -202,6 +231,22 @@
 				fill-opacity={intensity}
 				rx="1"
 			/>
+		{/each}
+
+		{#each overlayBuckets as overlay, oi (oi)}
+			{#each overlay.buckets as bucket, i (i)}
+				{@const bx = barX(i)}
+				{@const h = yMax > 0 ? (bucket.avg / yMax) * dims.chartH : 0}
+				<rect
+					x={bx - barWidth / 2}
+					y={dims.padding.top + dims.chartH - h}
+					width={barWidth}
+					height={h}
+					fill={overlay.color}
+					fill-opacity="0.5"
+					rx="1"
+				/>
+			{/each}
 		{/each}
 
 		<CrosshairLine

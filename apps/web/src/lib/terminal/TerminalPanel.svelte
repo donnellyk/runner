@@ -12,9 +12,10 @@
 		ondragstart?: (e: PointerEvent) => void;
 		onconfigopen?: (rect: DOMRect) => void;
 		isDragSource?: boolean;
+		compareDisabled?: boolean;
 	}
 
-	let { config, children, ondragstart, onconfigopen, isDragSource = false }: Props = $props();
+	let { config, children, ondragstart, onconfigopen, isDragSource = false, compareDisabled = false }: Props = $props();
 
 	let menuBtn = $state<HTMLElement | null>(null);
 
@@ -58,7 +59,13 @@
 		>&#x22EE;</button>
 	</div>
 
-	<div class="flex-1" style="min-height: 0;">
-		{@render children()}
+	<div class="flex-1" style="min-height: 0; position: relative;">
+		{#if compareDisabled}
+			<div class="flex items-center justify-center h-full" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace; font-size: 12px; opacity: 0.6;">
+				Not available in compare mode
+			</div>
+		{:else}
+			{@render children()}
+		{/if}
 	</div>
 </div>

@@ -23,6 +23,7 @@
 	} from './terminal-state.svelte';
 	import { candlesFromSegments, candlesFromLaps, type CandleData } from './candlestick';
 	import { findIndexAtDistance } from '$lib/streams';
+	import type { OverlaySeries, OverlayRoute } from './types';
 
 	interface Props {
 		config: PanelConfig;
@@ -52,6 +53,10 @@
 		oncrosshairclick: (index: number | null) => void;
 		oncrosshairleave: () => void;
 		onnotehighlight: (id: number | null) => void;
+		compareMode?: boolean;
+		primaryColor?: string;
+		getOverlaySeriesForSource?: (source: DataSource) => OverlaySeries[];
+		overlayRoutes?: OverlayRoute[];
 	}
 
 	let {
@@ -82,6 +87,10 @@
 		oncrosshairclick,
 		oncrosshairleave,
 		onnotehighlight,
+		compareMode = false,
+		primaryColor,
+		getOverlaySeriesForSource,
+		overlayRoutes = [],
 	}: Props = $props();
 
 	function streamIdxToCandleIdx(streamIdx: number | null, candles: CandleData[]): number | null {
@@ -143,6 +152,7 @@
 			distanceStream={streams.distance}
 			{crosshairOrigIdx}
 			{highlightRange}
+			overlayRoutes={compareMode ? overlayRoutes : []}
 		/>
 	{:else if config.specialType === 'notes'}
 		<NotesPanel
@@ -191,7 +201,7 @@
 				{xAxis}
 				{units}
 				label={DATA_SOURCE_LABELS[config.dataSource]}
-				color={config.colorOverride ?? DATA_SOURCE_COLORS[config.dataSource]}
+				color={compareMode && primaryColor ? primaryColor : config.colorOverride ?? DATA_SOURCE_COLORS[config.dataSource]}
 				unit={getUnitForSource(config.dataSource, units)}
 				formatValue={config.dataSource === 'pace' ? (v: number) => formatPaceDisplay(v, units) : undefined}
 				smoothingWindow={config.smoothingOverride ?? smoothingWindow}
@@ -202,6 +212,7 @@
 				oncrosshairmove={oncrosshairmove}
 				oncrosshairclick={oncrosshairclick}
 				oncrosshairleave={oncrosshairleave}
+				overlayData={compareMode && getOverlaySeriesForSource ? getOverlaySeriesForSource(config.dataSource) : undefined}
 			/>
 		{:else}
 			{@const panelShowZones = config.zonesOverride ?? showZones}
@@ -213,7 +224,7 @@
 				{xAxis}
 				{units}
 				label={DATA_SOURCE_LABELS[config.dataSource]}
-				color={config.colorOverride ?? DATA_SOURCE_COLORS[config.dataSource]}
+				color={compareMode && primaryColor ? primaryColor : config.colorOverride ?? DATA_SOURCE_COLORS[config.dataSource]}
 				unit={getUnitForSource(config.dataSource, units)}
 				formatValue={config.dataSource === 'pace' ? (v: number) => formatPaceDisplay(v, units) : undefined}
 				pausedMask={sampledPausedMask ?? undefined}
@@ -223,13 +234,14 @@
 				zones={zoneInfo?.zones}
 				zoneMetric={zoneInfo?.metric}
 				showZones={panelShowZones}
-				filled={config.chartType === 'area'}
+				filled={config.chartType === 'area' && !compareMode}
 				crosshairIndex={crosshairIndex}
 				crosshairLocked={crosshairLocked}
 				{highlightRange}
 				oncrosshairmove={oncrosshairmove}
 				oncrosshairclick={oncrosshairclick}
 				oncrosshairleave={oncrosshairleave}
+				overlayData={compareMode && getOverlaySeriesForSource ? getOverlaySeriesForSource(config.dataSource) : undefined}
 			/>
 		{/if}
 	{:else}

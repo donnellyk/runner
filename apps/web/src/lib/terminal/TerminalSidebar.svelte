@@ -18,6 +18,7 @@
 		notes: ActivityNote[];
 		laps: ActivityLap[];
 		crosshairValues?: Record<string, string | null>;
+		compareMode?: boolean;
 	}
 
 	let {
@@ -27,6 +28,7 @@
 		notes,
 		laps,
 		crosshairValues = {},
+		compareMode = false,
 	}: Props = $props();
 
 	let collapsed = $state(false);
@@ -88,50 +90,52 @@
 			</div>
 		</div>
 
-		<!-- Notes -->
-		{#if notes.length > 0}
-			<div class="section">
-				<div class="section-header">Notes ({notes.length})</div>
-				<div class="notes-list">
-					{#each notes as note (note.id)}
-						<button
-							class="note-btn"
-							style="background: {termState.highlightedNoteId === note.id ? 'var(--term-surface-hover)' : 'transparent'};"
-							onclick={() => termState.highlightedNoteId = termState.highlightedNoteId === note.id ? null : note.id}
-						>
-							<span class="note-dist">{formatDistance(note.distanceStart, units)}</span>
-							<span class="note-text">{note.content}</span>
-						</button>
-					{/each}
-				</div>
-			</div>
-		{/if}
-
-		<!-- Laps -->
-		{#if laps.length > 0}
-			<div class="section">
-				<div class="section-header">Laps ({laps.length})</div>
-				<table class="laps-table" style="font-variant-numeric: tabular-nums;">
-					<thead>
-						<tr>
-							<th class="text-left">#</th>
-							<th class="text-right">Dist</th>
-							<th class="text-right">Pace</th>
-							<th class="text-right">HR</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each laps as lap (lap.id)}
-							<tr>
-								<td>{lap.lapIndex + 1}</td>
-								<td class="text-right">{lap.distance ? formatDistancePrecise(lap.distance, units) : '—'}</td>
-								<td class="text-right" style="color: var(--term-text-bright);">{formatPace(lap.averageSpeed, units)}</td>
-								<td class="text-right">{lap.averageHeartrate ? Math.round(lap.averageHeartrate) : '—'}</td>
-							</tr>
+		{#if !compareMode}
+			<!-- Notes -->
+			{#if notes.length > 0}
+				<div class="section">
+					<div class="section-header">Notes ({notes.length})</div>
+					<div class="notes-list">
+						{#each notes as note (note.id)}
+							<button
+								class="note-btn"
+								style="background: {termState.highlightedNoteId === note.id ? 'var(--term-surface-hover)' : 'transparent'};"
+								onclick={() => termState.highlightedNoteId = termState.highlightedNoteId === note.id ? null : note.id}
+							>
+								<span class="note-dist">{formatDistance(note.distanceStart, units)}</span>
+								<span class="note-text">{note.content}</span>
+							</button>
 						{/each}
-					</tbody>
-				</table>
-			</div>
+					</div>
+				</div>
+			{/if}
+
+			<!-- Laps -->
+			{#if laps.length > 0}
+				<div class="section">
+					<div class="section-header">Laps ({laps.length})</div>
+					<table class="laps-table" style="font-variant-numeric: tabular-nums;">
+						<thead>
+							<tr>
+								<th class="text-left">#</th>
+								<th class="text-right">Dist</th>
+								<th class="text-right">Pace</th>
+								<th class="text-right">HR</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each laps as lap (lap.id)}
+								<tr>
+									<td>{lap.lapIndex + 1}</td>
+									<td class="text-right">{lap.distance ? formatDistancePrecise(lap.distance, units) : '—'}</td>
+									<td class="text-right" style="color: var(--term-text-bright);">{formatPace(lap.averageSpeed, units)}</td>
+									<td class="text-right">{lap.averageHeartrate ? Math.round(lap.averageHeartrate) : '—'}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
 		{/if}
 	</div>
 {/if}

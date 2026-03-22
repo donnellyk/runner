@@ -20,7 +20,7 @@
 	let {
 		dims,
 		label,
-		cursorStyle = '',
+		cursorStyle = 'crosshair',
 		onmousedown,
 		onmousemove,
 		onmouseup,

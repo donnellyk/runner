@@ -1,3 +1,16 @@
+export interface OverlaySeries {
+	data: number[];
+	xData: number[];
+	color: string;
+	label: string;
+}
+
+export interface OverlayRoute {
+	coordinates: [number, number][];
+	color: string;
+	label: string;
+}
+
 export interface ActivityData {
 	distance: number | null;
 	movingTime: number | null;

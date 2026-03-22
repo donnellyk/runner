@@ -14,6 +14,9 @@
 		getSettings,
 	} from '$lib/terminal/terminal-state.svelte';
 	import { prepareStreams, prepareNotes, prepareLaps, prepareSegments } from '$lib/terminal/prepare-page-data';
+	import { createCompareState } from '$lib/terminal/compare-state.svelte';
+	import CompareBar from '$lib/terminal/CompareBar.svelte';
+	import ActivitySearchPopup from '$lib/terminal/ActivitySearchPopup.svelte';
 	import type { Units } from '$lib/format';
 	import {
 		decodeLayout,
@@ -37,6 +40,51 @@
 	let notes = $derived(prepareNotes(data.notes));
 	let lapList = $derived(prepareLaps(data.laps));
 	let segmentList = $derived(prepareSegments(data.segments));
+
+	// Compare state — initialized once from page data (not reactive to navigations)
+	// svelte-ignore state_referenced_locally
+	const compareState = createCompareState({
+		id: data.activity.id,
+		name: data.activity.name,
+		startDate: data.activity.startDate,
+		sportType: data.activity.sportType,
+		activity: { distance: a.distance, movingTime: a.movingTime, averageSpeed: a.averageSpeed, averageHeartrate: a.averageHeartrate, totalElevationGain: a.totalElevationGain, averageCadence: a.averageCadence, routeGeoJson: a.routeGeoJson },
+		streams,
+		laps: lapList,
+		segments: segmentList,
+		notes,
+	});
+
+	// Effective data: in compare mode pass overlay data, otherwise use active tab's data
+	let effectiveActivity = $derived(compareState.activeActivity.activity);
+	let effectiveStreams = $derived(compareState.activeActivity.streams);
+	let effectiveNotes = $derived(compareState.activeActivity.notes);
+	let effectiveLaps = $derived(compareState.activeActivity.laps);
+	let effectiveSegments = $derived(compareState.activeActivity.segments);
+
+	let searchOpen = $state(false);
+
+	async function handleSearchSelect(activityId: number) {
+		searchOpen = false;
+		await compareState.addActivity(activityId);
+	}
+
+	// Load compare activities from URL on mount
+	const initialCompareIds = page.url.searchParams.get('compare');
+	if (initialCompareIds) {
+		onMount(async () => {
+			const ids = initialCompareIds.split(',').map(Number).filter((n) => n > 0 && n !== data.activity.id);
+			for (const id of ids.slice(0, 3)) {
+				await compareState.addActivity(id);
+			}
+		});
+	}
+
+	// Sync compare state to URL
+	let compareUrlParam = $derived.by(() => {
+		const ids = compareState.activities.slice(1).map((a) => a.id);
+		return ids.length > 0 ? ids.join(',') : null;
+	});
 
 	// Base path for this activity's layout URLs
 	const basePath = resolve(`/activities/${data.activity.id}/terminal/layout`);
@@ -92,7 +140,12 @@
 
 	// URL sync: debounced replaceState for continuous changes
 	function currentUrl() {
-		return `${basePath}${buildLayoutPath(termState.layoutPanels, getSettings(termState))}`;
+		const base = `${basePath}${buildLayoutPath(termState.layoutPanels, getSettings(termState))}`;
+		if (compareUrlParam) {
+			const sep = base.includes('?') ? '&' : '?';
+			return `${base}${sep}compare=${compareUrlParam}`;
+		}
+		return base;
 	}
 
 	let urlString = $derived(currentUrl());
@@ -237,10 +290,18 @@
 			class="text-[12px] px-2 py-0.5 rounded no-underline"
 			style="color: var(--term-text-muted); border: 1px solid var(--term-border); font-family: 'Geist Mono', monospace;"
 		>ESC Exit</a>
-		<span class="ml-3 text-[13px] font-medium truncate" style="color: var(--term-text); font-family: 'Geist Mono', monospace;">{a.name}</span>
-		<span class="ml-2 text-[12px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">
-			{new Date(a.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-		</span>
+		{#if compareState.activities.length <= 1}
+			<span class="ml-3 text-[13px] font-medium truncate" style="color: var(--term-text); font-family: 'Geist Mono', monospace;">{a.name}</span>
+			<span class="ml-2 text-[12px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">
+				{new Date(a.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+			</span>
+		{/if}
+		<div class="ml-2 flex items-center gap-1">
+			<CompareBar {compareState} onsearchopen={() => searchOpen = true} />
+		</div>
+		{#if compareState.loading}
+			<span class="ml-2 text-[11px]" style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;">Loading...</span>
+		{/if}
 		<div class="ml-auto flex gap-1">
 			<div class="flex" style="border: 1px solid var(--term-border); border-radius: 4px; overflow: hidden;">
 				<button
@@ -274,16 +335,17 @@
 
 	<div class="flex-1" style="min-height: 0; position: relative; z-index: 1;">
 		<TerminalLayout
-			activity={{ distance: a.distance, movingTime: a.movingTime, averageSpeed: a.averageSpeed, averageHeartrate: a.averageHeartrate, totalElevationGain: a.totalElevationGain, averageCadence: a.averageCadence, routeGeoJson: a.routeGeoJson }}
+			activity={effectiveActivity}
 			{units}
 			{termState}
-			{streams}
-			{notes}
-			laps={lapList}
-			segments={segmentList}
+			streams={effectiveStreams}
+			notes={effectiveNotes}
+			laps={effectiveLaps}
+			segments={effectiveSegments}
 			{paceZones}
 			{hrZones}
 			onlayoutcommit={pushLayoutToHistory}
+			{compareState}
 		/>
 	</div>
 </div>
@@ -306,5 +368,15 @@
 		{termState}
 		anchorRect={popupAnchorRect}
 		onclose={() => activePopup = null}
+	/>
+{/if}
+
+{#if searchOpen}
+	<ActivitySearchPopup
+		sportType={compareState.sportType}
+		excludeIds={compareState.activities.map((a) => a.id)}
+		{units}
+		onselect={handleSearchSelect}
+		onclose={() => searchOpen = false}
 	/>
 {/if}

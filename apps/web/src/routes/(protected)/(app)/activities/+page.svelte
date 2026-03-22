@@ -11,6 +11,7 @@
         type Units,
     } from "$lib/format";
     import { sportColor, workoutBadge } from "$lib/activity-colors";
+    import { WORKOUT_TYPE_LABELS } from "@web-runner/shared";
     import { rowClick } from "$lib/ui-helpers";
 
     let { data } = $props();
@@ -124,17 +125,9 @@
             class="border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white text-zinc-700"
         >
             <option value="">Any type</option>
-            <option value="race" selected={data.filters.workout === "race"}
-                >Race</option
-            >
-            <option
-                value="workout"
-                selected={data.filters.workout === "workout"}>Workout</option
-            >
-            <option
-                value="long_run"
-                selected={data.filters.workout === "long_run"}>Long run</option
-            >
+            {#each WORKOUT_TYPE_LABELS as wt (wt.value)}
+                <option value={wt.value} selected={data.filters.workout === wt.value}>{wt.label}</option>
+            {/each}
         </select>
     </form>
 </div>
