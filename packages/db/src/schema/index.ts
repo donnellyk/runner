@@ -8,3 +8,4 @@ export { activitySegments } from './activity-segments';
 export { userZones } from './user-zones';
 export { activityNotes } from './activity-notes';
 export { terminalLayouts } from './terminal-layouts';
+export { featureFlags } from './feature-flags';

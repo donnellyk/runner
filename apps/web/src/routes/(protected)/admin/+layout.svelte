@@ -9,6 +9,7 @@
 		{ href: '/admin/queues' as const, label: 'Queues' },
 		{ href: '/admin/strava' as const, label: 'Strava' },
 		{ href: '/admin/scripts' as const, label: 'Scripts' },
+		{ href: '/admin/flags' as const, label: 'Flags' },
 		{ href: '/admin/system' as const, label: 'System' },
 	];
 </script>

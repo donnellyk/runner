@@ -46,6 +46,7 @@
 		hrZones: ZoneDefinition[];
 		onlayoutcommit?: () => void;
 		compareState?: CompareStateType;
+		chartZoomEnabled?: boolean;
 	}
 
 	let {
@@ -60,6 +61,7 @@
 		hrZones,
 		onlayoutcommit,
 		compareState,
+		chartZoomEnabled = false,
 	}: Props = $props();
 
 	let gridContainer = $state<HTMLElement | null>(null);
@@ -203,6 +205,7 @@
 			blocked={termState.isResizing ? interaction.resizeBlocked : interaction.dragBlocked}
 		/>
 		{#each termState.layoutPanels as panel, idx (panel.id)}
+			{@const panelZoom = chartZoomEnabled ? termState.getZoom(panel.id) : undefined}
 			<div style="
 				grid-column: {panel.placement.col + 1} / span {panel.placement.colSpan};
 				grid-row: {panel.placement.row + 1} / span {panel.placement.rowSpan};
@@ -218,6 +221,7 @@
 				/>
 				<TerminalPanel
 					config={panel.config}
+					zoom={panelZoom}
 					isDragSource={interaction.dragPanelIndex === idx}
 					ondragstart={(e) => interaction.startDrag(idx, e.pointerId, e)}
 					onconfigopen={(rect) => openConfigPopup(idx, rect)}
@@ -225,6 +229,7 @@
 				>
 					<PanelContent
 						config={panel.config}
+						zoom={panelZoom}
 						{units}
 						{streams}
 						{notes}
@@ -266,6 +271,7 @@
 		{#if cfgPanel}
 			<PanelConfigPopup
 				config={cfgPanel.config}
+				zoom={chartZoomEnabled ? termState.getZoom(cfgPanel.id) : undefined}
 				{streams}
 				hasLaps={laps.length > 1}
 				canRemove={termState.layoutPanels.length > 1}
