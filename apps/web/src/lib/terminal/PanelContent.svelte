@@ -15,6 +15,7 @@
 		type ActivityLap,
 		type ActivitySegment,
 		type StreamData,
+		type ChartZoom,
 		getUnitForSource,
 		isInvertedSource,
 		getZonesForSource,
@@ -57,6 +58,7 @@
 		primaryColor?: string;
 		getOverlaySeriesForSource?: (source: DataSource) => OverlaySeries[];
 		overlayRoutes?: OverlayRoute[];
+		zoom?: ChartZoom;
 	}
 
 	let {
@@ -91,6 +93,7 @@
 		primaryColor,
 		getOverlaySeriesForSource,
 		overlayRoutes = [],
+		zoom,
 	}: Props = $props();
 
 	function streamIdxToCandleIdx(streamIdx: number | null, candles: CandleData[]): number | null {
@@ -185,6 +188,7 @@
 				{candles}
 				{units}
 				{mode}
+				{zoom}
 				crosshairIndex={streamIdxToCandleIdx(crosshairIndex, candles)}
 				crosshairLocked={crosshairLocked}
 				oncrosshairmove={(ci) => oncrosshairmove(candleIdxToStreamIdx(ci, candles))}
@@ -200,6 +204,7 @@
 				timeData={sampledTime ?? undefined}
 				{xAxis}
 				{units}
+				{zoom}
 				label={DATA_SOURCE_LABELS[config.dataSource]}
 				color={compareMode && primaryColor ? primaryColor : config.colorOverride ?? DATA_SOURCE_COLORS[config.dataSource]}
 				unit={getUnitForSource(config.dataSource, units)}
@@ -223,6 +228,7 @@
 				timeData={sampledTime ?? undefined}
 				{xAxis}
 				{units}
+				{zoom}
 				label={DATA_SOURCE_LABELS[config.dataSource]}
 				color={compareMode && primaryColor ? primaryColor : config.colorOverride ?? DATA_SOURCE_COLORS[config.dataSource]}
 				unit={getUnitForSource(config.dataSource, units)}

@@ -22,7 +22,9 @@
     import { computeZoneDotGrid } from "../shared/zone-dots";
     import { formatYValue, formatYValueShort } from "../shared/chart-formatting";
     import { createYAxisScaling } from "../shared/chart-scaling";
+    import { createWheelHandler } from "../shared/chart-gesture";
     import type { CrosshairCallbacks, ChartDataProps, ChartLabelProps } from "../shared/chart-props";
+    import type { ChartZoom } from "../terminal-state.svelte";
     import type { OverlaySeries } from "../types";
     import ChartShell from "./ChartShell.svelte";
     import YGridLines from "./YGridLines.svelte";
@@ -45,6 +47,7 @@
         showZones?: boolean;
         filled?: boolean;
         overlayData?: OverlaySeries[];
+        zoom?: ChartZoom;
     }
 
     let {
@@ -72,6 +75,7 @@
         showZones = true,
         filled = false,
         overlayData,
+        zoom,
     }: Props = $props();
 
     const lineGlow = 3;
@@ -210,10 +214,17 @@
     });
     let xMin = $derived(xBounds.min);
     let xMax = $derived(xBounds.max);
-    let xRange = $derived(xMax - xMin || 1);
+
+    let visibleX = $derived.by(() => {
+        if (!zoom || zoom.locked) return { min: xMin, max: xMax };
+        return zoom.applyXRange(xMin, xMax);
+    });
+    let vxMin = $derived(visibleX.min);
+    let vxMax = $derived(visibleX.max);
+    let vxRange = $derived(vxMax - vxMin || 1);
 
     function toX(xVal: number): number {
-        return P.left + ((xVal - xMin) / xRange) * dims.chartW;
+        return P.left + ((xVal - vxMin) / vxRange) * dims.chartW;
     }
 
     let smoothData = $derived(
@@ -243,9 +254,16 @@
     });
     let yMin = $derived(yBounds.yMin);
     let yMax = $derived(yBounds.yMax);
-    let yRange = $derived(yMax - yMin || 1);
 
-    let yScaling = $derived(createYAxisScaling(yMin, yMax, P.top, dims.chartH, invertY));
+    let visibleY = $derived.by(() => {
+        if (!zoom || zoom.locked) return { min: yMin, max: yMax };
+        return zoom.applyYRange(yMin, yMax);
+    });
+    let vyMin = $derived(visibleY.min);
+    let vyMax = $derived(visibleY.max);
+    let yRange = $derived(vyMax - vyMin || 1);
+
+    let yScaling = $derived(createYAxisScaling(vyMin, vyMax, P.top, dims.chartH, invertY));
 
     function toY(yVal: number): number {
         return yScaling.toY(yVal);
@@ -274,8 +292,8 @@
         return computeZoneDotGrid({
             zones,
             zoneMetric,
-            yMin,
-            yMax,
+            yMin: vyMin,
+            yMax: vyMax,
             toY,
             padTop: P.top,
             padLeft: P.left,
@@ -374,7 +392,7 @@
         const labels: { value: number; y: number }[] = [];
         for (let i = 0; i < steps; i++) {
             const t = i / (steps - 1);
-            const value = invertY ? yMin + t * yRange : yMax - t * yRange;
+            const value = invertY ? vyMin + t * yRange : vyMax - t * yRange;
             labels.push({ value, y: toY(value) });
         }
         return labels;
@@ -400,6 +418,14 @@
         onCrosshairClick(idx) { oncrosshairclick?.(idx); },
         onCrosshairLeave() { oncrosshairleave?.(); },
     });
+
+    // --- Wheel handler for zoom/pan ---
+
+    let wheelHandler = $derived(zoom ? createWheelHandler(
+        () => zoom,
+        () => dims,
+        P,
+    ) : undefined);
 
     // --- Selection stats ---
 
@@ -569,6 +595,7 @@
     onclick={interaction.handleClick}
     onmouseleave={interaction.handleMouseLeave}
     onkeydown={interaction.handleKeyDown}
+    onwheel={wheelHandler}
 >
     {#snippet header()}
         {#if tooltipPaused}

@@ -5,6 +5,8 @@
 	import { formatYValue } from '../shared/chart-formatting';
 	import type { CrosshairCallbacks, ChartDataProps, ChartLabelProps } from '../shared/chart-props';
 	import type { OverlaySeries } from '../types';
+	import type { ChartZoom } from '../terminal-state.svelte';
+	import { createWheelHandler } from '../shared/chart-gesture';
 	import ChartShell from './ChartShell.svelte';
 	import XAxisLabels from './XAxisLabels.svelte';
 	import CrosshairLine from './CrosshairLine.svelte';
@@ -20,6 +22,7 @@
 		smoothingWindow?: number;
 		precomputedBars?: BarEntry[];
 		overlayData?: OverlaySeries[];
+		zoom?: ChartZoom;
 	}
 
 	let {
@@ -41,6 +44,7 @@
 		oncrosshairclick,
 		oncrosshairleave,
 		overlayData,
+		zoom,
 	}: Props = $props();
 
 	function fmt(v: number): string {
@@ -117,8 +121,20 @@
 	let xMin = $derived(trimXData[0] ?? 0);
 	let xMax = $derived(trimXData[trimXData.length - 1] ?? 1);
 
+	let visibleX = $derived.by(() => {
+		if (!zoom || zoom.locked) return { min: xMin, max: xMax };
+		return zoom.applyXRange(xMin, xMax);
+	});
+	let vxMin = $derived(visibleX.min);
+	let vxMax = $derived(visibleX.max);
+
+	let visibleYMax = $derived.by(() => {
+		if (!zoom || zoom.locked) return yMax;
+		return zoom.applyYRange(0, yMax).max;
+	});
+
 	function toX(xVal: number): number {
-		return dims.padding.left + ((xVal - xMin) / (xMax - xMin)) * dims.chartW;
+		return dims.padding.left + ((xVal - vxMin) / (vxMax - vxMin)) * dims.chartW;
 	}
 
 	let barStep = $derived(buckets.length > 0 ? dims.chartW / buckets.length : 0);
@@ -188,6 +204,8 @@
 	let crosshairX = $derived(
 		crosshairBarIdx != null ? barX(crosshairBarIdx) : null,
 	);
+
+	let wheelHandler = $derived(zoom ? createWheelHandler(() => zoom, () => dims, dims.padding) : undefined);
 </script>
 
 <ChartShell
@@ -197,12 +215,13 @@
 	onclick={handleClick}
 	onmouseleave={() => oncrosshairleave?.()}
 	onkeydown={(e) => { if (e.key === 'Escape') oncrosshairleave?.(); }}
+	onwheel={wheelHandler}
 >
 	{#snippet header()}
 		{#if tooltipValue != null}
 			{fmt(tooltipValue)}
 		{:else}
-			{fmt(yBounds.yMin)}–{fmt(yMax)}
+			{fmt(yBounds.yMin)}–{fmt(visibleYMax)}
 		{/if}
 	{/snippet}
 
@@ -220,8 +239,8 @@
 
 		{#each buckets as bucket, i (i)}
 			{@const bx = barX(i)}
-			{@const h = yMax > 0 ? (bucket.avg / yMax) * dims.chartH : 0}
-			{@const intensity = yMax > 0 ? 0.3 + (bucket.avg / yMax) * 0.7 : 0.3}
+			{@const h = visibleYMax > 0 ? (bucket.avg / visibleYMax) * dims.chartH : 0}
+			{@const intensity = visibleYMax > 0 ? 0.3 + (bucket.avg / visibleYMax) * 0.7 : 0.3}
 			<rect
 				x={bx - barWidth / 2}
 				y={dims.padding.top + dims.chartH - h}
@@ -236,7 +255,7 @@
 		{#each overlayBuckets as overlay, oi (oi)}
 			{#each overlay.buckets as bucket, i (i)}
 				{@const bx = barX(i)}
-				{@const h = yMax > 0 ? (bucket.avg / yMax) * dims.chartH : 0}
+				{@const h = visibleYMax > 0 ? (bucket.avg / visibleYMax) * dims.chartH : 0}
 				<rect
 					x={bx - barWidth / 2}
 					y={dims.padding.top + dims.chartH - h}

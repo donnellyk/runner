@@ -12,6 +12,7 @@
 		onclick?: (e: MouseEvent) => void;
 		onmouseleave?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
+		onwheel?: (e: WheelEvent) => void;
 		header: Snippet;
 		overlay?: Snippet;
 		content: Snippet;
@@ -27,6 +28,7 @@
 		onclick,
 		onmouseleave,
 		onkeydown,
+		onwheel,
 		header,
 		overlay,
 		content,
@@ -55,6 +57,7 @@
 		{onclick}
 		{onmouseleave}
 		{onkeydown}
+		{onwheel}
 	>
 		<svg
 			bind:this={dims.svgEl}

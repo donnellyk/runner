@@ -168,8 +168,7 @@ export function createChartInteraction(config: ChartInteractionConfig) {
 		if (config.getDraggingRefIdx() != null) return "ns-resize";
 		if (dragMode === "horizontal") return "col-resize";
 		if (dragMode === "vertical") return "row-resize";
-		if (dragOrigin) return "crosshair";
-		return "";
+		return "crosshair";
 	});
 
 	return {

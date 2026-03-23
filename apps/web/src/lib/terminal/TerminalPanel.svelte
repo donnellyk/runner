@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import {
 		type PanelConfig,
+		type ChartZoom,
 		DATA_SOURCE_COLORS,
 		getPanelLabel,
 	} from './terminal-state.svelte';
@@ -13,9 +14,10 @@
 		onconfigopen?: (rect: DOMRect) => void;
 		isDragSource?: boolean;
 		compareDisabled?: boolean;
+		zoom?: ChartZoom;
 	}
 
-	let { config, children, ondragstart, onconfigopen, isDragSource = false, compareDisabled = false }: Props = $props();
+	let { config, children, ondragstart, onconfigopen, isDragSource = false, compareDisabled = false, zoom }: Props = $props();
 
 	let menuBtn = $state<HTMLElement | null>(null);
 
@@ -50,6 +52,23 @@
 			class="text-[11px] uppercase tracking-wide flex-1 truncate"
 			style="color: {titleColor}; font-family: 'Geist Mono', monospace;"
 		>{getPanelLabel(config)}</span>
+		{#if zoom}
+			{#if zoom.locked}
+				<button
+					class="text-[12px] cursor-pointer px-1 rounded leading-none"
+					style="color: var(--term-text-muted); font-family: 'Geist Mono', monospace;"
+					title="Zoom locked — click to unlock"
+					onclick={() => { zoom!.locked = false; }}
+				>Z</button>
+			{:else}
+				<button
+					class="text-[12px] cursor-pointer px-1 rounded leading-none"
+					style="color: var(--term-text-bright); font-family: 'Geist Mono', monospace;"
+					title="Zoom active — click to reset"
+					onclick={() => zoom!.reset()}
+				>Z</button>
+			{/if}
+		{/if}
 		<button
 			bind:this={menuBtn}
 			class="text-[12px] cursor-pointer px-1 rounded leading-none"

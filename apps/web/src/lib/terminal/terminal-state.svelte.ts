@@ -1,6 +1,9 @@
 import type { ZoneDefinition } from "@web-runner/shared";
 import { KM_TO_MI_PACE, M_TO_FT, type Units } from "$lib/format";
 import { DEFAULT_LAYOUT, DEFAULT_SETTINGS, resetNextPanelId, cloneLayout, type LayoutPanel, type TerminalSettings } from "./layout-url";
+import { createChartZoom, type ChartZoom } from "./shared/chart-zoom.svelte";
+
+export type { ChartZoom };
 
 export type DataSource =
   | "pace"
@@ -154,6 +157,7 @@ export function createTerminalState(initialLayout?: LayoutPanel[]) {
   let isDragging = $state(false);
   let activeLayoutId = $state<number | null>(null);
   let uiScale = $state(1);
+  const panelZooms = new Map<number, ChartZoom>();
 
   return {
     get crosshairIndex() {
@@ -257,6 +261,20 @@ export function createTerminalState(initialLayout?: LayoutPanel[]) {
     },
     set uiScale(v) {
       uiScale = v;
+    },
+    getZoom(panelId: number): ChartZoom {
+      let zoom = panelZooms.get(panelId);
+      if (!zoom) {
+        zoom = createChartZoom();
+        panelZooms.set(panelId, zoom);
+      }
+      return zoom;
+    },
+    resetZoom(panelId: number): void {
+      const zoom = panelZooms.get(panelId);
+      if (zoom) {
+        zoom.reset();
+      }
     },
     resetLayout() {
       layoutPanels = cloneLayout(DEFAULT_LAYOUT);

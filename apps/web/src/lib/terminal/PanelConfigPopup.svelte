@@ -11,6 +11,7 @@
 		SPECIAL_PANEL_LABELS,
 		COLOR_PALETTE,
 		type StreamData,
+		type ChartZoom,
 	} from './terminal-state.svelte';
 	import { getAvailableDataSources } from './terminal-state.svelte';
 
@@ -21,12 +22,13 @@
 		canRemove: boolean;
 		defaults: { smoothingWindow: number; showPauseGaps: boolean; showZones: boolean };
 		anchorRect: { top: number; left: number; right: number; bottom: number };
+		zoom?: ChartZoom;
 		onchange: (config: PanelConfig) => void;
 		onremove?: () => void;
 		onclose: () => void;
 	}
 
-	let { config, streams, hasLaps, canRemove, defaults, anchorRect, onchange, onremove, onclose }: Props = $props();
+	let { config, streams, hasLaps, canRemove, defaults, anchorRect, zoom, onchange, onremove, onclose }: Props = $props();
 
 	let availableSources = $derived(getAvailableDataSources(streams));
 
@@ -271,6 +273,48 @@
 					onclick={resetOverrides}
 				>Reset Overrides</button>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Zoom -->
+	{#if zoom && config.kind === 'chart'}
+		<div>
+			<div class="section-label">Zoom</div>
+			<div class="proc-row">
+				<span class="proc-label" style:color={!zoom.locked ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}>X Zoom</span>
+				<input type="range" class="proc-slider" min="0.05" max="1" step="0.01"
+					value={zoom.xZoom}
+					disabled={zoom.locked}
+					oninput={(e) => { zoom!.xZoom = Number((e.target as HTMLInputElement).value); }}
+				/>
+				<span class="proc-val">{Math.round(zoom.xZoom * 100)}%</span>
+			</div>
+			<div class="proc-row">
+				<span class="proc-label" style:color={!zoom.locked ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}>Y Zoom</span>
+				<input type="range" class="proc-slider" min="0.05" max="1" step="0.01"
+					value={zoom.yZoom}
+					disabled={zoom.locked}
+					oninput={(e) => { zoom!.yZoom = Number((e.target as HTMLInputElement).value); }}
+				/>
+				<span class="proc-val">{Math.round(zoom.yZoom * 100)}%</span>
+			</div>
+			{#if !zoom.locked}
+				<div class="proc-row">
+					<span class="proc-label">X Scroll</span>
+					<input type="range" class="proc-slider" min="0" max="1" step="0.01"
+						value={zoom.xOffset}
+						oninput={(e) => { zoom!.xOffset = Number((e.target as HTMLInputElement).value); }}
+					/>
+				</div>
+				<div class="proc-row">
+					<span class="proc-label">Y Scroll</span>
+					<input type="range" class="proc-slider" min="0" max="1" step="0.01"
+						value={zoom.yOffset}
+						oninput={(e) => { zoom!.yOffset = Number((e.target as HTMLInputElement).value); }}
+					/>
+				</div>
+			{/if}
+			<button class="opt-btn w-full mt-1" style="color: var(--term-text-muted); border: 1px solid var(--term-border);" onclick={() => zoom!.reset()}>Reset Zoom</button>
 		</div>
 	{/if}
 

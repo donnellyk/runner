@@ -6,6 +6,8 @@
 	import { createChartDimensions } from '../shared/chart-dimensions.svelte';
 	import { createYAxisScaling } from '../shared/chart-scaling';
 	import type { CrosshairCallbacks } from '../shared/chart-props';
+	import type { ChartZoom } from '../terminal-state.svelte';
+	import { createWheelHandler } from '../shared/chart-gesture';
 	import ChartShell from './ChartShell.svelte';
 	import YGridLines from './YGridLines.svelte';
 	import XAxisLabels from './XAxisLabels.svelte';
@@ -18,6 +20,7 @@
 		crosshairIndex?: number | null;
 		crosshairLocked?: boolean;
 		mode?: 'splits' | 'laps';
+		zoom?: ChartZoom;
 	}
 
 	let {
@@ -29,6 +32,7 @@
 		oncrosshairclick,
 		oncrosshairleave,
 		mode = 'splits',
+		zoom,
 	}: Props = $props();
 
 	const dims = createChartDimensions(TERM_PAD);
@@ -48,7 +52,12 @@
 	let yMin = $derived(yBounds.yMin);
 	let yMax = $derived(yBounds.yMax);
 
-	let yScaling = $derived(createYAxisScaling(yMin, yMax, P.top, dims.chartH, true));
+	let visibleY = $derived.by(() => {
+		if (!zoom || zoom.locked) return { min: yMin, max: yMax };
+		return zoom.applyYRange(yMin, yMax);
+	});
+
+	let yScaling = $derived(createYAxisScaling(visibleY.min, visibleY.max, P.top, dims.chartH, true));
 
 	function toY(v: number): number {
 		return yScaling.toY(v);
@@ -118,10 +127,12 @@
 		oncrosshairleave?.();
 	}
 
+	let wheelHandler = $derived(zoom ? createWheelHandler(() => zoom, () => dims, dims.padding) : undefined);
+
 	let yLabels = $derived.by(() => {
-		const top = yMin;
-		const mid = (yMin + yMax) / 2;
-		const bottom = yMax;
+		const top = visibleY.min;
+		const mid = (visibleY.min + visibleY.max) / 2;
+		const bottom = visibleY.max;
 		return [
 			{ value: top, y: toY(top) },
 			{ value: mid, y: toY(mid) },
@@ -153,6 +164,7 @@
 	onclick={handleClick}
 	onmouseleave={handleMouseLeave}
 	onkeydown={(e) => { if (e.key === 'Escape') oncrosshairleave?.(); }}
+	onwheel={wheelHandler}
 >
 	{#snippet header()}
 		{#if candles.length > 0}

@@ -346,6 +346,7 @@
 			{hrZones}
 			onlayoutcommit={pushLayoutToHistory}
 			{compareState}
+			chartZoomEnabled={data.chartZoomEnabled}
 		/>
 	</div>
 </div>
