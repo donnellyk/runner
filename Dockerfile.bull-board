@@ -1,6 +1,6 @@
 FROM node:23-alpine
 WORKDIR /app
-RUN npm install @bull-board/api @bull-board/express bullmq express typescript @types/node
+RUN npm install @bull-board/api@6 @bull-board/express@6 bullmq@5 express@4 typescript@5 @types/node @types/express
 COPY scripts/bull-board.ts .
 RUN npx tsc bull-board.ts --esModuleInterop --module nodenext --moduleResolution nodenext
 USER node
