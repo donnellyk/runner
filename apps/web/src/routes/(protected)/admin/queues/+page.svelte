@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+
 	let { data } = $props();
 
 	function formatTimestamp(ts: number | undefined | null) {
@@ -7,7 +9,14 @@
 	}
 </script>
 
-<h1 class="text-2xl font-bold mb-6">Queues</h1>
+<div class="flex items-center justify-between mb-6">
+	<h1 class="text-2xl font-bold">Queues</h1>
+	<a
+		href={resolve('/admin/queues/board')}
+		target="_blank"
+		class="text-sm text-zinc-500 hover:text-zinc-800 border border-zinc-200 rounded px-3 py-1"
+	>Bull Board</a>
+</div>
 
 <div class="flex gap-4 mb-8">
 	{#each Object.entries(data.counts) as [status, count] (status)}
