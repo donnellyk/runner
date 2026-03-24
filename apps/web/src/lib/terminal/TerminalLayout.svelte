@@ -70,6 +70,14 @@
 
 	let snapPanel = $derived(interaction.previewPlacement);
 
+	// Eagerly create zoom states for all panels (must happen outside derived/template context)
+	$effect(() => {
+		if (!chartZoomEnabled) return;
+		for (const panel of termState.layoutPanels) {
+			termState.ensureZoom(panel.id);
+		}
+	});
+
 	// Config popup state
 	let configPanelIdx = $state<number | null>(null);
 	let configAnchorRect = $state<DOMRect | null>(null);

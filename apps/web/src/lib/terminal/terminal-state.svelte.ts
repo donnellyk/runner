@@ -2,6 +2,7 @@ import type { ZoneDefinition } from "@web-runner/shared";
 import { KM_TO_MI_PACE, M_TO_FT, type Units } from "$lib/format";
 import { DEFAULT_LAYOUT, DEFAULT_SETTINGS, resetNextPanelId, cloneLayout, type LayoutPanel, type TerminalSettings } from "./layout-url";
 import { createChartZoom, type ChartZoom } from "./shared/chart-zoom.svelte";
+import { SvelteMap } from "svelte/reactivity";
 
 export type { ChartZoom };
 
@@ -157,7 +158,7 @@ export function createTerminalState(initialLayout?: LayoutPanel[]) {
   let isDragging = $state(false);
   let activeLayoutId = $state<number | null>(null);
   let uiScale = $state(1);
-  const panelZooms = new Map<number, ChartZoom>();
+  const panelZooms = new SvelteMap<number, ChartZoom>();
 
   return {
     get crosshairIndex() {
@@ -262,13 +263,13 @@ export function createTerminalState(initialLayout?: LayoutPanel[]) {
     set uiScale(v) {
       uiScale = v;
     },
-    getZoom(panelId: number): ChartZoom {
-      let zoom = panelZooms.get(panelId);
-      if (!zoom) {
-        zoom = createChartZoom();
-        panelZooms.set(panelId, zoom);
+    getZoom(panelId: number): ChartZoom | undefined {
+      return panelZooms.get(panelId);
+    },
+    ensureZoom(panelId: number): void {
+      if (!panelZooms.has(panelId)) {
+        panelZooms.set(panelId, createChartZoom());
       }
-      return zoom;
     },
     resetZoom(panelId: number): void {
       const zoom = panelZooms.get(panelId);
