@@ -1,13 +1,14 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { onMount, onDestroy } from 'svelte';
 
-	let { data, form } = $props();
+	let { data } = $props();
 
 	let uploading = $state(false);
+	let uploadError = $state<string | null>(null);
 	let fileName = $state('');
 	let dragging = $state(false);
 	let fileInput = $state<HTMLInputElement | null>(null);
+	let selectedFile = $state<File | null>(null);
 
 	// Job tracking
 	let jobId = $state<string | null>(data.activeJobId ?? null);
@@ -17,7 +18,6 @@
 	);
 	let eventSource: EventSource | null = null;
 
-	// Resume stream for active job on page load
 	onMount(() => {
 		if (data.activeJobId) {
 			startStream(data.activeJobId);
@@ -27,7 +27,6 @@
 	function startStream(id: string) {
 		jobId = id;
 		jobStatus = 'waiting';
-		progress = null;
 		stopStream();
 
 		const es = new EventSource(`/api/import/stream?jobId=${id}`);
@@ -46,15 +45,15 @@
 
 		es.addEventListener('cancelled', (e) => {
 			jobStatus = 'cancelled';
-			const data = JSON.parse(e.data);
-			if (data.current) progress = data;
+			const d = JSON.parse(e.data);
+			if (d.current) progress = d;
 			stopStream();
 		});
 
 		es.addEventListener('failed', (e) => {
 			jobStatus = 'failed';
-			const data = JSON.parse(e.data);
-			if (data.progress) progress = data.progress;
+			const d = JSON.parse(e.data);
+			if (d.progress) progress = d.progress;
 			stopStream();
 		});
 
@@ -77,15 +76,44 @@
 		stopStream();
 	}
 
+	async function uploadFile() {
+		if (!selectedFile) return;
+		uploading = true;
+		uploadError = null;
+
+		try {
+			const res = await fetch('/api/import/upload', {
+				method: 'PUT',
+				headers: { 'content-type': 'application/octet-stream' },
+				body: selectedFile,
+			});
+			const data = await res.json();
+			if (!res.ok) {
+				uploadError = data.error || 'Upload failed';
+				return;
+			}
+			startStream(data.jobId);
+			fileName = '';
+			selectedFile = null;
+		} catch {
+			uploadError = 'Upload failed — check your connection';
+		} finally {
+			uploading = false;
+		}
+	}
+
 	onDestroy(stopStream);
 
 	function handleFileChange(e: Event) {
 		const input = e.target as HTMLInputElement;
-		fileName = input.files?.[0]?.name ?? '';
+		const file = input.files?.[0] ?? null;
+		selectedFile = file;
+		fileName = file?.name ?? '';
 	}
 
 	function setFile(file: File) {
 		if (!file.name.endsWith('.zip')) return;
+		selectedFile = file;
 		fileName = file.name;
 		if (fileInput) {
 			const dt = new DataTransfer();
@@ -162,63 +190,47 @@
 		Import cancelled.
 		{progress.imported} of {progress.total} activities were imported before cancellation.
 	</div>
-{:else if form?.error}
+{/if}
+
+{#if uploadError}
 	<div class="mb-6 p-4 bg-red-50 border border-red-200 rounded text-sm text-red-800">
-		{form.error}
+		{uploadError}
 	</div>
 {/if}
 
 {#if !isActive}
-	<form
-		method="POST"
-		action="?/upload"
-		enctype="multipart/form-data"
-		use:enhance={() => {
-			uploading = true;
-			return async ({ result, update }) => {
-				await update();
-				uploading = false;
-				if (result.type === 'success' && result.data?.jobId) {
-					startStream(result.data.jobId as string);
-					fileName = '';
-				}
-			};
-		}}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="border-2 border-dashed rounded-lg p-8 text-center mb-4 transition-colors {dragging ? 'border-zinc-400 bg-zinc-50' : 'border-zinc-200'}"
+		ondrop={handleDrop}
+		ondragover={handleDragOver}
+		ondragleave={handleDragLeave}
 	>
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div
-			class="border-2 border-dashed rounded-lg p-8 text-center mb-4 transition-colors {dragging ? 'border-zinc-400 bg-zinc-50' : 'border-zinc-200'}"
-			ondrop={handleDrop}
-			ondragover={handleDragOver}
-			ondragleave={handleDragLeave}
-		>
-			<label class="cursor-pointer block">
-				<input
-					bind:this={fileInput}
-					type="file"
-					name="file"
-					accept=".zip"
-					class="hidden"
-					onchange={handleFileChange}
-				/>
-				{#if fileName}
-					<div class="text-sm font-medium text-zinc-900 mb-1">{fileName}</div>
-					<div class="text-xs text-zinc-500">Click or drop to change file</div>
-				{:else}
-					<div class="text-sm text-zinc-500 mb-1">Drop your Strava export ZIP here, or click to select</div>
-					<div class="text-xs text-zinc-400">Maximum 2GB</div>
-				{/if}
-			</label>
-		</div>
+		<label class="cursor-pointer block">
+			<input
+				bind:this={fileInput}
+				type="file"
+				accept=".zip"
+				class="hidden"
+				onchange={handleFileChange}
+			/>
+			{#if fileName}
+				<div class="text-sm font-medium text-zinc-900 mb-1">{fileName}</div>
+				<div class="text-xs text-zinc-500">Click or drop to change file</div>
+			{:else}
+				<div class="text-sm text-zinc-500 mb-1">Drop your Strava export ZIP here, or click to select</div>
+				<div class="text-xs text-zinc-400">Maximum 2GB</div>
+			{/if}
+		</label>
+	</div>
 
-		<button
-			type="submit"
-			disabled={!fileName || uploading}
-			class="px-4 py-2 bg-zinc-800 text-white rounded text-sm hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
-		>
-			{uploading ? 'Uploading...' : 'Upload & Import'}
-		</button>
-	</form>
+	<button
+		onclick={uploadFile}
+		disabled={!selectedFile || uploading}
+		class="px-4 py-2 bg-zinc-800 text-white rounded text-sm hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+	>
+		{uploading ? 'Uploading...' : 'Upload & Import'}
+	</button>
 {/if}
 
 <div class="mt-8 text-xs text-zinc-400 space-y-1">

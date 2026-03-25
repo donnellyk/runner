@@ -66,7 +66,10 @@ services:
       STRAVA_REDIRECT_URI: ${STRAVA_REDIRECT_URI:-http://localhost:3000/auth/strava/callback}
       STRAVA_WEBHOOK_VERIFY_TOKEN: ${STRAVA_WEBHOOK_VERIFY_TOKEN}
       STRAVA_WEBHOOK_SUBSCRIPTION_ID: ${STRAVA_WEBHOOK_SUBSCRIPTION_ID}
+      BODY_SIZE_LIMIT: Infinity
       BULL_BOARD_URL: http://bull-board:3001
+    volumes:
+      - imports:/tmp/web-runner-imports
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,6 +83,8 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/webrunner
       REDIS_URL: redis://redis:6379
       NODE_ENV: production
+    volumes:
+      - imports:/tmp/web-runner-imports
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,3 +106,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  imports:
