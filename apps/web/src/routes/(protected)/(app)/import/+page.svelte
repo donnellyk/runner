@@ -87,16 +87,29 @@
 				headers: { 'content-type': 'application/octet-stream' },
 				body: selectedFile,
 			});
-			const data = await res.json();
+
 			if (!res.ok) {
-				uploadError = data.error || 'Upload failed';
+				let message = `Upload failed (${res.status})`;
+				try {
+					const data = await res.json();
+					if (data.error) message = data.error;
+				} catch {
+					if (res.status === 413) message = 'File too large — the server rejected the upload';
+					else if (res.status === 401) message = 'Not authenticated — please log in and try again';
+					else if (res.status === 500) message = 'Server error — please try again later';
+				}
+				uploadError = message;
 				return;
 			}
+
+			const data = await res.json();
 			startStream(data.jobId);
 			fileName = '';
 			selectedFile = null;
-		} catch {
-			uploadError = 'Upload failed — check your connection';
+		} catch (err) {
+			uploadError = err instanceof TypeError
+				? 'Upload failed — could not connect to the server'
+				: 'Upload failed — an unexpected error occurred';
 		} finally {
 			uploading = false;
 		}
