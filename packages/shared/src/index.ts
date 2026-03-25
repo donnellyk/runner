@@ -18,6 +18,7 @@ export {
 	type ActivityImportJobData,
 	type FullHistoryImportJobData,
 	type WebhookEventJobData,
+	type BulkImportJobData,
 	type JobData,
 } from './queue.js';
 export {

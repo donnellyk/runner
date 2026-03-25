@@ -34,7 +34,14 @@ export interface WebhookEventJobData {
 	};
 }
 
+export interface BulkImportJobData {
+	type: 'bulk-import';
+	userId: number;
+	filePath: string;
+}
+
 export type JobData =
 	| ActivityImportJobData
 	| FullHistoryImportJobData
-	| WebhookEventJobData;
+	| WebhookEventJobData
+	| BulkImportJobData;

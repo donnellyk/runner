@@ -7,6 +7,7 @@ import { handleFullHistoryImport } from './jobs/full-history-import.js';
 import { handleActivityImport } from './jobs/activity-import.js';
 import { handleActivityStreams } from './jobs/activity-streams.js';
 import { handleWebhookEvent } from './jobs/webhook-event.js';
+import { handleBulkImport } from './jobs/bulk-import.js';
 import { StravaApiError, StravaRateLimitError } from '@web-runner/strava';
 
 export interface ProcessorDeps {
@@ -34,6 +35,9 @@ export async function processJob(job: Job, deps: ProcessorDeps): Promise<void> {
         break;
       case 'webhook-event':
         await handleWebhookEvent(job, deps);
+        break;
+      case 'bulk-import':
+        await handleBulkImport(job, deps);
         break;
       default:
         logger.warn({ jobType }, 'Unknown job type');

@@ -187,7 +187,7 @@
 			{/if}
 		{/each}
 
-		{#each [0, Math.floor(laps.length / 2), laps.length - 1] as i (i)}
+		{#each [...new Set([0, Math.floor(laps.length / 2), laps.length - 1])] as i (i)}
 			<text
 				x={PAD_LEFT + i * barSlot + barSlot / 2}
 				y={CHART_H - 4}

@@ -12,6 +12,13 @@ const SPORT_TYPE_MAP: Record<string, SportType> = {
   MountainBikeRide: SportType.RIDE,
   GravelRide: SportType.RIDE,
   EBikeRide: SportType.RIDE,
+  // Display names from Strava CSV export (spaces instead of camelCase)
+  'Trail Run': SportType.TRAIL_RUN,
+  'Virtual Run': SportType.RUN,
+  'Virtual Ride': SportType.RIDE,
+  'Mountain Bike Ride': SportType.RIDE,
+  'Gravel Ride': SportType.RIDE,
+  'E-Bike Ride': SportType.RIDE,
 };
 
 const WORKOUT_TYPE_MAP: Record<number, WorkoutType> = {

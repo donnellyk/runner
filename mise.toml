@@ -122,9 +122,30 @@ REDIS_URL=redis://localhost:16379 \
 pnpm tsx scripts/console.ts
 """
 
+[tasks."wipe:imported"]
+description = "Delete bulk-imported activities (source_raw IS NULL)"
+run = """
+COUNT=$(docker compose exec -T postgres psql -U postgres -d webrunner -t -c "SELECT count(*) FROM activities WHERE source_raw IS NULL;")
+COUNT=$(echo "$COUNT" | tr -d ' ')
+if [ "$COUNT" = "0" ]; then echo "No imported activities to delete."; exit 0; fi
+echo "This will delete $COUNT bulk-imported activities (and their laps, streams, segments)."
+printf "Continue? [y/N] "
+read -r confirm
+if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then echo "Aborted."; exit 0; fi
+docker compose exec postgres psql -U postgres -d webrunner \
+  -c "DELETE FROM activities WHERE source_raw IS NULL;" \
+  -c "SELECT count(*) AS remaining FROM activities;"
+"""
+
 [tasks."wipe:activities"]
 description = "Delete all activities for a user (cascades to laps, streams, segments)"
-run = "pnpm tsx scripts/wipe-activities.ts {{arg(name='user', default='first')}}"
+run = """
+echo "This will delete ALL activities for a user (cascades to laps, streams, segments)."
+printf "Continue? [y/N] "
+read -r confirm
+if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then echo "Aborted."; exit 0; fi
+pnpm tsx scripts/wipe-activities.ts {{arg(name='user', default='first')}}
+"""
 
 [tasks."admin:promote"]
 description = "Promote a user to admin"
