@@ -7,8 +7,7 @@
 
 	const navItems = [
 		{ href: '/activities', label: 'Activities' },
-		{ href: '/import', label: 'Import' },
-		{ href: '/settings/zones', label: 'Settings' },
+		{ href: '/settings', label: 'Settings' },
 	] as const;
 </script>
 

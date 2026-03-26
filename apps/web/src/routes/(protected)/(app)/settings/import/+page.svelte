@@ -170,7 +170,7 @@
 	let isActive = $derived(jobStatus === 'waiting' || jobStatus === 'active' || jobStatus === 'delayed');
 </script>
 
-<h1 class="text-xl font-bold mb-2">Import Strava Export</h1>
+<h2 class="text-lg font-bold mb-2">Import Strava Export</h2>
 <p class="text-sm text-zinc-500 mb-6">
 	Upload your Strava data export ZIP file to import all activities at once.
 	Request your archive from Strava Settings &gt; My Account &gt; Download or Delete Your Account.

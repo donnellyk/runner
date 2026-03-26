@@ -50,7 +50,7 @@
 </script>
 
 <div class="mb-6">
-	<h1 class="font-serif text-4xl font-semibold text-zinc-900 mb-1">Effort Zones</h1>
+	<h2 class="text-lg font-bold mb-1">Effort Zones</h2>
 	<p class="text-sm text-zinc-400">Define your training zones. These appear as colored bands on activity charts.</p>
 </div>
 
