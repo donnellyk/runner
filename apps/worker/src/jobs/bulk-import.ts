@@ -630,6 +630,9 @@ export async function handleBulkImport(
     }
 
     await job.updateProgress({ current: i + 1, total: csvRows.length, imported, skipped, failed });
+
+    // Yield the event loop between activities to avoid starving other work
+    if (i % 10 === 9) await new Promise((r) => setTimeout(r, 50));
   }
 
   logger.info(
