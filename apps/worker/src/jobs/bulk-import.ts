@@ -1,9 +1,14 @@
 import type { Job, Queue } from 'bullmq';
 import type { Logger } from 'pino';
-import { rm } from 'node:fs/promises';
-import { extname } from 'node:path';
-import { gunzipSync } from 'node:zlib';
-import AdmZip from 'adm-zip';
+import { rm, readFile, mkdir } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { extname, join, basename } from 'node:path';
+import { gunzip } from 'node:zlib';
+import { promisify } from 'node:util';
+import { tmpdir } from 'node:os';
+import { randomUUID } from 'node:crypto';
+import { pipeline } from 'node:stream/promises';
+import * as yauzl from 'yauzl-promise';
 import { eq, sql } from 'drizzle-orm';
 import type { Database } from '@web-runner/db/client';
 import {
@@ -192,16 +197,26 @@ function getFileExtension(filename: string): string {
   return extname(lower);
 }
 
+const gunzipAsync = promisify(gunzip);
+
+const ALLOWED_EXTENSIONS = new Set(['.fit', '.fit.gz', '.gpx', '.gpx.gz', '.tcx', '.tcx.gz']);
+
+function isAllowedFile(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return ALLOWED_EXTENSIONS.has(extname(lower)) ||
+    lower.endsWith('.fit.gz') || lower.endsWith('.gpx.gz') || lower.endsWith('.tcx.gz');
+}
+
 async function parseActivityFile(
   buffer: Buffer,
   filename: string,
 ): Promise<ParsedActivity | null> {
   const ext = getFileExtension(filename);
 
-  // Decompress .gz if needed
+  // Decompress .gz if needed (async to avoid blocking the event loop)
   let data = buffer;
   if (filename.toLowerCase().endsWith('.gz')) {
-    const decompressed = gunzipSync(buffer);
+    const decompressed = await gunzipAsync(buffer);
     if (decompressed.length > MAX_DECOMPRESSED_FILE_SIZE) {
       throw new Error(
         `Decompressed file too large: ${decompressed.length} bytes exceeds limit of ${MAX_DECOMPRESSED_FILE_SIZE}`,
@@ -229,44 +244,94 @@ export async function handleBulkImport(
   const { db, queue, logger } = deps;
   const { userId, filePath } = job.data;
 
-  // Open ZIP
-  const zip = new AdmZip(filePath);
-  const entries = zip.getEntries();
+  // Extract the ZIP streaming — one entry at a time, never loading the whole archive.
+  // First pass: read activities.csv and build a set of needed filenames.
+  // Second pass: extract only the needed activity files to a temp directory.
+  const extractDir = join(tmpdir(), 'web-runner-imports', `extract-${randomUUID()}`);
+  await mkdir(extractDir, { recursive: true });
 
-  // Security checks
-  if (entries.length > MAX_FILE_COUNT) {
-    throw new Error(`ZIP contains ${entries.length} entries, exceeds limit of ${MAX_FILE_COUNT}`);
-  }
-
+  try {
+  let csvContent: string | null = null;
+  const extractedFiles = new Map<string, string>(); // lowercase filename -> disk path
+  let entryCount = 0;
   let totalSize = 0;
-  for (const entry of entries) {
-    if (entry.entryName.includes('..') || entry.entryName.startsWith('/')) {
-      throw new Error(`ZIP contains unsafe path: ${entry.entryName}`);
+
+  // First pass: find and read activities.csv
+  const zip1 = await yauzl.open(filePath);
+  try {
+    for await (const entry of zip1) {
+      entryCount++;
+      if (entryCount > MAX_FILE_COUNT) {
+        throw new Error(`ZIP contains more than ${MAX_FILE_COUNT} entries`);
+      }
+      if (entry.filename.includes('..') || entry.filename.startsWith('/')) {
+        throw new Error(`ZIP contains unsafe path: ${entry.filename}`);
+      }
+      if (entry.filename === 'activities.csv' || entry.filename.endsWith('/activities.csv')) {
+        const stream = await entry.openReadStream();
+        const chunks: Buffer[] = [];
+        for await (const chunk of stream) {
+          chunks.push(chunk as Buffer);
+        }
+        csvContent = Buffer.concat(chunks).toString('utf-8');
+      }
     }
-    totalSize += entry.header.size;
-  }
-  if (totalSize > MAX_TOTAL_SIZE_BYTES) {
-    throw new Error(`ZIP total uncompressed size ${totalSize} exceeds limit of ${MAX_TOTAL_SIZE_BYTES}`);
+  } finally {
+    await zip1.close();
   }
 
-  // Find and parse activities.csv
-  const csvEntry = entries.find(
-    (e) => e.entryName === 'activities.csv' || e.entryName.endsWith('/activities.csv'),
-  );
-  if (!csvEntry) {
+  if (!csvContent) {
     throw new Error('ZIP does not contain activities.csv');
   }
 
-  const csvContent = csvEntry.getData().toString('utf-8');
   const csvRows = parseCsv(csvContent);
+  csvContent = null; // free memory
 
   if (csvRows.length === 0) {
     logger.info({ userId }, 'Bulk import: activities.csv is empty');
     return;
   }
 
-  // Cancel any queued per-activity jobs for these activity IDs to avoid
-  // redundant Strava API work after the bulk import covers them.
+  // Build a set of filenames we need from the CSV (only allowed file types)
+  const neededFiles = new Set<string>();
+  for (const row of csvRows) {
+    if (row.filename && isAllowedFile(row.filename)) {
+      neededFiles.add(row.filename.toLowerCase());
+    }
+  }
+
+  // Second pass: extract only needed activity files to disk, one at a time
+  const zip2 = await yauzl.open(filePath);
+  try {
+    for await (const entry of zip2) {
+      if (entry.filename.endsWith('/')) continue; // skip directories
+      totalSize += entry.uncompressedSize;
+      if (totalSize > MAX_TOTAL_SIZE_BYTES) {
+        throw new Error(`ZIP total uncompressed size exceeds limit of ${MAX_TOTAL_SIZE_BYTES} bytes`);
+      }
+
+      const nameLower = entry.filename.toLowerCase();
+      // Check both the full path and the path without root prefix
+      const stripped = nameLower.includes('/') ? nameLower.slice(nameLower.indexOf('/') + 1) : nameLower;
+
+      if (neededFiles.has(nameLower) || neededFiles.has(stripped)) {
+        if (entry.uncompressedSize > MAX_DECOMPRESSED_FILE_SIZE) {
+          logger.warn({ filename: entry.filename, size: entry.uncompressedSize }, 'Skipping oversized file');
+          continue;
+        }
+        const destPath = join(extractDir, basename(entry.filename));
+        const readStream = await entry.openReadStream();
+        await pipeline(readStream, createWriteStream(destPath));
+        // Map both the full path and stripped path to the extracted file
+        extractedFiles.set(nameLower, destPath);
+        extractedFiles.set(stripped, destPath);
+      }
+    }
+  } finally {
+    await zip2.close();
+  }
+
+  // Cancel any queued per-activity jobs for these activity IDs
   const activityIds = new Set(csvRows.map((r) => String(r.activityId)));
   const [waiting, delayed] = await Promise.all([
     queue.getJobs(['waiting']),
@@ -288,20 +353,6 @@ export async function handleBulkImport(
   csvRows.sort(
     (a, b) => parseActivityDate(b.activityDate).getTime() - parseActivityDate(a.activityDate).getTime(),
   );
-
-  // Build a lookup map for ZIP entries by name (case-insensitive).
-  // ZIP files may have a root directory prefix (e.g. "export_12345/activities/...")
-  // while the CSV references just "activities/...". Index by both full path and
-  // the path with the root prefix stripped.
-  const entryMap = new Map<string, typeof entries[number]>();
-  const rootPrefix = entries[0]?.entryName.endsWith('/') ? entries[0].entryName : '';
-  for (const entry of entries) {
-    const name = entry.entryName.toLowerCase();
-    entryMap.set(name, entry);
-    if (rootPrefix && name.startsWith(rootPrefix.toLowerCase())) {
-      entryMap.set(name.slice(rootPrefix.length), entry);
-    }
-  }
 
   let imported = 0;
   let skipped = 0;
@@ -325,11 +376,11 @@ export async function handleBulkImport(
     try {
       let parsed: ParsedActivity | null = null;
 
-      // Try to find and parse the activity file from the ZIP
+      // Try to find and parse the activity file from extracted files on disk
       if (row.filename) {
-        const fileEntry = entryMap.get(row.filename.toLowerCase());
-        if (fileEntry) {
-          const fileBuffer = fileEntry.getData();
+        const diskPath = extractedFiles.get(row.filename.toLowerCase());
+        if (diskPath) {
+          const fileBuffer = await readFile(diskPath);
           parsed = await parseActivityFile(fileBuffer, row.filename);
         } else {
           logger.warn(
@@ -581,15 +632,18 @@ export async function handleBulkImport(
     await job.updateProgress({ current: i + 1, total: csvRows.length, imported, skipped, failed });
   }
 
-  // Cleanup the uploaded ZIP file
-  try {
-    await rm(filePath, { force: true });
-  } catch {
-    logger.warn({ filePath }, 'Bulk import: failed to delete ZIP file');
-  }
-
   logger.info(
     { userId, total: csvRows.length, imported, skipped, failed },
     'Bulk import complete',
   );
+
+  } finally {
+    // Cleanup the uploaded ZIP and extracted files on all code paths
+    try {
+      await rm(filePath, { force: true });
+      await rm(extractDir, { recursive: true, force: true });
+    } catch {
+      logger.warn({ filePath, extractDir }, 'Bulk import: failed to cleanup files');
+    }
+  }
 }
