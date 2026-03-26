@@ -53,6 +53,13 @@ rsync -av --relative \
 ssh carthage 'cd /opt/web-runner && docker compose pull && docker compose up -d'
 """
 
+[tasks."logs:prod"]
+description = "Tail production logs (all services)"
+run = """
+HOST="${PROD_HOST:-carthage}"
+ssh "$HOST" 'cd /opt/web-runner && docker compose logs -f --tail=100 {{arg(name="service", default="")}}'
+"""
+
 [tasks.ci]
 description = "Watch CI & Build status for the latest commit"
 run = "./scripts/ci-watch.sh"
