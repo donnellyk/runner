@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, lt, or, between, inArray, ilike, count, sql } from 'drizzle-orm';
+import { eq, and, desc, gte, lte, lt, or, between, inArray, ilike, sql } from 'drizzle-orm';
 import { getDb } from '@web-runner/db/client';
 import { activities, activityStreams } from '@web-runner/db/schema';
 import { RACE_DISTANCES, raceDistanceBounds } from '@web-runner/shared';
