@@ -79,6 +79,11 @@ services:
   worker:
     image: ghcr.io/donnellyk/runner/worker:latest
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/webrunner
       REDIS_URL: redis://redis:6379

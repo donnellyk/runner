@@ -28,6 +28,7 @@ import type { ParsedActivity } from '../parsed-activity.js';
 const MAX_FILE_COUNT = 50_000;
 const MAX_TOTAL_SIZE_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB
 const MAX_DECOMPRESSED_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+const MIN_ACTIVITY_MS = 200; // Throttle: ~5 activities/sec max
 
 interface CsvRow {
   activityId: string;
@@ -359,6 +360,8 @@ export async function handleBulkImport(
   let failed = 0;
 
   for (let i = 0; i < csvRows.length; i++) {
+    const activityStart = Date.now();
+
     // Check if the job has been cancelled via the API (sets cancelled flag on job data)
     const freshJob = await queue.getJob(job.id!);
     if (freshJob?.data?.cancelled) {
@@ -631,8 +634,12 @@ export async function handleBulkImport(
 
     await job.updateProgress({ current: i + 1, total: csvRows.length, imported, skipped, failed });
 
-    // Yield the event loop between activities to avoid starving other work
-    if (i % 10 === 9) await new Promise((r) => setTimeout(r, 50));
+    // Throttle: ensure each activity takes at least MIN_ACTIVITY_MS to avoid
+    // saturating CPU. If processing finished faster, sleep the remainder.
+    const elapsed = Date.now() - activityStart;
+    if (elapsed < MIN_ACTIVITY_MS) {
+      await new Promise((r) => setTimeout(r, MIN_ACTIVITY_MS - elapsed));
+    }
   }
 
   logger.info(
