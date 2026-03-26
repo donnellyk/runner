@@ -20,6 +20,8 @@ COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=deps /app/packages/strava/node_modules ./packages/strava/node_modules
 COPY . .
 
+RUN mkdir -p /tmp/web-runner-imports && chown node:node /tmp/web-runner-imports
+
 WORKDIR /app/apps/worker
 USER node
 CMD ["node", "--import", "tsx/esm", "src/index.ts"]

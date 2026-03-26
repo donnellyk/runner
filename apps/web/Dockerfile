@@ -34,6 +34,7 @@ COPY packages ./packages
 COPY package.json pnpm-workspace.yaml ./
 
 COPY apps/web/entrypoint.sh /app/apps/web/entrypoint.sh
+RUN mkdir -p /tmp/web-runner-imports && chown node:node /tmp/web-runner-imports
 
 WORKDIR /app/apps/web
 EXPOSE 3000
