@@ -10,6 +10,9 @@
 	let fileInput = $state<HTMLInputElement | null>(null);
 	let selectedFile = $state<File | null>(null);
 
+	// Upload progress
+	let uploadPercent = $state<number | null>(null);
+
 	// Job tracking
 	let jobId = $state<string | null>(data.activeJobId ?? null);
 	let jobStatus = $state<string | null>(data.activeJobId ? 'active' : null);
@@ -81,29 +84,41 @@
 		uploading = true;
 		uploadError = null;
 
+		uploadPercent = 0;
+
 		try {
-			const res = await fetch('/api/import/upload', {
-				method: 'PUT',
-				headers: { 'content-type': 'application/octet-stream' },
-				body: selectedFile,
+			const result = await new Promise<{ ok: boolean; status: number; body: string }>((resolve, reject) => {
+				const xhr = new XMLHttpRequest();
+				xhr.open('PUT', '/api/import/upload');
+				xhr.setRequestHeader('content-type', 'application/octet-stream');
+
+				xhr.upload.onprogress = (e) => {
+					if (e.lengthComputable) {
+						uploadPercent = Math.round((e.loaded / e.total) * 100);
+					}
+				};
+
+				xhr.onload = () => resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, body: xhr.responseText });
+				xhr.onerror = () => reject(new TypeError('Network error'));
+				xhr.send(selectedFile);
 			});
 
-			if (!res.ok) {
-				let message = `Upload failed (${res.status})`;
+			if (!result.ok) {
+				let message = `Upload failed (${result.status})`;
 				try {
-					const data = await res.json();
-					if (data.error) message = data.error;
+					const parsed = JSON.parse(result.body);
+					if (parsed.error) message = parsed.error;
 				} catch {
-					if (res.status === 413) message = 'File too large — the server rejected the upload';
-					else if (res.status === 401) message = 'Not authenticated — please log in and try again';
-					else if (res.status === 500) message = 'Server error — please try again later';
+					if (result.status === 413) message = 'File too large — the server rejected the upload';
+					else if (result.status === 401) message = 'Not authenticated — please log in and try again';
+					else if (result.status === 500) message = 'Server error — please try again later';
 				}
 				uploadError = message;
 				return;
 			}
 
-			const data = await res.json();
-			startStream(data.jobId);
+			const responseData = JSON.parse(result.body);
+			startStream(responseData.jobId);
 			fileName = '';
 			selectedFile = null;
 		} catch (err) {
@@ -112,6 +127,7 @@
 				: 'Upload failed — an unexpected error occurred';
 		} finally {
 			uploading = false;
+			uploadPercent = null;
 		}
 	}
 
@@ -242,7 +258,13 @@
 		disabled={!selectedFile || uploading}
 		class="px-4 py-2 bg-zinc-800 text-white rounded text-sm hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
 	>
-		{uploading ? 'Uploading...' : 'Upload & Import'}
+		{#if uploading && uploadPercent != null}
+			Uploading {uploadPercent}%
+		{:else if uploading}
+			Uploading...
+		{:else}
+			Upload & Import
+		{/if}
 	</button>
 {/if}
 
