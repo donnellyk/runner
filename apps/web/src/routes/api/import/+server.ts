@@ -1,14 +1,14 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireApiUser } from '$lib/server/validation';
-import { getQueue } from '$lib/server/queue';
+import { getBulkImportQueue } from '$lib/server/queue';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	const user = requireApiUser(locals);
 	const jobId = url.searchParams.get('jobId');
 	if (!jobId) return json({ error: 'Missing jobId' }, { status: 400 });
 
-	const queue = getQueue();
+	const queue = getBulkImportQueue();
 	const job = await queue.getJob(jobId);
 
 	if (!job || job.data?.userId !== user.id) {
@@ -31,7 +31,7 @@ export const DELETE: RequestHandler = async ({ url, locals }) => {
 	const jobId = url.searchParams.get('jobId');
 	if (!jobId) return json({ error: 'Missing jobId' }, { status: 400 });
 
-	const queue = getQueue();
+	const queue = getBulkImportQueue();
 	const job = await queue.getJob(jobId);
 
 	if (!job || job.data?.userId !== user.id) {

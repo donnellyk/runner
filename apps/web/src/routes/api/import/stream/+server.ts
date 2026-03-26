@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
 import { requireApiUser } from '$lib/server/validation';
-import { getQueue } from '$lib/server/queue';
+import { getBulkImportQueue } from '$lib/server/queue';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	const user = requireApiUser(locals);
@@ -9,7 +9,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		return new Response('Missing jobId', { status: 400 });
 	}
 
-	const queue = getQueue();
+	const queue = getBulkImportQueue();
 
 	const stream = new ReadableStream({
 		async start(controller) {

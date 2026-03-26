@@ -1,14 +1,14 @@
-import { getQueue } from '$lib/server/queue';
+import { getBulkImportQueue } from '$lib/server/queue';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const userId = locals.user!.id;
-	const queue = getQueue();
+	const queue = getBulkImportQueue();
 
 	// Check for an active or waiting bulk-import job for this user
 	const jobs = await queue.getJobs(['active', 'waiting', 'delayed']);
 	const activeJob = jobs.find(
-		(j) => j.data?.type === 'bulk-import' && j.data?.userId === userId && !j.data?.cancelled,
+		(j) => j.data?.userId === userId && !j.data?.cancelled,
 	);
 
 	if (activeJob) {

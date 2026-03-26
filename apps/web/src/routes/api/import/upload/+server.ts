@@ -1,8 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireApiUser } from '$lib/server/validation';
-import { getQueue } from '$lib/server/queue';
-import { JobPriority } from '@web-runner/shared';
+import { getBulkImportQueue } from '$lib/server/queue';
 import { createWriteStream } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -59,12 +58,12 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 		return json({ error: message }, { status: 400 });
 	}
 
-	const queue = getQueue();
+	const queue = getBulkImportQueue();
 	const job = await queue.add('bulk-import', {
 		type: 'bulk-import' as const,
 		userId: user.id,
 		filePath,
-	}, { priority: JobPriority.fullHistoryImport });
+	});
 
 	return json({ jobId: job.id });
 };

@@ -1,4 +1,5 @@
 export const QUEUE_NAME = 'strava';
+export const BULK_IMPORT_QUEUE_NAME = 'bulk-import';
 
 export const JobPriority = {
 	webhook: 1,

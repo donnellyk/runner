@@ -14,6 +14,7 @@ export {
 export { SportType, WorkoutType, WORKOUT_TYPE_LABELS } from './activity-types.js';
 export {
 	QUEUE_NAME,
+	BULK_IMPORT_QUEUE_NAME,
 	JobPriority,
 	type ActivityImportJobData,
 	type FullHistoryImportJobData,

@@ -2,8 +2,8 @@ import { Worker, Queue } from 'bullmq';
 import Redis from 'ioredis';
 import pino from 'pino';
 import { getDb } from '@web-runner/db/client';
-import { QUEUE_NAME } from '@web-runner/shared';
-import { processJob } from './processor.js';
+import { QUEUE_NAME, BULK_IMPORT_QUEUE_NAME } from '@web-runner/shared';
+import { processJob, processBulkImportJob } from './processor.js';
 import { StravaRateLimiter } from './rate-limiter.js';
 
 const logger = pino(
@@ -49,12 +49,40 @@ const worker = new Worker(
 	}
 );
 
+const bulkImportQueue = new Queue(BULK_IMPORT_QUEUE_NAME, {
+	connection,
+	defaultJobOptions: {
+		attempts: 1,
+		removeOnComplete: false,
+	},
+});
+
+const bulkImportWorker = new Worker(
+	BULK_IMPORT_QUEUE_NAME,
+	async (job) => {
+		logger.info({ jobId: job.id, userId: job.data?.userId }, 'Processing bulk import');
+		await processBulkImportJob(job, { db, queue: bulkImportQueue, logger });
+	},
+	{
+		connection,
+		concurrency: 1,
+	}
+);
+
 worker.on('completed', (job) => {
 	logger.info({ jobId: job.id, type: job.data?.type }, 'Job completed');
 });
 
 worker.on('failed', (job, err) => {
 	logger.error({ jobId: job?.id, type: job?.data?.type, err: err.message }, 'Job failed');
+});
+
+bulkImportWorker.on('completed', (job) => {
+	logger.info({ jobId: job.id }, 'Bulk import completed');
+});
+
+bulkImportWorker.on('failed', (job, err) => {
+	logger.error({ jobId: job?.id, err: err.message }, 'Bulk import failed');
 });
 
 logger.info('Worker started');
@@ -71,8 +99,8 @@ process.on('uncaughtException', (err) => {
 
 async function shutdown() {
 	logger.info('Shutting down worker...');
-	await worker.close();
-	await queue.close();
+	await Promise.all([worker.close(), bulkImportWorker.close()]);
+	await Promise.all([queue.close(), bulkImportQueue.close()]);
 	await redis.quit();
 	logger.info('Worker stopped');
 	process.exit(0);

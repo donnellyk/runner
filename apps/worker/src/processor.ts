@@ -9,6 +9,7 @@ import { handleActivityStreams } from './jobs/activity-streams.js';
 import { handleWebhookEvent } from './jobs/webhook-event.js';
 import { handleBulkImport } from './jobs/bulk-import.js';
 import { StravaApiError, StravaRateLimitError } from '@web-runner/strava';
+import type { BulkImportJobData } from '@web-runner/shared';
 
 export interface ProcessorDeps {
   db: Database;
@@ -36,9 +37,6 @@ export async function processJob(job: Job, deps: ProcessorDeps): Promise<void> {
       case 'webhook-event':
         await handleWebhookEvent(job, deps);
         break;
-      case 'bulk-import':
-        await handleBulkImport(job, deps);
-        break;
       default:
         logger.warn({ jobType }, 'Unknown job type');
     }
@@ -61,4 +59,11 @@ export async function processJob(job: Job, deps: ProcessorDeps): Promise<void> {
 
     throw err;
   }
+}
+
+export async function processBulkImportJob(
+  job: Job<BulkImportJobData>,
+  deps: { db: Database; queue: Queue; logger: Logger },
+): Promise<void> {
+  await handleBulkImport(job, deps);
 }
