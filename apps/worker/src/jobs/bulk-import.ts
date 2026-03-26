@@ -447,14 +447,19 @@ export async function handleBulkImport(
         gearId: null,
       };
 
+      // For conflict updates, exclude fields the import can't improve on.
+      // workoutType (race/long_run/workout tags from the API), gearId, and
+      // sourceRaw are not available in the export — don't overwrite them.
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { externalId, source, userId: _uid, ...updateFields } = values;
+      const { externalId, source, userId: _uid, workoutType: _wt, gearId: _g, ...updateFields } = values;
 
       const filteredUpdate: Record<string, unknown> = {
         ...updateFields,
         updatedAt: new Date(),
         syncStatus: 'complete',
       };
+      // Only overwrite deviceName if the file provided one
+      if (!parsed?.summary.deviceName) delete filteredUpdate.deviceName;
 
       const routeWkt = latlng ? buildRouteWkt(latlng) : null;
       if (routeWkt) filteredUpdate.route = sql`ST_GeomFromEWKT(${routeWkt})`;
