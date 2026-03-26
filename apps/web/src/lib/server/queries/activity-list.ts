@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, lt, or, between, inArray } from 'drizzle-orm';
+import { eq, and, desc, gte, lte, lt, or, between, inArray, ilike, count, sql } from 'drizzle-orm';
 import { getDb } from '@web-runner/db/client';
 import { activities, activityStreams } from '@web-runner/db/schema';
 import { RACE_DISTANCES, raceDistanceBounds } from '@web-runner/shared';
@@ -12,6 +12,7 @@ export const RACE_DISTANCE_PRESETS = RACE_DISTANCES.map((d) => ({
 }));
 
 export interface ActivityListFilters {
+	q?: string;
 	sport?: string;
 	workout?: string;
 	range?: string;
@@ -21,34 +22,40 @@ export interface ActivityListFilters {
 
 export async function listActivities(userId: number, filters: ActivityListFilters) {
 	const db = getDb();
-	const { sport, workout, range, distance, cursor } = filters;
+	const { q, sport, workout, range, distance, cursor } = filters;
 
-	const conditions = [eq(activities.userId, userId)];
+	// Filter conditions (used for both the page query and the count query)
+	const filterConditions = [eq(activities.userId, userId)];
 
-	if (sport) conditions.push(eq(activities.sportType, sport));
-	if (workout) conditions.push(eq(activities.workoutType, workout));
+	if (q) filterConditions.push(ilike(activities.name, `%${q}%`));
+	if (sport) filterConditions.push(eq(activities.sportType, sport));
+	if (workout) filterConditions.push(eq(activities.workoutType, workout));
 
 	if (range === 'week') {
 		const since = new Date();
 		since.setDate(since.getDate() - 7);
-		conditions.push(gte(activities.startDate, since));
+		filterConditions.push(gte(activities.startDate, since));
 	} else if (range === 'month') {
 		const since = new Date();
 		since.setMonth(since.getMonth() - 1);
-		conditions.push(gte(activities.startDate, since));
+		filterConditions.push(gte(activities.startDate, since));
 	} else if (range === '90d') {
 		const since = new Date();
 		since.setDate(since.getDate() - 90);
-		conditions.push(gte(activities.startDate, since));
+		filterConditions.push(gte(activities.startDate, since));
 	}
 
 	if (distance) {
 		const preset = RACE_DISTANCE_PRESETS.find((p) => p.label === distance);
 		if (preset) {
-			conditions.push(between(activities.distance, preset.lo, preset.hi));
+			filterConditions.push(between(activities.distance, preset.lo, preset.hi));
 		}
 	}
 
+	const hasFilters = !!(q || sport || workout || range || distance);
+
+	// Pagination conditions (only for the page query, not the count)
+	const conditions = [...filterConditions];
 	if (cursor) {
 		const [cursorDate, cursorId] = cursor.split(',');
 		const cursorTime = new Date(cursorDate);
@@ -107,10 +114,17 @@ export async function listActivities(userId: number, filters: ActivityListFilter
 		}
 	}
 
-	const sportTypes = await db
-		.selectDistinct({ sportType: activities.sportType })
-		.from(activities)
-		.where(eq(activities.userId, userId));
+	const [sportTypes, totalCount] = await Promise.all([
+		db.selectDistinct({ sportType: activities.sportType })
+			.from(activities)
+			.where(eq(activities.userId, userId)),
+		hasFilters
+			? db.select({ count: sql<number>`count(*)` })
+				.from(activities)
+				.where(and(...filterConditions))
+				.then((r) => Number(r[0].count))
+			: Promise.resolve(null),
+	]);
 
 	const last = items[items.length - 1];
 	const nextCursor = hasMore ? `${last.startDate.toISOString()},${last.id}` : null;
@@ -120,5 +134,6 @@ export async function listActivities(userId: number, filters: ActivityListFilter
 		sportTypes: sportTypes.map((r) => r.sportType),
 		nextCursor,
 		hasMore,
+		totalCount,
 	};
 }

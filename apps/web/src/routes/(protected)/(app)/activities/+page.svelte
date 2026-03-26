@@ -51,8 +51,13 @@
 
     const activitiesPath = resolve("/activities");
 
+    let hasFilters = $derived(
+        !!(data.filters.q || data.filters.sport || data.filters.workout || data.filters.range || data.filters.distance),
+    );
+
     function buildQuery(overrides: Record<string, string>) {
         const params: Record<string, string> = {
+            q: data.filters.q,
             sport: data.filters.sport,
             workout: data.filters.workout,
             range: data.filters.range,
@@ -66,70 +71,10 @@
     }
 </script>
 
-<div class="mb-8">
-    <h1 class="font-serif text-4xl font-semibold text-zinc-900 mb-6">
+<div class="mb-6">
+    <h1 class="font-serif text-4xl font-semibold text-zinc-900">
         Activities
     </h1>
-
-    <form method="GET" class="flex flex-wrap gap-3 items-center">
-        <select
-            name="sport"
-            onchange={(e) =>
-                (e.currentTarget.form as HTMLFormElement).requestSubmit()}
-            class="border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white text-zinc-700"
-        >
-            <option value="">All sports</option>
-            {#each data.sportTypes as s (s)}
-                <option value={s} selected={data.filters.sport === s}
-                    >{s}</option
-                >
-            {/each}
-        </select>
-
-        <select
-            name="range"
-            onchange={(e) =>
-                (e.currentTarget.form as HTMLFormElement).requestSubmit()}
-            class="border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white text-zinc-700"
-        >
-            <option value="">All time</option>
-            <option value="week" selected={data.filters.range === "week"}
-                >This week</option
-            >
-            <option value="month" selected={data.filters.range === "month"}
-                >This month</option
-            >
-            <option value="90d" selected={data.filters.range === "90d"}
-                >Last 90 days</option
-            >
-        </select>
-
-        <select
-            name="distance"
-            onchange={(e) =>
-                (e.currentTarget.form as HTMLFormElement).requestSubmit()}
-            class="border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white text-zinc-700"
-        >
-            <option value="">Any distance</option>
-            {#each data.distancePresets as p (p)}
-                <option value={p} selected={data.filters.distance === p}
-                    >{p}</option
-                >
-            {/each}
-        </select>
-
-        <select
-            name="workout"
-            onchange={(e) =>
-                (e.currentTarget.form as HTMLFormElement).requestSubmit()}
-            class="border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white text-zinc-700"
-        >
-            <option value="">Any type</option>
-            {#each WORKOUT_TYPE_LABELS as wt (wt.value)}
-                <option value={wt.value} selected={data.filters.workout === wt.value}>{wt.label}</option>
-            {/each}
-        </select>
-    </form>
 </div>
 
 {#snippet mileageCard(s: typeof ms.month, clickable?: boolean)}
@@ -238,6 +183,75 @@
     {@render mileageCard(ms.month)}
     {@render mileageCard(ms.year)}
 </div>
+
+<form method="GET" class="flex flex-wrap gap-3 items-center mb-6">
+    <input
+        type="text"
+        name="q"
+        value={data.filters.q}
+        placeholder="Search activities..."
+        class="border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white text-zinc-700 w-48"
+        onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).form?.requestSubmit(); }}
+    />
+
+    <select
+        name="sport"
+        onchange={(e) =>
+            (e.currentTarget.form as HTMLFormElement).requestSubmit()}
+        class="border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white text-zinc-700"
+    >
+        <option value="">All sports</option>
+        {#each data.sportTypes as s (s)}
+            <option value={s} selected={data.filters.sport === s}>{s}</option>
+        {/each}
+    </select>
+
+    <select
+        name="range"
+        onchange={(e) =>
+            (e.currentTarget.form as HTMLFormElement).requestSubmit()}
+        class="border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white text-zinc-700"
+    >
+        <option value="">All time</option>
+        <option value="week" selected={data.filters.range === "week"}>This week</option>
+        <option value="month" selected={data.filters.range === "month"}>This month</option>
+        <option value="90d" selected={data.filters.range === "90d"}>Last 90 days</option>
+    </select>
+
+    <select
+        name="distance"
+        onchange={(e) =>
+            (e.currentTarget.form as HTMLFormElement).requestSubmit()}
+        class="border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white text-zinc-700"
+    >
+        <option value="">Any distance</option>
+        {#each data.distancePresets as p (p)}
+            <option value={p} selected={data.filters.distance === p}>{p}</option>
+        {/each}
+    </select>
+
+    <select
+        name="workout"
+        onchange={(e) =>
+            (e.currentTarget.form as HTMLFormElement).requestSubmit()}
+        class="border border-zinc-200 rounded px-2.5 py-1.5 text-sm bg-white text-zinc-700"
+    >
+        <option value="">Any type</option>
+        {#each WORKOUT_TYPE_LABELS as wt (wt.value)}
+            <option value={wt.value} selected={data.filters.workout === wt.value}>{wt.label}</option>
+        {/each}
+    </select>
+
+    {#if hasFilters}
+        <a href={activitiesPath} class="text-xs text-zinc-400 hover:text-zinc-600">Clear</a>
+    {/if}
+</form>
+
+{#if hasFilters && data.totalCount != null}
+    <div class="text-xs text-zinc-400 mb-4">
+        {data.totalCount} result{data.totalCount !== 1 ? 's' : ''}
+    </div>
+{/if}
 
 {#if grouped.length === 0}
     <p class="text-sm text-zinc-400">No activities found.</p>

@@ -4,6 +4,7 @@ import type { PageServerLoad, Actions } from './$types';
 export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	const userId = locals.user!.id;
 	const filters = {
+		q:        url.searchParams.get('q')        ?? '',
 		sport:    url.searchParams.get('sport')    ?? '',
 		workout:  url.searchParams.get('workout')  ?? '',
 		range:    url.searchParams.get('range')    ?? '',
