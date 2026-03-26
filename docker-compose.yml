@@ -83,6 +83,8 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/webrunner
       REDIS_URL: redis://redis:6379
       NODE_ENV: production
+      STRAVA_CLIENT_ID: ${STRAVA_CLIENT_ID}
+      STRAVA_CLIENT_SECRET: ${STRAVA_CLIENT_SECRET}
     volumes:
       - imports:/tmp/web-runner-imports
     depends_on:
