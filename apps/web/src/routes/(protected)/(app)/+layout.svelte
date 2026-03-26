@@ -7,6 +7,7 @@
 
 	const navItems = [
 		{ href: '/activities', label: 'Activities' },
+		{ href: '/stats', label: 'Statistics' },
 		{ href: '/settings', label: 'Settings' },
 	] as const;
 </script>
