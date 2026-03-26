@@ -38,6 +38,14 @@ export const load: PageServerLoad = async () => {
 		mean_time_ms: number;
 		rows: number;
 	}> = [];
+	let n1Candidates: Array<{
+		query: string;
+		calls: number;
+		total_time_ms: number;
+		mean_time_ms: number;
+		rows: number;
+		rows_per_call: number;
+	}> = [];
 	let pgStatAvailable = true;
 
 	try {
@@ -49,10 +57,42 @@ export const load: PageServerLoad = async () => {
 				round(mean_exec_time::numeric, 2) AS mean_time_ms,
 				rows
 			FROM pg_stat_statements
+			WHERE calls > 1
+				AND query NOT ILIKE 'CREATE %'
+				AND query NOT ILIKE 'ALTER %'
+				AND query NOT ILIKE 'DROP %'
+				AND query NOT ILIKE 'TRUNCATE %'
+				AND query NOT ILIKE 'ANALYZE %'
+				AND query NOT ILIKE 'INSERT INTO "spatial_ref_sys"%'
+				AND query NOT ILIKE '%install_geocode_settings%'
+				AND query NOT ILIKE '--%'
 			ORDER BY mean_exec_time DESC
 			LIMIT 20
 		`);
 		slowQueries = result.rows as typeof slowQueries;
+
+		// N+1 candidates: queries that fetch a small number of rows per call
+		// but are called many times — the signature of a loop doing one query per parent record.
+		// A healthy batched query has high rows/call; an N+1 has rows/call ≈ 1 with high total calls.
+		const n1Result = await db.execute(sql`
+			SELECT
+				query,
+				calls,
+				round(total_exec_time::numeric, 2) AS total_time_ms,
+				round(mean_exec_time::numeric, 2) AS mean_time_ms,
+				rows,
+				round((rows::numeric / NULLIF(calls, 0)), 1) AS rows_per_call
+			FROM pg_stat_statements
+			WHERE calls > 100
+				AND rows::numeric / NULLIF(calls, 0) <= 5
+				AND query ILIKE 'SELECT%'
+				AND query NOT ILIKE '%FOR KEY SHARE%'
+				AND query NOT ILIKE '%FOR SHARE%'
+				AND query NOT ILIKE '--%'
+			ORDER BY calls DESC
+			LIMIT 10
+		`);
+		n1Candidates = n1Result.rows as typeof n1Candidates;
 	} catch {
 		pgStatAvailable = false;
 	}
@@ -68,6 +108,7 @@ export const load: PageServerLoad = async () => {
 		tableStats,
 		dbSize,
 		slowQueries,
+		n1Candidates,
 		pgStatAvailable,
 		redis: { usedMemory, peakMemory, keyCount },
 		poolStats,

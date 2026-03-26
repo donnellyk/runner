@@ -55,6 +55,33 @@
 	</table>
 {/if}
 
+{#if data.pgStatAvailable && data.n1Candidates.length > 0}
+<h2 class="text-lg font-bold mb-3">N+1 Query Candidates</h2>
+<p class="text-xs text-zinc-400 mb-2">SELECT queries called 100+ times returning ~1 row per call — may indicate a loop issuing one query per record.</p>
+<table class="w-full text-sm mb-8">
+	<thead>
+		<tr class="border-b border-zinc-200 text-left text-zinc-500">
+			<th class="py-1 pr-4">Query</th>
+			<th class="py-1 pr-4">Calls</th>
+			<th class="py-1 pr-4">Rows/Call</th>
+			<th class="py-1 pr-4">Total (ms)</th>
+			<th class="py-1 pr-4">Mean (ms)</th>
+		</tr>
+	</thead>
+	<tbody>
+		{#each data.n1Candidates as q, i (i)}
+			<tr class="border-b border-zinc-100">
+				<td class="py-1 pr-4 text-xs font-mono max-w-md truncate">{q.query}</td>
+				<td class="py-1 pr-4">{q.calls}</td>
+				<td class="py-1 pr-4">{q.rows_per_call}</td>
+				<td class="py-1 pr-4">{q.total_time_ms}</td>
+				<td class="py-1 pr-4">{q.mean_time_ms}</td>
+			</tr>
+		{/each}
+	</tbody>
+</table>
+{/if}
+
 <h2 class="text-lg font-bold mb-3">Redis</h2>
 <div class="grid grid-cols-2 gap-x-8 gap-y-1 text-sm mb-8 max-w-sm">
 	<div class="text-zinc-500">Used Memory</div><div>{data.redis.usedMemory}</div>
