@@ -33,6 +33,20 @@ run = "pnpm run lint"
 description = "Run type checking"
 run = "pnpm run typecheck"
 
+[tasks.errors]
+description = "Show all type, Svelte, and lint errors (same as LSP diagnostics)"
+run = """
+echo "=== TypeScript ==="
+npx tsc --build --pretty 2>&1 || true
+echo ""
+echo "=== Svelte ==="
+pnpm --filter @web-runner/web exec svelte-kit sync 2>/dev/null
+pnpm --filter @web-runner/web exec svelte-check --tsconfig ./tsconfig.json 2>&1 || true
+echo ""
+echo "=== ESLint ==="
+pnpm run lint 2>&1 || true
+"""
+
 [tasks.check]
 description = "Run typecheck + lint + test"
 run = "pnpm run check"
