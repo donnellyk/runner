@@ -35,6 +35,7 @@
 		segments: ActivitySegment[];
 		paceZones: ZoneDefinition[];
 		hrZones: ZoneDefinition[];
+		planPaceZones?: ZoneDefinition[];
 		routeCoords: [number, number][] | null;
 		crosshairOrigIdx: number | null;
 		highlightRange: { start: number; end: number } | null;
@@ -43,6 +44,7 @@
 		highlightedNoteId: number | null;
 		xAxis: 'distance' | 'time';
 		showZones: boolean;
+		showPlanZones?: boolean;
 		showPauseGaps: boolean;
 		smoothingWindow: number;
 		wickPercentile: number;
@@ -70,6 +72,7 @@
 		segments,
 		paceZones,
 		hrZones,
+		planPaceZones = [],
 		routeCoords,
 		crosshairOrigIdx,
 		highlightRange,
@@ -78,6 +81,7 @@
 		highlightedNoteId,
 		xAxis,
 		showZones,
+		showPlanZones = false,
 		showPauseGaps,
 		smoothingWindow,
 		wickPercentile,
@@ -222,6 +226,7 @@
 		{:else}
 			{@const panelShowZones = config.zonesOverride ?? showZones}
 			{@const zoneInfo = panelShowZones ? getZonesForSource(config.dataSource, paceZones, hrZones, units) : null}
+			{@const planZoneInfo = showPlanZones && planPaceZones.length > 0 ? getZonesForSource(config.dataSource, planPaceZones, [], units) : null}
 			<TerminalLineChart
 				data={streamData}
 				distanceData={sampledDist ?? undefined}
@@ -240,6 +245,8 @@
 				zones={zoneInfo?.zones}
 				zoneMetric={zoneInfo?.metric}
 				showZones={panelShowZones}
+				planZones={planZoneInfo?.zones}
+				showPlanZones={showPlanZones && planZoneInfo != null}
 				filled={config.chartType === 'area' && !compareMode}
 				crosshairIndex={crosshairIndex}
 				crosshairLocked={crosshairLocked}

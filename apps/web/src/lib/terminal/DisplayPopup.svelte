@@ -46,6 +46,11 @@
 	</label>
 
 	<label class="toggle-row">
+		<input type="checkbox" bind:checked={termState.showPlanZones} class="accent-current" />
+		<span class="toggle-label">Plan Zones</span>
+	</label>
+
+	<label class="toggle-row">
 		<input type="checkbox" bind:checked={termState.showNotes} class="accent-current" />
 		<span class="toggle-label">Notes</span>
 	</label>

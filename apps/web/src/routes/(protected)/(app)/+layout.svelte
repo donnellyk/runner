@@ -5,11 +5,12 @@
 
 	let { data, children } = $props();
 
-	const navItems = [
-		{ href: '/activities', label: 'Activities' },
-		{ href: '/stats', label: 'Statistics' },
-		{ href: '/settings', label: 'Settings' },
-	] as const;
+	let navItems = $derived([
+		{ href: '/activities' as const, label: 'Activities' },
+		{ href: '/stats' as const, label: 'Statistics' },
+		...(data.trainingPlansEnabled ? [{ href: '/plans' as const, label: 'Plans' }] : []),
+		{ href: '/settings' as const, label: 'Settings' },
+	]);
 </script>
 
 <div class="min-h-screen bg-white">

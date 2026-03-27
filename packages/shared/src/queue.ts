@@ -1,5 +1,6 @@
 export const QUEUE_NAME = 'strava';
 export const BULK_IMPORT_QUEUE_NAME = 'bulk-import';
+export const PLAN_QUEUE_NAME = 'plan';
 
 export const JobPriority = {
 	webhook: 1,
@@ -41,8 +42,22 @@ export interface BulkImportJobData {
 	filePath: string;
 }
 
+export interface PlanMatchJobData {
+	type: 'plan-match';
+	userId: number;
+	activityId: number;
+}
+
+export interface PlanBackfillJobData {
+	type: 'plan-backfill';
+	userId: number;
+	instanceId: number;
+}
+
 export type JobData =
 	| ActivityImportJobData
 	| FullHistoryImportJobData
 	| WebhookEventJobData
-	| BulkImportJobData;
+	| BulkImportJobData
+	| PlanMatchJobData
+	| PlanBackfillJobData;

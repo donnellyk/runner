@@ -127,6 +127,10 @@ run = "pnpm --filter @web-runner/db migrate:run"
 description = "Run Bull Board queue dashboard"
 run = "pnpm tsx scripts/bull-board.ts"
 
+[tasks.psql]
+description = "Open psql shell against local dev database"
+run = "docker compose exec postgres psql -U postgres -d webrunner"
+
 [tasks.console]
 description = "Node REPL with DB, Redis, Strava, and queue pre-loaded"
 run = "pnpm tsx scripts/console.ts"

@@ -8,12 +8,15 @@ import { handleActivityImport } from './jobs/activity-import.js';
 import { handleActivityStreams } from './jobs/activity-streams.js';
 import { handleWebhookEvent } from './jobs/webhook-event.js';
 import { handleBulkImport } from './jobs/bulk-import.js';
+import { handlePlanMatch, handlePlanBackfill } from './jobs/plan-matching.js';
+import type { PlanMatchingDeps } from './jobs/plan-matching.js';
 import { StravaApiError, StravaRateLimitError } from '@web-runner/strava';
-import type { BulkImportJobData } from '@web-runner/shared';
+import type { BulkImportJobData, PlanMatchJobData, PlanBackfillJobData } from '@web-runner/shared';
 
 export interface ProcessorDeps {
   db: Database;
   queue: Queue;
+  planQueue: Queue;
   rateLimiter: StravaRateLimiter;
   logger: Logger;
   token?: string;
@@ -66,4 +69,23 @@ export async function processBulkImportJob(
   deps: { db: Database; queue: Queue; logger: Logger },
 ): Promise<void> {
   await handleBulkImport(job, deps);
+}
+
+export async function processPlanJob(
+  job: Job<PlanMatchJobData | PlanBackfillJobData>,
+  deps: PlanMatchingDeps,
+): Promise<void> {
+  const { logger } = deps;
+  const jobType = job.data?.type;
+
+  switch (jobType) {
+    case 'plan-match':
+      await handlePlanMatch(job as Job<PlanMatchJobData>, deps);
+      break;
+    case 'plan-backfill':
+      await handlePlanBackfill(job as Job<PlanBackfillJobData>, deps);
+      break;
+    default:
+      logger.warn({ jobType }, 'Unknown plan job type');
+  }
 }

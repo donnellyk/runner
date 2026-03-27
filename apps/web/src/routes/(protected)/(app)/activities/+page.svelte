@@ -3,6 +3,7 @@
     import { resolve } from "$app/paths";
     import { enhance } from "$app/forms";
     import SparkLine from "$lib/components/SparkLine.svelte";
+    import CurrentWeekStrip from "$lib/components/CurrentWeekStrip.svelte";
     import {
         formatDistance,
         formatDuration,
@@ -183,6 +184,22 @@
     {@render mileageCard(ms.month)}
     {@render mileageCard(ms.year)}
 </div>
+
+{#if data.currentWeek}
+    <div class="mb-8">
+        <CurrentWeekStrip
+            workouts={data.currentWeek.workouts}
+            weekNumber={data.currentWeek.weekNumber}
+            weekId={data.currentWeek.weekId}
+            phase={data.currentWeek.phase}
+            instanceId={data.currentWeek.instanceId}
+            effortMap={data.currentWeek.effortMap}
+            supplementary={data.currentWeek.supplementary}
+            completions={data.currentWeek.completions}
+            units={units}
+        />
+    </div>
+{/if}
 
 <form method="GET" class="flex flex-wrap gap-3 items-center mb-6">
     <input

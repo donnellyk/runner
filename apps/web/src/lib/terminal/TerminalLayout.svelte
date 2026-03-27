@@ -44,6 +44,7 @@
 		segments: ActivitySegment[];
 		paceZones: ZoneDefinition[];
 		hrZones: ZoneDefinition[];
+		planPaceZones?: ZoneDefinition[];
 		onlayoutcommit?: () => void;
 		compareState?: CompareStateType;
 		chartZoomEnabled?: boolean;
@@ -59,6 +60,7 @@
 		segments,
 		paceZones,
 		hrZones,
+		planPaceZones = [],
 		onlayoutcommit,
 		compareState,
 		chartZoomEnabled = false,
@@ -245,6 +247,7 @@
 						{segments}
 						{paceZones}
 						{hrZones}
+						{planPaceZones}
 						{routeCoords}
 						{crosshairOrigIdx}
 						{highlightRange}
@@ -253,6 +256,7 @@
 						highlightedNoteId={termState.highlightedNoteId}
 						xAxis={termState.xAxis}
 						showZones={termState.showZones}
+						showPlanZones={termState.showPlanZones}
 						showPauseGaps={termState.showPauseGaps}
 						smoothingWindow={termState.params.smoothingWindow}
 						wickPercentile={termState.wickPercentile}

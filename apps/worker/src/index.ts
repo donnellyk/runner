@@ -2,8 +2,8 @@ import { Worker, Queue } from 'bullmq';
 import Redis from 'ioredis';
 import pino from 'pino';
 import { getDb } from '@web-runner/db/client';
-import { QUEUE_NAME, BULK_IMPORT_QUEUE_NAME } from '@web-runner/shared';
-import { processJob, processBulkImportJob } from './processor.js';
+import { QUEUE_NAME, BULK_IMPORT_QUEUE_NAME, PLAN_QUEUE_NAME } from '@web-runner/shared';
+import { processJob, processBulkImportJob, processPlanJob } from './processor.js';
 import { StravaRateLimiter } from './rate-limiter.js';
 
 const logger = pino(
@@ -41,7 +41,7 @@ const worker = new Worker(
 	QUEUE_NAME,
 	async (job, token) => {
 		logger.info({ jobId: job.id, type: job.data?.type }, 'Processing job');
-		await processJob(job, { db, queue, rateLimiter, logger, token });
+		await processJob(job, { db, queue, planQueue, rateLimiter, logger, token });
 	},
 	{
 		connection,
@@ -69,6 +69,26 @@ const bulkImportWorker = new Worker(
 	}
 );
 
+const planQueue = new Queue(PLAN_QUEUE_NAME, {
+	connection,
+	defaultJobOptions: {
+		attempts: 3,
+		backoff: { type: 'exponential', delay: 5_000 },
+	},
+});
+
+const planWorker = new Worker(
+	PLAN_QUEUE_NAME,
+	async (job) => {
+		logger.info({ jobId: job.id, type: job.data?.type }, 'Processing plan job');
+		await processPlanJob(job, { db, logger });
+	},
+	{
+		connection,
+		concurrency: 1,
+	}
+);
+
 worker.on('completed', (job) => {
 	logger.info({ jobId: job.id, type: job.data?.type }, 'Job completed');
 });
@@ -85,6 +105,14 @@ bulkImportWorker.on('failed', (job, err) => {
 	logger.error({ jobId: job?.id, err: err.message }, 'Bulk import failed');
 });
 
+planWorker.on('completed', (job) => {
+	logger.info({ jobId: job.id, type: job.data?.type }, 'Plan job completed');
+});
+
+planWorker.on('failed', (job, err) => {
+	logger.error({ jobId: job?.id, type: job?.data?.type, err: err.message }, 'Plan job failed');
+});
+
 logger.info('Worker started');
 
 process.on('unhandledRejection', (reason) => {
@@ -99,8 +127,8 @@ process.on('uncaughtException', (err) => {
 
 async function shutdown() {
 	logger.info('Shutting down worker...');
-	await Promise.all([worker.close(), bulkImportWorker.close()]);
-	await Promise.all([queue.close(), bulkImportQueue.close()]);
+	await Promise.all([worker.close(), bulkImportWorker.close(), planWorker.close()]);
+	await Promise.all([queue.close(), bulkImportQueue.close(), planQueue.close()]);
 	await redis.quit();
 	logger.info('Worker stopped');
 	process.exit(0);

@@ -45,6 +45,8 @@
         zones?: ZoneDefinition[];
         zoneMetric?: "pace" | "heartrate";
         showZones?: boolean;
+        planZones?: ZoneDefinition[];
+        showPlanZones?: boolean;
         filled?: boolean;
         overlayData?: OverlaySeries[];
         zoom?: ChartZoom;
@@ -73,6 +75,8 @@
         oncrosshairclick,
         oncrosshairleave,
         showZones = true,
+        planZones,
+        showPlanZones = false,
         filled = false,
         overlayData,
         zoom,
@@ -292,6 +296,21 @@
         return computeZoneDotGrid({
             zones,
             zoneMetric,
+            yMin: vyMin,
+            yMax: vyMax,
+            toY,
+            padTop: P.top,
+            padLeft: P.left,
+            chartW: dims.chartW,
+            chartH: dims.chartH,
+        });
+    });
+
+    let planZoneDotGrid = $derived.by(() => {
+        if (!planZones || !showPlanZones || !zoneMetric) return [];
+        return computeZoneDotGrid({
+            zones: planZones,
+            zoneMetric: 'pace',
             yMin: vyMin,
             yMax: vyMax,
             toY,
@@ -645,6 +664,20 @@
                     r="1.25"
                     fill={band.color}
                     fill-opacity="0.35"
+                />
+            {/each}
+        {/each}
+
+        {#each planZoneDotGrid as band, i (i)}
+            {#each band.dots as dot, j (j)}
+                <circle
+                    cx={dot.cx}
+                    cy={dot.cy}
+                    r="1.5"
+                    fill="none"
+                    stroke={band.color}
+                    stroke-width="0.75"
+                    stroke-opacity="0.5"
                 />
             {/each}
         {/each}

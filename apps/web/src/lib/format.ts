@@ -121,11 +121,17 @@ export function parsePaceInput(input: string): number | null {
 	return parseInt(match[1]) * 60 + secs;
 }
 
-/** Format sec/km as "M:SS" string for pace input fields */
-export function formatPaceForInput(secPerKm: number | null): string {
+/** Format sec/km as "M:SS" string for pace input fields, converting to sec/mi for imperial */
+export function formatPaceForInput(secPerKm: number | null, units: Units = 'metric'): string {
 	if (secPerKm == null) return '';
-	const total = Math.round(secPerKm);
+	const secPerUnit = units === 'imperial' ? secPerKm * KM_TO_MI_PACE : secPerKm;
+	const total = Math.round(secPerUnit);
 	const m = Math.floor(total / 60);
 	const s = total % 60;
 	return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** Convert a parsed pace input (total seconds in display units) back to sec/km */
+export function paceInputToSecPerKm(secPerUnit: number, units: Units): number {
+	return units === 'imperial' ? secPerUnit / KM_TO_MI_PACE : secPerUnit;
 }

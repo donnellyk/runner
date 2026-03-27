@@ -10,3 +10,4 @@ drizzle/meta
 *.tsbuildinfo
 .DS_Store
 .playwright-mcp/
+plans

@@ -1,5 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
 import { getActivity } from '$lib/server/queries/activities';
+import { getMatchedWorkoutForActivity } from '$lib/server/queries/plan-queries';
 import { parseId, requireParamId } from '$lib/server/validation';
 import { getDb } from '@web-runner/db/client';
 import { activityNotes, activities } from '@web-runner/db/schema';
@@ -10,10 +11,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const userId = locals.user!.id;
 	const id = requireParamId(params.id);
 
-	const result = await getActivity(id, userId);
+	const [result, matchedWorkout] = await Promise.all([
+		getActivity(id, userId),
+		getMatchedWorkoutForActivity(id, userId),
+	]);
 	if (!result) error(404, 'Activity not found');
 
-	return result;
+	return { ...result, matchedWorkout };
 };
 
 async function verifyActivityOwnership(activityId: number, userId: number) {

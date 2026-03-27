@@ -1,9 +1,10 @@
-import type { Job } from 'bullmq';
+import type { Job, Queue } from 'bullmq';
 import type { Logger } from 'pino';
 import { eq, and, sql } from 'drizzle-orm';
 import type { Database } from '@web-runner/db/client';
 import { activities, activityStreams, activitySegments } from '@web-runner/db/schema';
 import { StravaClient, getValidToken, STREAM_KEYS } from '@web-runner/strava';
+import type { PlanMatchJobData } from '@web-runner/shared';
 import type { StravaRateLimiter } from '../rate-limiter.js';
 import { computeSegments, buildRouteWkt } from '../segments.js';
 import { checkRateLimit } from '../rate-limit-guard.js';
@@ -16,7 +17,7 @@ interface ActivityStreamsData {
 
 export async function handleActivityStreams(
   job: Job<ActivityStreamsData>,
-  deps: { db: Database; rateLimiter: StravaRateLimiter; logger: Logger; token?: string },
+  deps: { db: Database; planQueue: Queue; rateLimiter: StravaRateLimiter; logger: Logger; token?: string },
 ) {
   const { db, rateLimiter, logger } = deps;
   const { userId, activityId } = job.data;
@@ -138,4 +139,12 @@ export async function handleActivityStreams(
   });
 
   logger.info({ userId, activityId, actDbId, segments: segments.length }, 'Streams imported');
+
+  // Enqueue plan-match job so the activity can be matched to a training plan workout
+  const planMatchData: PlanMatchJobData = {
+    type: 'plan-match',
+    userId,
+    activityId: actDbId,
+  };
+  await deps.planQueue.add('plan-match', planMatchData);
 }

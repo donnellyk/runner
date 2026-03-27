@@ -9,3 +9,11 @@ export { userZones } from './user-zones';
 export { activityNotes } from './activity-notes';
 export { terminalLayouts } from './terminal-layouts';
 export { featureFlags } from './feature-flags';
+export {
+  planTemplates,
+  planInstances,
+  planWeeks,
+  planWorkouts,
+  planWorkoutMatches,
+  planSupplementaryCompletions,
+} from './training-plans';

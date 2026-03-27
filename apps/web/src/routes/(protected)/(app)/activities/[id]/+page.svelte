@@ -340,6 +340,27 @@
     <TerminalEntryCard activityId={a.id} />
 </div>
 
+{#if data.matchedWorkout}
+    {@const w = data.matchedWorkout}
+    <div class="mb-6 flex items-center gap-3 rounded-lg border border-blue-100 bg-blue-50/50 px-4 py-2.5">
+        <span class="text-[10px] font-semibold uppercase tracking-wide text-blue-400 shrink-0">Plan</span>
+        <span class="text-sm font-medium text-zinc-800">{w.workoutName}</span>
+        {#if w.targetDistanceMin}
+            <span class="text-xs text-zinc-500 font-mono">{formatDistance(w.targetDistanceMin, units)}{w.targetDistanceMax && w.targetDistanceMax !== w.targetDistanceMin ? `–${formatDistance(w.targetDistanceMax, units)}` : ''}</span>
+        {/if}
+        {#if w.effort}
+            <span class="text-xs text-zinc-400 italic">{w.effort}</span>
+        {/if}
+        <span class="text-[10px] text-zinc-400">Week {w.weekNumber} · {w.phase}</span>
+        <a
+            href={resolve(`/plans/${w.instanceId}`)}
+            class="ml-auto text-xs text-blue-500 hover:text-blue-700 font-medium shrink-0"
+        >
+            {w.planName} &rarr;
+        </a>
+    </div>
+{/if}
+
 {#if routeCoords}
     <div class="mb-8">
         <RouteMap coordinates={routeCoords} marker={markerCoord} darkMap={data.darkMap}

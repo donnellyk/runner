@@ -148,6 +148,7 @@ export function createTerminalState(initialLayout?: LayoutPanel[]) {
     cloneLayout(initialLayout ?? DEFAULT_LAYOUT),
   );
   let showZones = $state(false);
+  let showPlanZones = $state(false);
   let showNotes = $state(true);
   let showPauseGaps = $state(true);
   let meshSpeed = $state(1.3);
@@ -202,6 +203,12 @@ export function createTerminalState(initialLayout?: LayoutPanel[]) {
     },
     set showZones(v) {
       showZones = v;
+    },
+    get showPlanZones() {
+      return showPlanZones;
+    },
+    set showPlanZones(v) {
+      showPlanZones = v;
     },
     get showNotes() {
       return showNotes;
