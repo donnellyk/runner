@@ -1,5 +1,6 @@
 <script lang="ts">
     import { resolve } from "$app/paths";
+    import { NOISE_DATA_URI } from "$lib/mesh-gradient";
 
     interface Props {
         activityId: number;
@@ -51,6 +52,7 @@
             ></div>
         {/each}
     </div>
+    <div class="pointer-events-none absolute inset-0" style="background-image: {NOISE_DATA_URI}; background-repeat: repeat; opacity: 0.1;"></div>
     <div style="position: relative; z-index: 1;">
         <div class="text-xs" style="color: #6b7394;">Terminal Mode</div>
         <div

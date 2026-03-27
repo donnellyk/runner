@@ -3,6 +3,7 @@
 	import { goto, replaceState, pushState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import { NOISE_DATA_URI } from '$lib/mesh-gradient';
 	import '$lib/terminal/terminal-theme.css';
 	import TerminalLayout from '$lib/terminal/TerminalLayout.svelte';
 	import LayoutPopup from '$lib/terminal/LayoutPopup.svelte';
@@ -35,6 +36,28 @@
 	const a = $derived(data.activity);
 	const paceZones = $derived(data.paceZones);
 	const hrZones = $derived(data.hrZones);
+
+	// Convert plan effort map to zone format for chart overlays
+	const PLAN_ZONE_COLORS: Record<string, string> = {
+		easy: '#93c5fd', recovery: '#93c5fd', ga: '#34d399', 'long-run': '#6ee7b7',
+		marathon: '#fbbf24', lt: '#f97316', vo2max: '#ef4444',
+	};
+	const planPaceZones = $derived.by(() => {
+		const pe = data.planEffort;
+		if (!pe) return [];
+		const entries = Object.entries(pe.effortMap)
+			.filter(([, v]) => v.paceMin != null)
+			.sort(([, a], [, b]) => (a.paceMin ?? 0) - (b.paceMin ?? 0));
+		return entries.map(([slug, v], i) => ({
+			index: i + 1,
+			name: slug,
+			color: PLAN_ZONE_COLORS[slug] ?? '#a1a1aa',
+			paceMin: v.paceMin,
+			paceMax: v.paceMax,
+			hrMin: null,
+			hrMax: null,
+		}));
+	});
 
 	let streams = $derived(prepareStreams(data.streamMap));
 	let notes = $derived(prepareNotes(data.notes));
@@ -284,6 +307,7 @@
 			></div>
 		{/each}
 	</div>
+	<div class="fixed inset-0 pointer-events-none" style="z-index: 0; background-image: {NOISE_DATA_URI}; background-repeat: repeat; opacity: 0.1;"></div>
 	<div class="flex items-center h-9 px-3 shrink-0" style="border-bottom: 1px solid var(--term-border); position: relative; z-index: 1;">
 		<a
 			href={resolve(`/activities/${a.id}`)}
@@ -344,6 +368,7 @@
 			segments={effectiveSegments}
 			{paceZones}
 			{hrZones}
+			{planPaceZones}
 			onlayoutcommit={pushLayoutToHistory}
 			{compareState}
 			chartZoomEnabled={data.chartZoomEnabled}
