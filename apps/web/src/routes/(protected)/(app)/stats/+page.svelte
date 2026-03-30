@@ -4,12 +4,15 @@
 
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- same-page query param links
     function navigatePeriod(period: string) { goto(`${page.url.pathname}?sport=${data.filters.sport}&period=${period}`); }
+    import { resolve } from "$app/paths";
     import {
         formatDistance,
+        formatDurationClock,
         formatElevation,
         formatPace,
         type Units,
     } from "$lib/format";
+    import { RACE_DISTANCES } from "@web-runner/shared";
 
     let { data } = $props();
     const units = $derived(data.user.distanceUnit as Units);
@@ -169,6 +172,51 @@
     }
 </script>
 
+<div class="mb-12">
+    <h1 class="font-serif text-4xl font-semibold text-zinc-900 mb-4">Personal Records</h1>
+    <div class="border border-zinc-200 rounded-lg overflow-hidden">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-zinc-100 bg-zinc-50">
+                    <th class="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-zinc-500">Distance</th>
+                    <th class="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-zinc-500">Time</th>
+                    <th class="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-zinc-500">Pace</th>
+                    <th class="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-zinc-500">Date</th>
+                    <th class="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-zinc-500">Activity</th>
+                </tr>
+            </thead>
+            <tbody>
+                {#each RACE_DISTANCES as rd (rd.label)}
+                    {@const pr = data.prs.find((p) => p.raceDistance === rd.label)}
+                    <tr class="border-b border-zinc-50 last:border-b-0 {pr ? '' : 'text-zinc-300'}">
+                        <td class="px-4 py-2.5 font-medium {pr ? 'text-zinc-900' : ''}">{rd.label}</td>
+                        <td class="px-4 py-2.5 font-mono" style="font-variant-numeric: tabular-nums;">
+                            {pr ? formatDurationClock(pr.timeSeconds) : '—'}
+                        </td>
+                        <td class="px-4 py-2.5 font-mono" style="font-variant-numeric: tabular-nums;">
+                            {pr?.averageSpeed ? formatPace(pr.averageSpeed, units) : '—'}
+                        </td>
+                        <td class="px-4 py-2.5">
+                            {#if pr}
+                                {new Date(pr.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                            {:else}
+                                —
+                            {/if}
+                        </td>
+                        <td class="px-4 py-2.5">
+                            {#if pr}
+                                <a href={resolve(`/activities/${pr.activityId}`)} class="text-zinc-600 hover:text-zinc-900 transition-colors">
+                                    {pr.activityName} &rarr;
+                                </a>
+                            {/if}
+                        </td>
+                    </tr>
+                {/each}
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <div class="mb-6">
     <h1 class="font-serif text-4xl font-semibold text-zinc-900 mb-6">Stats</h1>
 
@@ -251,7 +299,6 @@
                             handleChartMouse(e, chart.label, values.length)}
                         onmouseleave={() => handleChartLeave(chart.label)}
                     >
-                        <!-- Y grid lines -->
                         {#each [0, 0.25, 0.5, 0.75, 1] as t (t)}
                             {@const yVal = chart.invertY
                                 ? yMin + t * yRange
@@ -277,7 +324,6 @@
                             </text>
                         {/each}
 
-                        <!-- Line -->
                         <polyline
                             points={values
                                 .map((v, i) => {
@@ -301,7 +347,6 @@
                             stroke-linecap="round"
                         />
 
-                        <!-- Dots -->
                         {#each values as v, i (i)}
                             {@const x =
                                 PAD.left +
@@ -320,7 +365,6 @@
                             />
                         {/each}
 
-                        <!-- Hover tooltip -->
                         {#if hIdx != null}
                             {@const hv = values[hIdx]}
                             {@const hx =
@@ -359,7 +403,6 @@
                             >
                         {/if}
 
-                        <!-- X labels -->
                         {#each data.stats as row, i (row.period)}
                             {@const x =
                                 PAD.left +

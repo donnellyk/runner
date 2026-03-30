@@ -1,6 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { getDb } from '@web-runner/db/client';
 import { activities } from '@web-runner/db/schema';
+import { getUserPRs } from '$lib/server/queries/pr-queries';
 import type { PageServerLoad } from './$types';
 
 const MIN_ACTIVITIES = 5;
@@ -88,9 +89,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// For month view, take last 12
 	const stats = period === 'month' ? filtered.slice(-12) : filtered;
 
+	const prs = await getUserPRs(userId);
+
 	return {
 		stats,
 		sportTypes: sportTypes.map((r) => r.sportType),
 		filters: { period, sport },
+		prs,
 	};
 };

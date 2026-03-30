@@ -1,9 +1,11 @@
 <script lang="ts">
     import { resolve } from "$app/paths";
     import { invalidateAll } from "$app/navigation";
+    import { enhance } from "$app/forms";
     import RouteMap from "$lib/components/RouteMap.svelte";
     import type { NoteMarker } from "$lib/components/RouteMap.svelte";
     import StatCard from "$lib/components/StatCard.svelte";
+    import PRCard from "$lib/components/PRCard.svelte";
     import TerminalEntryCard from "$lib/terminal/TerminalEntryCard.svelte";
     import { sportColor, workoutBadge } from "$lib/activity-colors";
     import { bucketAvgIndices } from "$lib/sampling";
@@ -17,12 +19,17 @@
         type Units,
     } from "$lib/format";
     import { isLatLngArray, isNumberArray } from "$lib/terminal/types";
+    import { RACE_DISTANCES } from "@web-runner/shared";
+    import { fireConfetti } from "$lib/confetti";
     import ChartSection from "./ChartSection.svelte";
     import NotesSection from "./NotesSection.svelte";
     import LapsSection from "./LapsSection.svelte";
     import SegmentsSection from "./SegmentsSection.svelte";
 
     let { data } = $props();
+
+    let showMarkPRForm = $state(false);
+    let selectedDistance = $state(data.suggestedDistance ?? RACE_DISTANCES[0].label);
     const units = $derived(data.user.distanceUnit as Units);
     const a = $derived(data.activity);
     const streamMap = $derived(data.streamMap);
@@ -336,6 +343,67 @@
             label="Cadence"
             value="{Math.round(a.averageCadence * 2)} spm"
         />
+    {/if}
+    {#if data.activityPR}
+        <PRCard
+            raceDistance={data.activityPR.raceDistance}
+            timeSeconds={data.activityPR.timeSeconds}
+            isBest={data.activityPR.isBest}
+        />
+    {:else if data.beatsPR && data.suggestedDistance}
+        <div class="rounded-lg px-4 py-3 overflow-hidden" style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 30%, #fde68a 70%, #fbbf24 100%); border: 1px solid #f59e0b; box-shadow: 0 0 12px rgba(251, 191, 36, 0.2);" data-pr-card>
+            <div class="font-serif text-lg font-bold text-amber-800" style="line-height: 1;">New PR?</div>
+            <div class="text-sm font-medium text-amber-900 mt-1">
+                Beats your {data.beatsPR.raceDistance} by {formatDurationClock(data.beatsPR.timeDiff)}
+            </div>
+            <form method="POST" action="?/markPR" class="mt-2" use:enhance={() => {
+                return async ({ update }) => {
+                    await update();
+                    await invalidateAll();
+                    const el = document.querySelector('[data-pr-card]');
+                    if (el instanceof HTMLElement) fireConfetti(el);
+                };
+            }}>
+                <input type="hidden" name="raceDistance" value={data.suggestedDistance} />
+                <button type="submit" class="text-xs font-semibold text-amber-800 bg-amber-200/60 hover:bg-amber-300/60 px-2.5 py-1 rounded transition-colors">
+                    Mark as PR
+                </button>
+            </form>
+        </div>
+    {:else if a.workoutType === 'race' && data.suggestedDistance}
+        <div class="rounded-lg px-4 py-3 overflow-hidden border border-zinc-200 bg-zinc-50" data-pr-card>
+            {#if showMarkPRForm}
+                <div class="font-serif text-lg font-bold text-zinc-500" style="line-height: 1;">Set as PR</div>
+                <form method="POST" action="?/markPR" class="flex flex-col gap-2 mt-2" use:enhance={() => {
+                    return async ({ update }) => {
+                        await update();
+                        await invalidateAll();
+                        showMarkPRForm = false;
+                        const el = document.querySelector('[data-pr-card]');
+                        if (el instanceof HTMLElement) fireConfetti(el);
+                    };
+                }}>
+                    <select name="raceDistance" bind:value={selectedDistance} class="border border-zinc-200 rounded px-2 py-1 text-sm bg-white text-zinc-700">
+                        {#each RACE_DISTANCES as rd (rd.label)}
+                            <option value={rd.label}>{rd.label}</option>
+                        {/each}
+                    </select>
+                    <div class="flex gap-2">
+                        <button type="submit" class="text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 px-2.5 py-1 rounded transition-colors">Save</button>
+                        <button type="button" class="text-xs text-zinc-400 hover:text-zinc-600" onclick={() => showMarkPRForm = false}>Cancel</button>
+                    </div>
+                </form>
+            {:else}
+                <div class="font-serif text-lg font-bold text-zinc-400" style="line-height: 1;">Race</div>
+                <div class="text-xs text-zinc-500 mt-1.5">{data.suggestedDistance}</div>
+                <button
+                    class="mt-2 text-xs font-medium text-zinc-500 hover:text-zinc-800 transition-colors"
+                    onclick={() => showMarkPRForm = true}
+                >
+                    Set as PR
+                </button>
+            {/if}
+        </div>
     {/if}
     <TerminalEntryCard activityId={a.id} />
 </div>

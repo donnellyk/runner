@@ -92,6 +92,13 @@
       "when": 1774628899812,
       "tag": "0012_furry_the_twelve",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1774653771704,
+      "tag": "0013_soft_zarek",
+      "breakpoints": true
     }
   ]
 }
