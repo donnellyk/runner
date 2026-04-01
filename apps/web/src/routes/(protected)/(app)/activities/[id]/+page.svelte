@@ -287,7 +287,6 @@
 
 <div class="mb-8">
     <div class="flex items-baseline justify-between gap-4 flex-wrap">
-        <div class="flex items-baseline gap-3 min-w-0">
             <h1 class="font-serif text-4xl font-semibold text-zinc-900">
                 {a.name}
             </h1>
