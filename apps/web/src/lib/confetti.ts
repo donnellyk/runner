@@ -7,8 +7,8 @@ const COLORS = [
 	'#ffffff', '#fef3c7',                                     // whites
 ];
 const PARTICLE_COUNT = 600;
-const DURATION = 5000;
-const GRAVITY = 0.08;
+const DURATION = 6000;
+const GRAVITY = 0.055;
 
 interface Particle {
 	x: number;
@@ -38,7 +38,7 @@ export function fireConfetti() {
 			x: Math.random() * canvas.width,
 			y: -Math.random() * 200,
 			vx: (Math.random() - 0.5) * 2,
-			vy: Math.random() * 3 + 1,
+			vy: Math.random() * 2.25 + 0.75,
 			color: COLORS[Math.floor(Math.random() * COLORS.length)],
 			size: Math.random() * 7 + 3,
 			life: 1,
