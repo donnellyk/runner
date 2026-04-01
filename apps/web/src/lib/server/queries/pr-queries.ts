@@ -31,7 +31,7 @@ export async function getUserPRs(userId: number) {
 		}
 	}
 
-	return Array.from(bestByDistance.values());
+	return { best: Array.from(bestByDistance.values()), all: rows };
 }
 
 export async function getActivityPR(activityId: number, userId: number) {

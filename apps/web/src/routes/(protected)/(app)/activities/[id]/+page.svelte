@@ -287,6 +287,7 @@
 
 <div class="mb-8">
     <div class="flex items-baseline justify-between gap-4 flex-wrap">
+        <div class="flex items-center gap-3 min-w-0">
             <h1 class="font-serif text-4xl font-semibold text-zinc-900">
                 {a.name}
             </h1>
@@ -357,9 +358,9 @@
             onanimateGlow={(fn) => animatePRGlow = fn}
         />
     {:else if data.beatsPR && data.suggestedDistance}
-        <div class="rounded-lg px-4 py-3 overflow-hidden" style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 30%, #fde68a 70%, #fbbf24 100%); border: 1px solid #f59e0b; box-shadow: 0 0 12px rgba(251, 191, 36, 0.2);" data-pr-card>
-            <div class="font-serif text-lg font-bold text-amber-800" style="line-height: 1;">New PR?</div>
-            <div class="text-sm font-medium text-amber-900 mt-1">
+        <div class="rounded-lg px-4 py-3 overflow-hidden" style="background: linear-gradient(135deg, #2d1b2e 0%, #3b1f3d 50%, #2d1b2e 100%); border: 1px solid rgb(255 255 255 / 25%);" data-pr-card>
+            <div class="font-serif text-lg font-bold text-zinc-100" style="line-height: 1;">New PR?</div>
+            <div class="text-sm font-medium text-zinc-300 mt-1">
                 Beats your {data.beatsPR.raceDistance} by {formatDurationClock(data.beatsPR.timeDiff)}
             </div>
             <form method="POST" action="?/markPR" class="mt-2" use:enhance={() => {
@@ -370,7 +371,7 @@
                 };
             }}>
                 <input type="hidden" name="raceDistance" value={data.suggestedDistance} />
-                <button type="submit" class="text-xs font-semibold text-amber-800 bg-amber-200/60 hover:bg-amber-300/60 px-2.5 py-1 rounded transition-colors">
+                <button type="submit" class="text-xs font-semibold cursor-pointer text-zinc-200 bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded transition-colors">
                     Mark as PR
                 </button>
             </form>
@@ -393,15 +394,15 @@
                         {/each}
                     </select>
                     <div class="flex gap-2">
-                        <button type="submit" class="text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 px-2.5 py-1 rounded transition-colors">Save</button>
-                        <button type="button" class="text-xs text-zinc-400 hover:text-zinc-600" onclick={() => showMarkPRForm = false}>Cancel</button>
+                        <button type="submit" class="text-xs font-medium cursor-pointer text-white bg-amber-600 hover:bg-amber-700 px-2.5 py-1 rounded transition-colors">Save</button>
+                        <button type="button" class="text-xs cursor-pointer text-zinc-400 hover:text-zinc-600" onclick={() => showMarkPRForm = false}>Cancel</button>
                     </div>
                 </form>
             {:else}
                 <div class="font-serif text-lg font-bold text-zinc-400" style="line-height: 1;">Race</div>
                 <div class="text-xs text-zinc-500 mt-1.5">{data.suggestedDistance}</div>
                 <button
-                    class="mt-2 text-xs font-medium text-zinc-500 hover:text-zinc-800 transition-colors"
+                    class="mt-2 text-xs font-medium cursor-pointer text-zinc-500 hover:text-zinc-800 transition-colors"
                     onclick={() => showMarkPRForm = true}
                 >
                     Set as PR

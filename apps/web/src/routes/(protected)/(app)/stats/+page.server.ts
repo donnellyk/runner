@@ -89,12 +89,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// For month view, take last 12
 	const stats = period === 'month' ? filtered.slice(-12) : filtered;
 
-	const prs = await getUserPRs(userId);
+	const { best: prs, all: allPRs } = await getUserPRs(userId);
 
 	return {
 		stats,
 		sportTypes: sportTypes.map((r) => r.sportType),
 		filters: { period, sport },
 		prs,
+		allPRs,
 	};
 };

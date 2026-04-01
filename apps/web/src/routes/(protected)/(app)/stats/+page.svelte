@@ -17,6 +17,8 @@
     let { data } = $props();
     const units = $derived(data.user.distanceUnit as Units);
 
+    let showFormerPRs = $state(false);
+
     type StatMode = "avg" | "median" | "max" | "min" | "total" | "p25" | "p75";
 
     let statMode = $state<StatMode>("avg");
@@ -173,7 +175,15 @@
 </script>
 
 <div class="mb-12">
-    <h1 class="font-serif text-4xl font-semibold text-zinc-900 mb-4">Personal Records</h1>
+    <div class="flex items-baseline justify-between mb-4">
+        <h1 class="font-serif text-4xl font-semibold text-zinc-900">Personal Records</h1>
+        {#if data.allPRs.length > data.prs.length}
+            <button
+                class="text-xs text-zinc-400 hover:text-zinc-600"
+                onclick={() => showFormerPRs = !showFormerPRs}
+            >{showFormerPRs ? 'Hide former' : 'Show former'}</button>
+        {/if}
+    </div>
     <div class="border border-zinc-200 rounded-lg overflow-hidden">
         <table class="w-full text-sm">
             <thead>
@@ -188,7 +198,8 @@
             <tbody>
                 {#each RACE_DISTANCES as rd (rd.label)}
                     {@const pr = data.prs.find((p) => p.raceDistance === rd.label)}
-                    <tr class="border-b border-zinc-50 last:border-b-0 {pr ? '' : 'text-zinc-300'}">
+                    {@const formerPRs = showFormerPRs ? data.allPRs.filter((p) => p.raceDistance === rd.label && p.id !== pr?.id) : []}
+                    <tr class="border-b border-zinc-50 {formerPRs.length > 0 ? '' : 'last:border-b-0'} {pr ? '' : 'text-zinc-300'}">
                         <td class="px-4 py-2.5 font-medium {pr ? 'text-zinc-900' : ''}">{rd.label}</td>
                         <td class="px-4 py-2.5 font-mono" style="font-variant-numeric: tabular-nums;">
                             {pr ? formatDurationClock(pr.timeSeconds) : '—'}
@@ -211,6 +222,25 @@
                             {/if}
                         </td>
                     </tr>
+                    {#each formerPRs as former (former.id)}
+                        <tr class="border-b border-zinc-50 last:border-b-0 text-zinc-400">
+                            <td class="px-4 py-2.5 font-medium"></td>
+                            <td class="px-4 py-2.5 font-mono" style="font-variant-numeric: tabular-nums;">
+                                {formatDurationClock(former.timeSeconds)}
+                            </td>
+                            <td class="px-4 py-2.5 font-mono" style="font-variant-numeric: tabular-nums;">
+                                {former.averageSpeed ? formatPace(former.averageSpeed, units) : '—'}
+                            </td>
+                            <td class="px-4 py-2.5">
+                                {new Date(former.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                            </td>
+                            <td class="px-4 py-2.5">
+                                <a href={resolve(`/activities/${former.activityId}`)} class="text-zinc-400 hover:text-zinc-600 transition-colors">
+                                    {former.activityName} &rarr;
+                                </a>
+                            </td>
+                        </tr>
+                    {/each}
                 {/each}
             </tbody>
         </table>
