@@ -27,7 +27,18 @@
 				{item.label}
 			</a>
 		{/each}
-		<div class="pt-8 border-t border-zinc-200 mt-8">
+		<div class="pt-6 border-t border-zinc-200 mt-6">
+			<div class="text-[10px] font-bold uppercase tracking-wide text-zinc-400 mb-3">Dev</div>
+			<a
+				href={resolve('/dev/shader')}
+				class="block px-3 py-2 rounded text-sm {page.url.pathname.startsWith('/dev/shader')
+					? 'bg-zinc-200 font-medium'
+					: 'hover:bg-zinc-100'}"
+			>
+				Card Effects
+			</a>
+		</div>
+		<div class="pt-6 border-t border-zinc-200 mt-6">
 			<a href={resolve('/')} class="text-sm text-zinc-500 hover:text-zinc-800">Back to app</a>
 		</div>
 	</nav>

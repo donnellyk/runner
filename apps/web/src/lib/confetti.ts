@@ -1,7 +1,14 @@
-const COLORS = ['#fbbf24', '#f59e0b', '#d97706', '#fde68a', '#fcd34d', '#ffffff'];
-const PARTICLE_COUNT = 300;
-const DURATION = 2800;
-const GRAVITY = 0.25;
+const COLORS = [
+	'#fbbf24', '#f59e0b', '#d97706', '#fde68a', '#fcd34d',  // golds
+	'#f472b6', '#ec4899', '#db2777',                          // pinks
+	'#c084fc', '#a855f7', '#8b5cf6',                          // purples
+	'#60a5fa', '#38bdf8',                                     // blues
+	'#34d399', '#4ade80',                                     // greens
+	'#ffffff', '#fef3c7',                                     // whites
+];
+const PARTICLE_COUNT = 600;
+const DURATION = 5000;
+const GRAVITY = 0.08;
 
 interface Particle {
 	x: number;
@@ -16,11 +23,7 @@ interface Particle {
 	rotationSpeed: number;
 }
 
-export function fireConfetti(originEl: HTMLElement) {
-	const rect = originEl.getBoundingClientRect();
-	const cx = rect.left + rect.width / 2;
-	const cy = rect.top + rect.height / 2;
-
+export function fireConfetti() {
 	const canvas = document.createElement('canvas');
 	canvas.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999';
 	canvas.width = window.innerWidth;
@@ -31,17 +34,15 @@ export function fireConfetti(originEl: HTMLElement) {
 	const particles: Particle[] = [];
 
 	for (let i = 0; i < PARTICLE_COUNT; i++) {
-		const angle = Math.random() * Math.PI * 2;
-		const speed = Math.random() * 8 + 4;
 		particles.push({
-			x: cx,
-			y: cy,
-			vx: Math.cos(angle) * speed,
-			vy: Math.sin(angle) * speed - 3,
+			x: Math.random() * canvas.width,
+			y: -Math.random() * 200,
+			vx: (Math.random() - 0.5) * 2,
+			vy: Math.random() * 3 + 1,
 			color: COLORS[Math.floor(Math.random() * COLORS.length)],
 			size: Math.random() * 7 + 3,
 			life: 1,
-			decay: Math.random() * 0.008 + 0.003,
+			decay: Math.random() * 0.004 + 0.001,
 			rotation: Math.random() * Math.PI * 2,
 			rotationSpeed: (Math.random() - 0.5) * 0.3,
 		});

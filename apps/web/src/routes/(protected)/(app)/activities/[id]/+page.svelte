@@ -30,6 +30,12 @@
 
     let showMarkPRForm = $state(false);
     let selectedDistance = $state(data.suggestedDistance ?? RACE_DISTANCES[0].label);
+    let animatePRGlow: (() => void) | undefined;
+
+    function onPRSet() {
+        fireConfetti();
+        setTimeout(() => animatePRGlow?.(), 0);
+    }
     const units = $derived(data.user.distanceUnit as Units);
     const a = $derived(data.activity);
     const streamMap = $derived(data.streamMap);
@@ -349,6 +355,7 @@
             raceDistance={data.activityPR.raceDistance}
             timeSeconds={data.activityPR.timeSeconds}
             isBest={data.activityPR.isBest}
+            onanimateGlow={(fn) => animatePRGlow = fn}
         />
     {:else if data.beatsPR && data.suggestedDistance}
         <div class="rounded-lg px-4 py-3 overflow-hidden" style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 30%, #fde68a 70%, #fbbf24 100%); border: 1px solid #f59e0b; box-shadow: 0 0 12px rgba(251, 191, 36, 0.2);" data-pr-card>
@@ -360,8 +367,7 @@
                 return async ({ update }) => {
                     await update();
                     await invalidateAll();
-                    const el = document.querySelector('[data-pr-card]');
-                    if (el instanceof HTMLElement) fireConfetti(el);
+                    onPRSet();
                 };
             }}>
                 <input type="hidden" name="raceDistance" value={data.suggestedDistance} />
@@ -379,8 +385,7 @@
                         await update();
                         await invalidateAll();
                         showMarkPRForm = false;
-                        const el = document.querySelector('[data-pr-card]');
-                        if (el instanceof HTMLElement) fireConfetti(el);
+                        onPRSet();
                     };
                 }}>
                     <select name="raceDistance" bind:value={selectedDistance} class="border border-zinc-200 rounded px-2 py-1 text-sm bg-white text-zinc-700">
