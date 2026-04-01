@@ -34,6 +34,11 @@ export async function getUserPRs(userId: number) {
 	return { best: Array.from(bestByDistance.values()), all: rows };
 }
 
+export async function getPRActivityIds(userId: number): Promise<Set<number>> {
+	const { best } = await getUserPRs(userId);
+	return new Set(best.map((p) => p.activityId));
+}
+
 export async function getActivityPR(activityId: number, userId: number) {
 	const db = getDb();
 

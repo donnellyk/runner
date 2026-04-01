@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { listActivities, getRunningMileageSummaries, RACE_DISTANCE_PRESETS } from '$lib/server/queries/activities';
 import { isFeatureEnabled } from '$lib/server/feature-flags';
 import { getActiveInstanceCurrentWeek, addSupplementaryCompletion, removeSupplementaryCompletion } from '$lib/server/queries/plan-queries';
+import { getPRActivityIds } from '$lib/server/queries/pr-queries';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url, cookies }) => {
@@ -19,10 +20,11 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 
 	const trainingPlansEnabled = await isFeatureEnabled('training_plans');
 
-	const [result, mileageSummaries, currentWeek] = await Promise.all([
+	const [result, mileageSummaries, currentWeek, prActivityIds] = await Promise.all([
 		listActivities(userId, filters),
 		getRunningMileageSummaries(userId),
 		trainingPlansEnabled ? getActiveInstanceCurrentWeek(userId) : Promise.resolve(null),
+		getPRActivityIds(userId),
 	]);
 
 	return {
@@ -32,6 +34,7 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 		mileageSummaries,
 		weekMode,
 		currentWeek,
+		prActivityIds: [...prActivityIds],
 	};
 };
 

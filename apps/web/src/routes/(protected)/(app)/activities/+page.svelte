@@ -18,6 +18,7 @@
     let { data } = $props();
     const units = $derived(data.user.distanceUnit as Units);
     const ms = $derived(data.mileageSummaries);
+    const prIds = $derived(new Set(data.prActivityIds));
 
     // svelte-ignore state_referenced_locally
     let weekMode = $state(data.weekMode);
@@ -315,6 +316,9 @@
                                     style="background: {badge.bg}; color: {badge.fg};"
                                     >{badge.label}</span
                                 >
+                            {/if}
+                            {#if prIds.has(activity.id)}
+                                <span class="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">PR</span>
                             {/if}
                         </div>
                         <div
