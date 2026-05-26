@@ -3,6 +3,9 @@ export interface OverlaySeries {
 	xData: number[];
 	color: string;
 	label: string;
+	/** Sampled distance + time streams, for segment-time over a selected distance. */
+	distanceData?: number[] | null;
+	timeData?: number[] | null;
 }
 
 export interface OverlayRoute {
@@ -19,6 +22,8 @@ export interface ActivityData {
 	totalElevationGain: number | null;
 	averageCadence: number | null;
 	routeGeoJson?: string | null;
+	sportType?: string | null;
+	workoutType?: string | null;
 }
 
 export function isNumberArray(data: unknown): data is number[] {

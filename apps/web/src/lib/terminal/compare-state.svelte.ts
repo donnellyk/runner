@@ -99,6 +99,8 @@ export function createCompareState(
 						totalElevationGain: data.activity.totalElevationGain,
 						averageCadence: data.activity.averageCadence,
 						routeGeoJson: data.activity.routeGeoJson,
+						sportType: data.activity.sportType,
+						workoutType: data.activity.workoutType,
 					},
 					streams: prepareStreams(data.streamMap),
 					laps: prepareLaps(data.laps),

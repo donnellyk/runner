@@ -71,7 +71,7 @@
 		name: data.activity.name,
 		startDate: data.activity.startDate,
 		sportType: data.activity.sportType,
-		activity: { distance: a.distance, movingTime: a.movingTime, averageSpeed: a.averageSpeed, averageHeartrate: a.averageHeartrate, totalElevationGain: a.totalElevationGain, averageCadence: a.averageCadence, routeGeoJson: a.routeGeoJson },
+		activity: { distance: a.distance, movingTime: a.movingTime, averageSpeed: a.averageSpeed, averageHeartrate: a.averageHeartrate, totalElevationGain: a.totalElevationGain, averageCadence: a.averageCadence, routeGeoJson: a.routeGeoJson, sportType: a.sportType, workoutType: a.workoutType },
 		streams,
 		laps: lapList,
 		segments: segmentList,
