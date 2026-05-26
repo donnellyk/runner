@@ -12,6 +12,7 @@
 	import { type ActivityNote, type ActivityLap } from './terminal-state.svelte';
 	import type { ActivityData } from './types';
 	import { computeRaceSplits, SPLIT_CHOICES, MARATHON_METERS, type SplitChoice, type RaceSplit } from './marathon-splits';
+	import { generateRaceReport } from './race-report';
 	import { streamGpsTotal } from './normalize-distance';
 	import { computeDecoupling } from './trendlines';
 
@@ -57,6 +58,29 @@
 	function selectSplitChoice(choice: SplitChoice) {
 		splitChoice = choice;
 		activeSplitKey = null; // split indices change with the choice
+	}
+
+	let reportStatus = $state<'idle' | 'copied' | 'error'>('idle');
+	let reportTimer: ReturnType<typeof setTimeout> | undefined;
+
+	async function copyRaceReport() {
+		const dist = streams.distance;
+		const time = streams.time;
+		if (!dist?.length || !time?.length) return;
+		const markdown = generateRaceReport({
+			distanceStream: dist,
+			timeStream: time,
+			officialTotal: MARATHON_METERS,
+			gpsTotal: dist[dist.length - 1],
+		});
+		try {
+			await navigator.clipboard.writeText(markdown);
+			reportStatus = 'copied';
+		} catch {
+			reportStatus = 'error';
+		}
+		clearTimeout(reportTimer);
+		reportTimer = setTimeout(() => (reportStatus = 'idle'), 1500);
 	}
 
 	function clickSplit(key: string, split: { startDistance: number; endDistance: number }) {
@@ -360,6 +384,11 @@
 					{@render splitToggle()}
 				</div>
 				{@render splitsTable(singleSplits)}
+				<button
+					class="report-btn"
+					onclick={copyRaceReport}
+					title="Copy a Race Report markdown template with these splits"
+				>{reportStatus === 'copied' ? 'Copied!' : reportStatus === 'error' ? 'Copy failed' : 'Copy Race Report'}</button>
 			</div>
 		{/if}
 
@@ -536,6 +565,26 @@
 
 	.split-btn:hover {
 		color: var(--term-text-bright);
+	}
+
+	.report-btn {
+		width: 100%;
+		margin-top: 8px;
+		padding: 4px 6px;
+		font-size: 11px;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--term-text-muted);
+		background: transparent;
+		border: 1px solid var(--term-border);
+		border-radius: 3px;
+		cursor: pointer;
+		font-family: 'Geist Mono', monospace;
+	}
+
+	.report-btn:hover {
+		color: var(--term-text-bright);
+		background: var(--term-surface-hover);
 	}
 
 	.notes-list {
