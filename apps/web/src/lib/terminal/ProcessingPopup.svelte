@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { RACE_DISTANCES } from '@web-runner/shared';
 	import type { TerminalState, ProcessingParams } from './terminal-state.svelte';
 
 	interface Props {
@@ -79,6 +80,16 @@
 		<span class="slider-val">p{termState.wickPercentile}</span>
 	</div>
 
+	<div class="slider-row">
+		<span class="slider-label">Normalize</span>
+		<select class="norm-select" bind:value={termState.normalizeDistance}>
+			<option value={null}>Off (GPS)</option>
+			{#each RACE_DISTANCES as d (d.meters)}
+				<option value={d.meters}>{d.label}</option>
+			{/each}
+		</select>
+	</div>
+
 	<div style="border-top: 1px solid var(--term-border); padding-top: 8px;">
 		<div class="slider-row">
 			<span class="slider-label">UI Scale</span>
@@ -131,5 +142,18 @@
 		width: 36px;
 		text-align: right;
 		color: var(--term-text);
+	}
+
+	.norm-select {
+		flex: 1;
+		font-size: 11px;
+		padding: 2px 4px;
+		border-radius: 3px;
+		cursor: pointer;
+		background: var(--term-surface);
+		color: var(--term-text);
+		border: 1px solid var(--term-border);
+		font-family: 'Geist Mono', monospace;
+		outline: none;
 	}
 </style>
