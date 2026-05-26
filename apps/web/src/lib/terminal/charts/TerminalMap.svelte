@@ -10,6 +10,7 @@
 		crosshairOrigIdx?: number | null;
 		highlightRange?: { start: number; end: number } | null;
 		overlayRoutes?: OverlayRoute[];
+		lockMap?: boolean;
 	}
 
 	let {
@@ -19,6 +20,7 @@
 		crosshairOrigIdx = null,
 		highlightRange = null,
 		overlayRoutes = [],
+		lockMap = false,
 	}: Props = $props();
 
 	let mapEl: HTMLDivElement;
@@ -100,7 +102,7 @@
 					weight: 2,
 				}).addTo(mapRef);
 
-				if (!mapRef.getBounds().contains(latLng)) {
+				if (!lockMap && !mapRef.getBounds().contains(latLng)) {
 					mapRef.panTo(latLng, { animate: true, duration: 0.3 });
 				}
 

@@ -27,6 +27,11 @@ export interface PanelConfig {
   smoothingOverride?: number;
   pauseGapsOverride?: boolean;
   zonesOverride?: boolean;
+  /** Line/area charts: overlay a linear-regression trendline / long-window moving average. */
+  trendline?: boolean;
+  movingAvg?: boolean;
+  /** Map panels only: keep the view fixed instead of panning to follow the crosshair. */
+  lockMap?: boolean;
 }
 
 export const COLOR_PALETTE: { label: string; value: string }[] = [
@@ -137,6 +142,7 @@ export function getPanelLabel(config: PanelConfig): string {
 export function createTerminalState(initialLayout?: LayoutPanel[]) {
   let crosshairIndex = $state<number | null>(null);
   let crosshairLocked = $state(false);
+  let selectionRange = $state<{ startIdx: number; endIdx: number } | null>(null);
   let highlightedNoteId = $state<number | null>(null);
   let xAxis = $state<"distance" | "time">("distance");
   let params = $state<ProcessingParams>({
@@ -159,6 +165,9 @@ export function createTerminalState(initialLayout?: LayoutPanel[]) {
   let isDragging = $state(false);
   let activeLayoutId = $state<number | null>(null);
   let uiScale = $state(1);
+  // Display-only: rescale the distance dimension to a known total (e.g. a race's
+  // official distance), trusting elapsed time. null = use the recorded GPS distance.
+  let normalizeDistance = $state<number | null>(null);
   const panelZooms = new SvelteMap<number, ChartZoom>();
 
   return {
@@ -173,6 +182,12 @@ export function createTerminalState(initialLayout?: LayoutPanel[]) {
     },
     set crosshairLocked(v) {
       crosshairLocked = v;
+    },
+    get selectionRange() {
+      return selectionRange;
+    },
+    set selectionRange(v) {
+      selectionRange = v;
     },
     get highlightedNoteId() {
       return highlightedNoteId;
@@ -269,6 +284,12 @@ export function createTerminalState(initialLayout?: LayoutPanel[]) {
     },
     set uiScale(v) {
       uiScale = v;
+    },
+    get normalizeDistance() {
+      return normalizeDistance;
+    },
+    set normalizeDistance(v) {
+      normalizeDistance = v;
     },
     getZoom(panelId: number): ChartZoom | undefined {
       return panelZooms.get(panelId);

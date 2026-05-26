@@ -27,6 +27,8 @@
 		extractRouteCoordinates,
 		computeCrosshairValues,
 	} from './prepare-chart-data';
+	import { findIndexAtDistance } from '$lib/streams';
+	import { distanceNormFactor, normalizeStreams, normalizeActivity, streamGpsTotal } from './normalize-distance';
 	import {
 		type CompareStateType,
 		type CompareActivity,
@@ -100,20 +102,32 @@
 		showZones: termState.showZones,
 	});
 
+	// Distance normalization: trust a known total distance (e.g. a race's
+	// official distance) and elapsed time, rescaling the distance dimension
+	// (distance + velocity/pace) to match. Geometry (latlng) and pause
+	// detection stay on the real GPS data. Display-only — never persisted.
+	let normFactor = $derived(
+		distanceNormFactor(termState.normalizeDistance, activity.distance ?? streamGpsTotal(streams)),
+	);
+
+	let normStreams = $derived(normalizeStreams(streams, normFactor));
+
+	let normActivity = $derived(normalizeActivity(activity, normFactor));
+
 	let chartIndices = $derived.by(() => {
 		const velocity = streams.velocity;
 		const len = velocity?.length ?? streams.distance?.length ?? 0;
 		return prepareSamplingIndices(velocity, len, termState.params.samplePoints);
 	});
 
-	let sampledDist = $derived(sampleStream(streams.distance, chartIndices));
+	let sampledDist = $derived(sampleStream(normStreams.distance, chartIndices));
 	let sampledTime = $derived(sampleStream(streams.time, chartIndices));
 
 	let pausedMask = $derived(createPausedMask(streams.velocity, termState.params.pauseThreshold));
 	let sampledPausedMask = $derived(sampleStream(pausedMask, chartIndices));
 
 	function getSampledStream(source: string): number[] | null {
-		const raw = getStreamForSource(streams, source as Parameters<typeof getStreamForSource>[1], units);
+		const raw = getStreamForSource(normStreams, source as Parameters<typeof getStreamForSource>[1], units);
 		return sampleStream(raw, chartIndices);
 	}
 
@@ -130,20 +144,53 @@
 	let isCompareActive = $derived(compareState?.compareMode ?? false);
 	let primaryCompareColor = $derived(compareState?.activities[0]?.color ?? null);
 
+	// Per-activity stats/splits for the sidebar in compare mode, each normalized
+	// to the active normalize-distance target.
+	let sidebarCompareActivities = $derived.by(() => {
+		if (!isCompareActive || !compareState) return [];
+		return compareState.selectedActivities.map((ca: CompareActivity) => {
+			const factor = distanceNormFactor(
+				termState.normalizeDistance,
+				ca.activity.distance ?? streamGpsTotal(ca.streams),
+			);
+			return {
+				id: ca.id,
+				name: ca.name,
+				color: ca.color,
+				activity: normalizeActivity(ca.activity, factor),
+				streams: normalizeStreams(ca.streams, factor),
+			};
+		});
+	});
+
 	function getOverlaySeriesForSource(source: DataSource): OverlaySeries[] {
 		if (!isCompareActive || !compareState) return [];
 		const selected = compareState.selectedActivities;
 		// Skip primary (index 0)
 		return selected.slice(1).flatMap((ca: CompareActivity) => {
-			const raw = getStreamForSource(ca.streams, source, units);
+			// Normalize each compared activity to the same target distance so
+			// their distance axes and pace line up with the primary.
+			const factor = distanceNormFactor(
+				termState.normalizeDistance,
+				ca.activity.distance ?? streamGpsTotal(ca.streams),
+			);
+			const caStreams = normalizeStreams(ca.streams, factor);
+			const raw = getStreamForSource(caStreams, source, units);
 			if (!raw) return [];
-			const velocity = ca.streams.velocity;
-			const len = velocity?.length ?? ca.streams.distance?.length ?? 0;
+			const velocity = caStreams.velocity;
+			const len = velocity?.length ?? caStreams.distance?.length ?? 0;
 			const indices = prepareSamplingIndices(velocity, len, termState.params.samplePoints);
 			const sampled = sampleStream(raw, indices) ?? raw;
-			const rawXStream = termState.xAxis === 'distance' ? ca.streams.distance : ca.streams.time;
+			const rawXStream = termState.xAxis === 'distance' ? caStreams.distance : caStreams.time;
 			const sampledX = (sampleStream(rawXStream, indices) ?? rawXStream ?? sampled.map((_, i) => i));
-			return [{ data: sampled, xData: sampledX, color: ca.color, label: ca.name }];
+			return [{
+				data: sampled,
+				xData: sampledX,
+				color: ca.color,
+				label: ca.name,
+				distanceData: sampleStream(caStreams.distance, indices),
+				timeData: sampleStream(caStreams.time, indices),
+			}];
 		});
 	}
 
@@ -181,6 +228,8 @@
 	}
 
 	function onCrosshairClick(index: number | null) {
+		// Any chart click dismisses a range selection (e.g. one set from a split).
+		termState.selectionRange = null;
 		if (termState.crosshairLocked) {
 			termState.crosshairLocked = false;
 			termState.crosshairIndex = index;
@@ -194,9 +243,49 @@
 		if (termState.crosshairLocked) return;
 		termState.crosshairIndex = null;
 	}
+
+	/** Select a distance range (meters) on range-capable charts, e.g. from a split row. */
+	function selectRangeByDistance(startMeters: number, endMeters: number) {
+		if (!sampledDist || sampledDist.length === 0) return;
+		const startIdx = findIndexAtDistance(sampledDist, startMeters);
+		const endIdx = findIndexAtDistance(sampledDist, endMeters);
+		if (endIdx <= startIdx) return;
+		termState.selectionRange = { startIdx, endIdx };
+	}
+
+	function handleWindowKeydown(e: KeyboardEvent) {
+		interaction.handleKeydown(e);
+
+		if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+		if (!termState.crosshairLocked || termState.crosshairIndex == null) return;
+
+		const target = e.target as HTMLElement | null;
+		if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable))
+			return;
+
+		const maxIdx = (chartIndices?.length ?? 0) - 1;
+		if (maxIdx < 0) return;
+
+		e.preventDefault();
+		const idx = termState.crosshairIndex;
+
+		if (e.shiftKey) {
+			// Shift+arrow: select from the locked crosshair to the start / end of the activity.
+			termState.selectionRange =
+				e.key === 'ArrowLeft'
+					? { startIdx: 0, endIdx: idx }
+					: { startIdx: idx, endIdx: maxIdx };
+			return;
+		}
+
+		// Plain arrow: step the crosshair between sample points, clearing any range.
+		termState.selectionRange = null;
+		const delta = e.key === 'ArrowRight' ? 1 : -1;
+		termState.crosshairIndex = Math.min(maxIdx, Math.max(0, idx + delta));
+	}
 </script>
 
-<svelte:window onkeydown={interaction.handleKeydown} />
+<svelte:window onkeydown={handleWindowKeydown} />
 
 <div class="flex h-full w-full gap-0.5 p-0.5">
 	<div
@@ -253,6 +342,7 @@
 						{highlightRange}
 						crosshairIndex={termState.crosshairIndex}
 						crosshairLocked={termState.crosshairLocked}
+						selectionRange={termState.selectionRange}
 						highlightedNoteId={termState.highlightedNoteId}
 						xAxis={termState.xAxis}
 						showZones={termState.showZones}
@@ -314,12 +404,15 @@
 	{/if}
 
 	<TerminalSidebar
-		{activity}
+		activity={normActivity}
 		{units}
 		{termState}
+		streams={normStreams}
 		{notes}
 		{laps}
 		{crosshairValues}
 		compareMode={isCompareActive}
+		compareActivities={sidebarCompareActivities}
+		onselectrange={selectRangeByDistance}
 	/>
 </div>

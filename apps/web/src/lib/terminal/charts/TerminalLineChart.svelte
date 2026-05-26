@@ -8,6 +8,8 @@
         formatXLabel,
         formatXLabelShort,
     } from "../shared/axes";
+    import { timeAtDistance } from "../marathon-splits";
+    import { linearFit } from "../trendlines";
     import {
         trimChartData,
         TERM_PAD,
@@ -16,6 +18,7 @@
         computeHorizontalStats,
         computeVerticalStats,
         type SelectionStats,
+        type Selection,
     } from "../shared/selection-stats";
     import { createChartDimensions } from "../shared/chart-dimensions.svelte";
     import { createChartInteraction } from "../shared/chart-interaction.svelte";
@@ -50,6 +53,9 @@
         filled?: boolean;
         overlayData?: OverlaySeries[];
         zoom?: ChartZoom;
+        selectionRange?: { startIdx: number; endIdx: number } | null;
+        showTrendline?: boolean;
+        showMovingAvg?: boolean;
     }
 
     let {
@@ -80,6 +86,9 @@
         filled = false,
         overlayData,
         zoom,
+        selectionRange = null,
+        showTrendline = false,
+        showMovingAvg = false,
     }: Props = $props();
 
     const lineGlow = 3;
@@ -341,6 +350,17 @@
         return formatXLabel(trimXData[crosshairIndex], xAxis, units);
     });
 
+    // Opposite axis readout for the header: elapsed time in distance mode,
+    // elapsed distance in time mode, at the current crosshair position.
+    let crosshairOppositeLabel = $derived.by(() => {
+        if (crosshairIndex == null) return null;
+        const origIdx = startIdx + crosshairIndex;
+        const oppData = xAxis === "distance" ? timeData : distanceData;
+        if (!oppData || oppData[origIdx] == null) return null;
+        const oppAxis = xAxis === "distance" ? "time" : "distance";
+        return formatXLabel(oppData[origIdx], oppAxis, units);
+    });
+
     let tooltipValue = $derived(
         crosshairIndex != null ? smoothData[crosshairIndex] : null,
     );
@@ -438,6 +458,19 @@
         onCrosshairLeave() { oncrosshairleave?.(); },
     });
 
+    // A local drag selection takes precedence; otherwise fall back to the
+    // externally-driven range (Shift+arrow on a locked crosshair).
+    let effectiveSelection = $derived.by((): Selection | null => {
+        if (interaction.selection) return interaction.selection;
+        if (!selectionRange) return null;
+        const maxIdx = trimData.length - 1;
+        if (maxIdx < 0) return null;
+        const lo = Math.max(0, Math.min(maxIdx, Math.min(selectionRange.startIdx, selectionRange.endIdx)));
+        const hi = Math.max(0, Math.min(maxIdx, Math.max(selectionRange.startIdx, selectionRange.endIdx)));
+        if (lo === hi) return null;
+        return { mode: "horizontal", startIdx: lo, endIdx: hi };
+    });
+
     // --- Wheel handler for zoom/pan ---
 
     let wheelHandler = $derived(zoom ? createWheelHandler(
@@ -449,7 +482,7 @@
     // --- Selection stats ---
 
     let selectionStats = $derived.by((): SelectionStats | null => {
-        const sel = interaction.selection;
+        const sel = effectiveSelection;
         if (!sel) return null;
         if (sel.mode === "horizontal") {
             return computeHorizontalStats(
@@ -468,8 +501,91 @@
         );
     });
 
+    // Total elapsed time and distance spanned by a horizontal selection.
+    let selectionTotals = $derived.by((): { time: number | null; dist: number | null } | null => {
+        const sel = effectiveSelection;
+        if (!sel || sel.mode !== "horizontal") return null;
+        const lo = startIdx + Math.min(sel.startIdx, sel.endIdx);
+        const hi = startIdx + Math.max(sel.startIdx, sel.endIdx);
+        const time =
+            timeData && timeData[lo] != null && timeData[hi] != null
+                ? timeData[hi] - timeData[lo]
+                : null;
+        const dist =
+            distanceData && distanceData[lo] != null && distanceData[hi] != null
+                ? distanceData[hi] - distanceData[lo]
+                : null;
+        return { time, dist };
+    });
+
+    // For a horizontal selection of length L over [d1, d2], each activity's time
+    // for the selection and its delta vs the immediately preceding equal-length
+    // segment [d1-L, d1] of the same activity. `delta` is null when that prior
+    // segment isn't available (too close to the start).
+    function segmentVsPrev(
+        dist: number[] | null | undefined,
+        time: number[] | null | undefined,
+        d1: number,
+        d2: number,
+    ): { selected: number | null; delta: number | null } {
+        if (!dist?.length || !time?.length) return { selected: null, delta: null };
+        const minD = dist[0];
+        const maxD = dist[dist.length - 1];
+        if (d1 < minD - 1 || d2 > maxD + 1) return { selected: null, delta: null };
+        const tA = timeAtDistance(dist, time, d1);
+        const tB = timeAtDistance(dist, time, d2);
+        if (tA == null || tB == null) return { selected: null, delta: null };
+        const selected = Math.max(0, Math.round(tB - tA));
+
+        let delta: number | null = null;
+        const prevStart = d1 - (d2 - d1);
+        if (prevStart >= minD - 1) {
+            const tP = timeAtDistance(dist, time, prevStart);
+            if (tP != null) {
+                const prev = Math.max(0, Math.round(tA - tP));
+                delta = selected - prev;
+            }
+        }
+        return { selected, delta };
+    }
+
+    let selectionSegmentTimes = $derived.by((): {
+        primary: { selected: number | null; delta: number | null };
+        overlays: { color: string; selected: number | null; delta: number | null }[];
+    } | null => {
+        const sel = effectiveSelection;
+        if (!sel || sel.mode !== "horizontal" || !distanceData) return null;
+        const lo = startIdx + Math.min(sel.startIdx, sel.endIdx);
+        const hi = startIdx + Math.max(sel.startIdx, sel.endIdx);
+        const d1 = distanceData[lo];
+        const d2 = distanceData[hi];
+        if (d1 == null || d2 == null || d2 <= d1) return null;
+
+        return {
+            primary: segmentVsPrev(distanceData, timeData, d1, d2),
+            overlays: smoothedOverlays.map((o) => ({
+                color: o.color,
+                ...segmentVsPrev(o.distanceData, o.timeData, d1, d2),
+            })),
+        };
+    });
+
+    function fmtClock(seconds: number): string {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        const mm = String(m).padStart(2, "0");
+        const ss = String(s).padStart(2, "0");
+        return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
+    }
+
+    function fmtSignedClock(seconds: number): string {
+        if (seconds === 0) return "±0:00";
+        return `${seconds > 0 ? "+" : "−"}${fmtClock(Math.abs(seconds))}`;
+    }
+
     let overlaySelectionStats = $derived.by((): { color: string; label: string; stats: SelectionStats }[] => {
-        const sel = interaction.selection;
+        const sel = effectiveSelection;
         if (!sel || smoothedOverlays.length === 0) return [];
         return smoothedOverlays.flatMap((overlay) => {
             let stats: SelectionStats | null = null;
@@ -503,7 +619,7 @@
             width: number;
             height: number;
         } | null => {
-            const sel = interaction.selection;
+            const sel = effectiveSelection;
             if (!sel) return null;
             if (sel.mode === "horizontal") {
                 const x1 = toX(trimXData[sel.startIdx]);
@@ -533,6 +649,32 @@
     let polylinePoints = $derived(
         smoothData.map((v, i) => `${toX(trimXData[i])},${toY(v)}`).join(" "),
     );
+
+    // --- Trendlines ---
+
+    // Least-squares regression over the (visible-range) data: a straight line
+    // spanning the data, whose slope shows overall drift/fade.
+    let regressionLine = $derived.by((): { x1: number; y1: number; x2: number; y2: number } | null => {
+        if (!showTrendline || trimXData.length < 2) return null;
+        const fit = linearFit(trimXData, smoothData, trimPausedMask);
+        if (!fit) return null;
+        const xa = trimXData[0];
+        const xb = trimXData[trimXData.length - 1];
+        return {
+            x1: toX(xa),
+            y1: toY(fit.slope * xa + fit.intercept),
+            x2: toX(xb),
+            y2: toY(fit.slope * xb + fit.intercept),
+        };
+    });
+
+    // Long-window moving average — a smoother trend than the displayed line.
+    let movingAvgPoints = $derived.by((): string => {
+        if (!showMovingAvg || smoothData.length < 4) return "";
+        const window = Math.max(8, Math.round(trimData.length / 12));
+        const ma = smoothStream(trimData, window, trimPausedMask);
+        return ma.map((v, i) => `${toX(trimXData[i])},${toY(v)}`).join(" ");
+    });
 
     let highlightPixels = $derived.by((): { x1: number; x2: number } | null => {
         if (!highlightRange || !distanceData) return null;
@@ -617,6 +759,11 @@
     onwheel={wheelHandler}
 >
     {#snippet header()}
+        {#if crosshairOppositeLabel != null}
+            <span style="color: var(--term-text-muted); margin-right: 8px;"
+                >{crosshairOppositeLabel}</span
+            >
+        {/if}
         {#if tooltipPaused}
             <span style="color: var(--term-text-muted);">PAUSED</span>
         {:else if tooltipValue != null}
@@ -762,10 +909,37 @@
             />
         {/each}
 
-        {#if selectionRect && interaction.selection}
+        {#if movingAvgPoints}
+            <polyline
+                points={movingAvgPoints}
+                fill="none"
+                stroke={color}
+                stroke-width="2"
+                stroke-opacity="0.4"
+                stroke-linejoin="round"
+                stroke-linecap="round"
+                clip-path="url(#{clipId})"
+            />
+        {/if}
+
+        {#if regressionLine}
+            <line
+                x1={regressionLine.x1}
+                y1={regressionLine.y1}
+                x2={regressionLine.x2}
+                y2={regressionLine.y2}
+                stroke="var(--term-text-bright)"
+                stroke-width="1.25"
+                stroke-opacity="0.7"
+                stroke-dasharray="5,4"
+                clip-path="url(#{clipId})"
+            />
+        {/if}
+
+        {#if selectionRect && effectiveSelection}
             <SelectionOverlay
                 rect={selectionRect}
-                mode={interaction.selection.mode}
+                mode={effectiveSelection.mode}
                 padTop={P.top}
                 padLeft={P.left}
                 chartW={dims.chartW}
@@ -857,6 +1031,42 @@
                     <div style="color: var(--term-text-muted); margin-bottom: 3px;">
                         {formatXLabel(selectionStats.xStart, xAxis, units)} – {formatXLabel(selectionStats.xEnd, xAxis, units)}
                     </div>
+                    {#if selectionSegmentTimes}
+                        {@const st = selectionSegmentTimes}
+                        {@const hasOverlays = st.overlays.length > 0}
+                        <div class="flex gap-4" style="margin-bottom: 2px;">
+                            <div>
+                                <span style="color: var(--term-text-muted);">Time</span>
+                                <span style={hasOverlays ? `color: ${color};` : 'color: var(--term-text-bright);'}>{st.primary.selected != null ? fmtClock(st.primary.selected) : '—'}</span>
+                            </div>
+                            {#if st.primary.delta != null}
+                                <div title="vs previous equal-distance segment">
+                                    <span style="color: var(--term-text-muted);">Δ</span>
+                                    <span style="color: {st.primary.delta === 0 ? 'var(--term-text-muted)' : st.primary.delta > 0 ? 'var(--term-hr)' : 'var(--term-pace)'};">{fmtSignedClock(st.primary.delta)}</span>
+                                </div>
+                            {/if}
+                            {#if selectionTotals?.dist != null}
+                                <div>
+                                    <span style="color: var(--term-text-muted);">Dist</span>
+                                    <span style="color: var(--term-text-bright);">{formatXLabel(selectionTotals.dist, 'distance', units)}</span>
+                                </div>
+                            {/if}
+                        </div>
+                        {#each st.overlays as ov, i (i)}
+                            <div class="flex gap-4" style="margin-bottom: 2px;">
+                                <div>
+                                    <span style="color: var(--term-text-muted);">Time</span>
+                                    <span style="color: {ov.color};">{ov.selected != null ? fmtClock(ov.selected) : '—'}</span>
+                                </div>
+                                {#if ov.delta != null}
+                                    <div title="vs previous equal-distance segment">
+                                        <span style="color: var(--term-text-muted);">Δ</span>
+                                        <span style="color: {ov.delta === 0 ? 'var(--term-text-muted)' : ov.delta > 0 ? 'var(--term-hr)' : 'var(--term-pace)'};">{fmtSignedClock(ov.delta)}</span>
+                                    </div>
+                                {/if}
+                            </div>
+                        {/each}
+                    {/if}
                     <div class="flex gap-4" style={overlaySelectionStats.length > 0 ? `color: ${color};` : ''}>
                         <div>
                             <span style="color: var(--term-text-muted);">Avg</span>

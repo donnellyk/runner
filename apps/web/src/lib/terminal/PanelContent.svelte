@@ -41,6 +41,7 @@
 		highlightRange: { start: number; end: number } | null;
 		crosshairIndex: number | null;
 		crosshairLocked: boolean;
+		selectionRange?: { startIdx: number; endIdx: number } | null;
 		highlightedNoteId: number | null;
 		xAxis: 'distance' | 'time';
 		showZones: boolean;
@@ -78,6 +79,7 @@
 		highlightRange,
 		crosshairIndex,
 		crosshairLocked,
+		selectionRange = null,
 		highlightedNoteId,
 		xAxis,
 		showZones,
@@ -159,6 +161,7 @@
 			distanceStream={streams.distance}
 			{crosshairOrigIdx}
 			{highlightRange}
+			lockMap={config.lockMap ?? false}
 			overlayRoutes={compareMode ? overlayRoutes : []}
 		/>
 	{:else if config.specialType === 'notes'}
@@ -248,8 +251,11 @@
 				planZones={planZoneInfo?.zones}
 				showPlanZones={showPlanZones && planZoneInfo != null}
 				filled={config.chartType === 'area' && !compareMode}
+				showTrendline={config.trendline ?? false}
+				showMovingAvg={config.movingAvg ?? false}
 				crosshairIndex={crosshairIndex}
 				crosshairLocked={crosshairLocked}
+				{selectionRange}
 				{highlightRange}
 				oncrosshairmove={oncrosshairmove}
 				oncrosshairclick={oncrosshairclick}

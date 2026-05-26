@@ -123,6 +123,23 @@
 		onchange({ ...config, zonesOverride: !current });
 	}
 
+	function toggleLockMap() {
+		onchange({ ...config, lockMap: !config.lockMap });
+	}
+
+	function toggleTrendline() {
+		onchange({ ...config, trendline: !config.trendline });
+	}
+
+	function toggleMovingAvg() {
+		onchange({ ...config, movingAvg: !config.movingAvg });
+	}
+
+	// Trendlines apply to the line/area chart renderer.
+	let supportsTrend = $derived(
+		config.kind === 'chart' && (config.chartType === 'line' || config.chartType === 'area'),
+	);
+
 	function resetOverrides() {
 		onchange({ ...config, smoothingOverride: undefined, pauseGapsOverride: undefined, zonesOverride: undefined });
 	}
@@ -164,6 +181,23 @@
 			</optgroup>
 		</select>
 	</div>
+
+	<!-- Map options -->
+	{#if config.kind === 'special' && config.specialType === 'map'}
+		<div>
+			<div class="section-label">Map</div>
+			<div class="proc-row">
+				<label class="flex items-center gap-1.5 cursor-pointer flex-1">
+					<input type="checkbox"
+						checked={config.lockMap ?? false}
+						onchange={toggleLockMap}
+						class="accent-current"
+					/>
+					<span class="proc-label" style:color={config.lockMap ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}>Lock Position</span>
+				</label>
+			</div>
+		</div>
+	{/if}
 
 	<!-- Chart type -->
 	{#if config.kind === 'chart' && chartTypes.length > 0}
@@ -273,6 +307,25 @@
 					onclick={resetOverrides}
 				>Reset Overrides</button>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Trendlines -->
+	{#if supportsTrend}
+		<div>
+			<div class="section-label">Trend</div>
+			<div class="proc-row">
+				<label class="flex items-center gap-1.5 cursor-pointer flex-1">
+					<input type="checkbox" checked={config.trendline ?? false} onchange={toggleTrendline} class="accent-current" />
+					<span class="proc-label" style:color={config.trendline ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}>Linear regression</span>
+				</label>
+			</div>
+			<div class="proc-row">
+				<label class="flex items-center gap-1.5 cursor-pointer flex-1">
+					<input type="checkbox" checked={config.movingAvg ?? false} onchange={toggleMovingAvg} class="accent-current" />
+					<span class="proc-label" style:color={config.movingAvg ? 'var(--term-text-bright)' : 'var(--term-text-muted)'}>Moving average</span>
+				</label>
+			</div>
 		</div>
 	{/if}
 
